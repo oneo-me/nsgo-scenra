@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/nsgo-dev/nsgo/core"
+
+	"github.com/oneo-me/nsgo-scenra/scenraview"
 )
 
 // The app counts its use in Umami under a site of its own, as NSGo's
@@ -70,12 +72,23 @@ type statsPayload struct {
 	Name     string `json:"name,omitempty"`
 }
 
-// reportUsage sends the pageview, the events and the heartbeats. Events
-// are made on the graph's goroutine and sent from another, oldest first;
-// one that fails is dropped.
-func reportUsage(cx *core.Scope, e *editor, a *assistant) {
+// usage reports the app's use: the pageview, the events and the
+// heartbeats. Events are made on the graph's goroutine and sent from
+// another, oldest first; one that fails is dropped.
+type usage struct {
+	cx *core.Scope
+	// send sends an event of name, the pageview for "", and nil drops it.
+	send func(name string)
+	// since is when the app was last used.
+	since time.Time
+}
+
+// newUsage is the app's usage, which reports nothing in nsgo dev's
+// builds or tests.
+func newUsage(cx *core.Scope) *usage {
+	u := &usage{cx: cx, since: time.Now()}
 	if !statsBuild || testing.Testing() {
-		return
+		return u
 	}
 	store := cx.Storage()
 	id, ok := store.GetItem(keyInstall)
@@ -89,8 +102,7 @@ func reportUsage(cx *core.Scope, e *editor, a *assistant) {
 	agent := statsAgent(env.OS())
 	queue := make(chan statsPayload, 32)
 	go sendStats(queue, agent)
-
-	send := func(name string) {
+	u.send = func(name string) {
 		if !statsOn(cx) {
 			return
 		}
@@ -103,32 +115,38 @@ func reportUsage(cx *core.Scope, e *editor, a *assistant) {
 		default:
 		}
 	}
-	since := time.Now()
-	send("")
+	return u
+}
+
+// start sends the pageview, and the heartbeats while e's documents
+// change or messages are sent.
+func (u *usage) start(e *scenraview.Editor) {
+	if u.send == nil {
+		return
+	}
+	cx := u.cx
+	u.send("")
 	cx.Effect(func() {
-		e.cur().doc.Get()
-		core.Untracked(cx, func() bool { since = time.Now(); return true })
-	})
-	turns := 0
-	cx.Effect(func() {
-		n := len(a.chat().turns.Get())
-		core.Untracked(cx, func() bool {
-			if n > turns {
-				since = time.Now()
-				send("message")
-			}
-			turns = n
-			return true
-		})
+		e.Project()
+		core.Untracked(cx, func() bool { u.since = time.Now(); return true })
 	})
 	var beat func()
 	beat = func() {
-		if time.Since(since) < statsIdle {
-			send("heartbeat")
+		if time.Since(u.since) < statsIdle {
+			u.send("heartbeat")
 		}
 		cx.AfterFunc(statsBeat, beat)
 	}
 	cx.AfterFunc(statsBeat, beat)
+}
+
+// sent counts a message sent to the assistant.
+func (u *usage) sent() {
+	if u.send == nil {
+		return
+	}
+	u.since = time.Now()
+	u.send("message")
 }
 
 // sendStats posts the queue's events to Umami until it closes.

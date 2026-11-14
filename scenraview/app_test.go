@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"fmt"
@@ -16,11 +16,46 @@ import (
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/nsgotest"
 
+	"github.com/nsgo-dev/nsgo/ui"
+
+	"github.com/oneo-me/nsgo-scenra/agent"
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
 // TestMain gives the platform the main thread under nsgo test -target.
 func TestMain(m *testing.M) { nsgotest.Main(m) }
+
+// The storage keys of the test app's provider and of the files it keeps
+// open.
+const (
+	keyBaseURL    = "provider.baseURL"
+	keyModel      = "provider.model"
+	keyOpenFiles  = "editor.openFiles"
+	keyActiveFile = "editor.activeFile"
+)
+
+// shown is the test app's editor, and askedSettings counts the times it
+// asked for a provider.
+var (
+	shown         *Editor
+	askedSettings int
+)
+
+// testRoot is an app of the Window, its provider named by the storage.
+func testRoot(cx *core.Scope) core.Node {
+	st := cx.Storage()
+	e := New(cx, Options{
+		Provider: func() agent.Provider {
+			url, _ := st.GetItem(keyBaseURL)
+			model, _ := st.GetItem(keyModel)
+			return agent.Provider{BaseURL: url, Model: model}
+		},
+		OpenSettings: func() { askedSettings++ },
+		Remember:     "editor",
+	})
+	shown = e
+	return core.View{Style: ui.FillRest, Children: []core.Node{Window{Editor: e}, ui.Toasts{Toaster: e.Toaster()}}}
+}
 
 // model answers each request with the next reply, as server-sent events.
 func model(t *testing.T, replies ...string) string {
@@ -74,7 +109,7 @@ func TestAssistantDrawsOnTheChart(t *testing.T) {
 	}
 
 	// The change undoes as one step per tool call.
-	app.Post(e.undo)
+	app.Post(e.Undo)
 	app.WaitForGone("flow >> label:Order placed", time.Second)
 	app.Find("text:Ask the assistant to design an app or draw a flow.")
 }
@@ -82,14 +117,14 @@ func TestAssistantDrawsOnTheChart(t *testing.T) {
 func TestAssistantShowsFailuresAndAsksForAProvider(t *testing.T) {
 	app, _ := startEditor(t)
 	app.Find("text:Set up an OpenAI-compatible provider to start chatting.")
+	asked := askedSettings
 	app.Type("label:Message", "Hello")
 	app.Press("label:Send")
-	app.WaitFor("id:settings", time.Second)
-	app.Type("id:model", "test-model")
-	app.Clear("id:base-url")
-	app.Type("id:base-url", model(t))
-	app.Press("id:settings-done")
-	app.WaitForGone("id:settings", 2*time.Second)
+	if askedSettings != asked+1 {
+		t.Fatal("sending without a provider did not ask for one")
+	}
+	app.Storage().SetItem(keyModel, "test-model")
+	app.Storage().SetItem(keyBaseURL, model(t))
 	newFileAt(t, app, "hello.scenra")
 	app.Press("label:Send")
 	app.WaitFor("text:no more replies (HTTP 500)", 5*time.Second)
@@ -106,9 +141,9 @@ func writeFlow(t *testing.T, name, text string) string {
 }
 
 // startEditor starts the app and returns its editor.
-func startEditor(t *testing.T, opts ...nsgotest.Option) (*nsgotest.App, *editor) {
-	var e *editor
-	app := nsgotest.Start(t, Root, append([]nsgotest.Option{nsgotest.Size(1280, 800)}, opts...)...)
+func startEditor(t *testing.T, opts ...nsgotest.Option) (*nsgotest.App, *Editor) {
+	var e *Editor
+	app := nsgotest.Start(t, testRoot, append([]nsgotest.Option{nsgotest.Size(1280, 800)}, opts...)...)
 	app.Post(func() { e = shown })
 	app.Settle()
 	return app, e
@@ -129,7 +164,7 @@ func TestOpensFlowFilesInTabs(t *testing.T) {
 	app, e := startEditor(t)
 	open := func(path string) {
 		app.Post(func() {
-			if err := e.openPath(path); err != nil {
+			if err := e.OpenPath(path); err != nil {
 				t.Error(err)
 			}
 		})
@@ -176,7 +211,7 @@ func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
 		"  end\n")
 	app, e := startEditor(t)
 	app.Post(func() {
-		if err := e.openPath(shop); err != nil {
+		if err := e.OpenPath(shop); err != nil {
 			t.Error(err)
 		}
 	})
@@ -251,7 +286,7 @@ func TestSavesWhereTheFileWasSaved(t *testing.T) {
 	}
 	// Saving writes the same file without asking where.
 	retitle("Second")
-	app.Post(e.save)
+	app.Post(e.Save)
 	app.Settle()
 	if len(app.Saves) != 1 {
 		t.Fatalf("asked where to save %d times", len(app.Saves))
@@ -263,13 +298,13 @@ func TestSavesWhereTheFileWasSaved(t *testing.T) {
 	// An opened file saves where it came from.
 	opened := writeFlow(t, "opened.scenra", "title \"Opened\"\n")
 	app.Post(func() {
-		if err := e.openPath(opened); err != nil {
+		if err := e.OpenPath(opened); err != nil {
 			t.Error(err)
 		}
 	})
 	app.Settle()
 	retitle("Changed")
-	app.Post(e.save)
+	app.Post(e.Save)
 	app.Settle()
 	if data, _ := os.ReadFile(opened); len(app.Saves) != 1 || !strings.Contains(string(data), "Changed") {
 		t.Fatalf("saves %d, file:\n%s", len(app.Saves), data)
@@ -277,7 +312,7 @@ func TestSavesWhereTheFileWasSaved(t *testing.T) {
 
 	// Canceling the dialog makes no file.
 	app.SaveFile = nil
-	app.Post(e.newTab)
+	app.Post(e.NewFile)
 	app.Settle()
 	if got := tabNames(app); len(got) != 2 {
 		t.Fatalf("tabs after canceling %v", got)
@@ -289,7 +324,7 @@ func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
 	app, e := startEditor(t, nsgotest.PendingAlerts())
 	open := func() {
 		app.Post(func() {
-			if err := e.openPath(path); err != nil {
+			if err := e.OpenPath(path); err != nil {
 				t.Error(err)
 			}
 		})
@@ -305,7 +340,7 @@ func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
 		app.Settle()
 	}
 	closeTab := func() {
-		app.Post(e.closeShown)
+		app.Post(e.CloseShown)
 		app.Settle()
 		if alerts := app.Alerts(); len(alerts) != 1 || !strings.Contains(alerts[0].Title, "plan.scenra") {
 			t.Fatalf("alerts %+v", alerts)
@@ -344,24 +379,10 @@ func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
 	}
 
 	// A clean document goes without asking.
-	app.Post(e.closeShown)
+	app.Post(e.CloseShown)
 	app.Settle()
 	if len(app.Alerts()) != 0 {
 		t.Fatalf("a clean document asked: %+v", app.Alerts())
-	}
-}
-
-func TestSettingsTurnOffTheStatistics(t *testing.T) {
-	app := nsgotest.Start(t, Root, nsgotest.Size(1280, 800))
-	app.Press("label:Open Settings")
-	app.WaitFor("id:settings", time.Second)
-	app.Press("id:settings >> label:Send usage statistics")
-	if v, _ := app.Storage().GetItem(keyStats); v != "off" {
-		t.Fatalf("stats = %q, want off", v)
-	}
-	app.Press("id:settings >> label:Send usage statistics")
-	if _, ok := app.Storage().GetItem(keyStats); ok {
-		t.Fatal("stats still stored after turning them back on")
 	}
 }
 
@@ -385,7 +406,7 @@ func recorder(t *testing.T, replies ...string) (url string, bodies func() []stri
 
 func TestAssistantKnowsTheFilesAndReadsTheFolder(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n\nfunc checkout() {}\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package scenraview\n\nfunc checkout() {}\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, "app.scenra")
@@ -400,8 +421,8 @@ func TestAssistantKnowsTheFilesAndReadsTheFolder(t *testing.T) {
 	)
 	app, e := startEditor(t, nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "test-model"}))
 	app.Post(func() {
-		e.openPath(other)
-		e.openPath(path)
+		e.OpenPath(other)
+		e.OpenPath(path)
 	})
 	app.Settle()
 	app.Type("label:Message", "Chart the checkout")
@@ -465,7 +486,7 @@ func TestCommentsAskTheAssistant(t *testing.T) {
 	path := writeFlow(t, "shop.scenra", "screen home \"Home\"\n  box class=\"flex-1 gap-4 p-6\"\n    text \"Welcome\"\n    text \"Mail\" comment=\"Smaller\"\n  end\n")
 	app, e := startEditor(t, nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "test-model"}))
 	app.Post(func() {
-		if err := e.openPath(path); err != nil {
+		if err := e.OpenPath(path); err != nil {
 			t.Error(err)
 		}
 	})
@@ -526,7 +547,7 @@ func TestEveryIconNameDraws(t *testing.T) {
 }
 
 func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
-	paths, _ := filepath.Glob("examples/*.scenra")
+	paths, _ := filepath.Glob("../examples/*.scenra")
 	for _, path := range paths {
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -553,5 +574,26 @@ func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 		for _, s := range p.Screens {
 			walk(s.UI)
 		}
+	}
+}
+
+func TestAnotherAppShowsOneFile(t *testing.T) {
+	path := writeFlow(t, "shop.scenra", "screen home \"Home\"\n  text \"Welcome\"\nflow main \"Main\"\n  node a \"Browse\"\n")
+	var e *Editor
+	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+		e = New(cx, Options{})
+		if err := e.OpenPath(path); err != nil {
+			t.Error(err)
+		}
+		return core.View{Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{Sidebar{e}, Workspace{e}}}
+	}, nsgotest.Size(1000, 700))
+	app.Find("design >> text:Welcome")
+	app.Press("id:flow-main")
+	app.WaitFor("flow >> label:Browse", time.Second)
+	if app.Exists("id:title-bar") || app.Exists("id:composer") {
+		t.Fatal("the views shown brought the tabs or the assistant")
+	}
+	if _, ok := app.Storage().GetItem(keyOpenFiles); ok {
+		t.Fatal("an editor that remembers nothing kept its files")
 	}
 }

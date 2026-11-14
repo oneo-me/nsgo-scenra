@@ -1,6 +1,6 @@
-package main
+package scenraview
 
-//go:generate go run ./tools/iconsgen
+//go:generate go run ../tools/iconsgen
 
 import (
 	"github.com/nsgo-dev/nsgo/core"

@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"strconv"
@@ -8,34 +8,45 @@ import (
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 
-	"github.com/oneo-me/nsgo-scenra/locales"
+	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
-// titleBarHeight is the height of the window's own title bar, in which
-// the system centers its window controls.
-const titleBarHeight core.Points = 40
+// HeaderHeight is the height of the TabBar and of the Assistant's
+// header; as the window's title bar, the system centers its window
+// controls in it.
+const HeaderHeight core.Points = 40
 
-// titleBar is the window's title bar over the documents: a tab for each,
-// as Figma's, and a button that makes another. Its background drags the
-// window, and it keeps clear of the window controls.
-func titleBar(cx *core.Scope, e *editor) core.Node {
+// chrome is the inset of a header that is the window's title bar, from
+// the window controls, and whether its background drags the window; none
+// for another.
+func chrome(cx *core.Scope, titleBar bool) (core.Edges, core.WindowDrag) {
+	if !titleBar {
+		return core.Edges{}, core.WindowDragInherit
+	}
+	return desktop.TitleBar(cx), core.WindowDragOn
+}
+
+// titleBar is the bar over the documents: a tab for each, as Figma's,
+// and a button that makes another.
+func titleBar(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	tabs := core.Each(e.tabs.Get, func(d *document) int { return d.id }, func(cx *core.Scope, d func() *document, _ func() int) core.Node {
 		return tabView(cx, e, core.Untracked(cx, d))
 	})
-	return core.View{TestID: "title-bar", Desktop: core.DesktopViewProps{WindowDrag: core.WindowDragOn},
+	_, drag := chrome(cx, isTitleBar)
+	return core.View{TestID: "title-bar", Desktop: core.DesktopViewProps{WindowDrag: drag},
 		StyleFunc: func() core.Style {
-			bar := desktop.TitleBar(cx)
+			bar, _ := chrome(cx, isTitleBar)
 			return core.Style{Direction: core.Row, AlignItems: core.AlignStretch, FlexShrink: 0,
-				Height: core.Pt(max(titleBarHeight, bar.Top)), Padding: core.Edges{Left: bar.Left + 4},
+				Height: core.Pt(max(HeaderHeight, bar.Top)), Padding: core.Edges{Left: bar.Left + 4},
 				Background: ui.Chrome(cx), Borders: core.Edges{Bottom: 1}, BorderColors: core.EdgeColors{Bottom: colors.Line()}}
 		},
 		Children: []core.Node{
 			core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignStretch, FlexShrink: 1, MinWidth: core.Pt(0)},
 				Children: []core.Node{tabs}},
 			core.View{Style: core.Style{JustifyContent: core.JustifyCenter, Padding: core.Symmetric(0, 6)}, Children: []core.Node{
-				ui.IconButton{Icon: lucide.Plus, Label: tr.NewFlow(), Size: 26, OnPress: e.newTab, TestID: "new"},
+				ui.IconButton{Icon: lucide.Plus, Label: tr.NewFlow(), Size: 26, OnPress: e.NewFile, TestID: "new"},
 			}},
 		}}
 }
@@ -44,7 +55,7 @@ func titleBar(cx *core.Scope, e *editor) core.Node {
 // shown one in the content's color, with its file's name and a button
 // that closes it, which a dot of unsaved changes takes the place of
 // while the tab is neither shown nor under the pointer.
-func tabView(cx *core.Scope, e *editor, d *document) core.Node {
+func tabView(cx *core.Scope, e *Editor, d *document) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	id := strconv.Itoa(d.id)

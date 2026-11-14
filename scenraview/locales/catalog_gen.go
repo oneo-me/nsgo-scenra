@@ -14,11 +14,6 @@ const Source = "en"
 // Catalog holds the messages' languages: en, the source, zh-Hans, and those other packages supply.
 var Catalog = i18n.NewCatalog("en", "zh-Hans")
 
-// The catalog's languages are the app's: those it shows.
-func init() {
-	i18n.SetApp(Catalog)
-}
-
 // Messages say the messages in one language; with mark, the source's
 // with their arguments marked, which a pseudo locale transforms.
 type Messages struct {
@@ -74,12 +69,8 @@ var supplied = map[string]Translation{}
 
 // The indexes of the messages without arguments in the tables.
 const (
-	textAppName = iota
-	textUntitled
+	textUntitled = iota
 	textEdited
-	textFileMenu
-	textEditMenu
-	textViewMenu
 	textNewFlow
 	textOpen
 	textSave
@@ -87,8 +78,6 @@ const (
 	textCloseTab
 	textNoFiles
 	textSettings
-	textUndoChange
-	textRedoChange
 	textZoomIn
 	textZoomOut
 	textFit
@@ -124,25 +113,12 @@ const (
 	textToolReadFile
 	textToolGlob
 	textToolGrep
-	textSettingsTitle
-	textProviderSection
-	textProviderDescription
-	textBaseURL
-	textBaseURLHint
-	textApiKey
-	textApiKeyHint
-	textModel
-	textModelHint
 	textCancel
-	textDone
 	textStatusTodo
 	textStatusDoing
 	textStatusDone
 	textStatusBlocked
 	textStatusSkipped
-	textStatsSection
-	textStatsSend
-	textStatsDetail
 	textToolGetProject
 	textToolAddScreen
 	textToolSetUI
@@ -171,12 +147,8 @@ const (
 // keyOfText is the key of the message without arguments at each
 // index, by which Supply reads a Translation's Texts.
 var keyOfText = [numTexts]string{
-	"appName",
 	"untitled",
 	"edited",
-	"fileMenu",
-	"editMenu",
-	"viewMenu",
 	"newFlow",
 	"open",
 	"save",
@@ -184,8 +156,6 @@ var keyOfText = [numTexts]string{
 	"closeTab",
 	"noFiles",
 	"settings",
-	"undoChange",
-	"redoChange",
 	"zoomIn",
 	"zoomOut",
 	"fit",
@@ -221,25 +191,12 @@ var keyOfText = [numTexts]string{
 	"toolReadFile",
 	"toolGlob",
 	"toolGrep",
-	"settingsTitle",
-	"providerSection",
-	"providerDescription",
-	"baseURL",
-	"baseURLHint",
-	"apiKey",
-	"apiKeyHint",
-	"model",
-	"modelHint",
 	"cancel",
-	"done",
 	"statusTodo",
 	"statusDoing",
 	"statusDone",
 	"statusBlocked",
 	"statusSkipped",
-	"statsSection",
-	"statsSend",
-	"statsDetail",
 	"toolGetProject",
 	"toolAddScreen",
 	"toolSetUI",
@@ -266,12 +223,8 @@ var keyOfText = [numTexts]string{
 
 // textsEn are the messages without arguments in en.
 var textsEn = i18n.NewTexts(""+
-	"Scenra"+
 	"Untitled"+
 	"Edited"+
-	"File"+
-	"Edit"+
-	"View"+
 	"New Flow"+
 	"Open…"+
 	"Save"+
@@ -279,8 +232,6 @@ var textsEn = i18n.NewTexts(""+
 	"Close Tab"+
 	"Make a Scenra file, or open one, to design an app or chart a flow."+
 	"Settings…"+
-	"Undo Change"+
-	"Redo Change"+
 	"Zoom In"+
 	"Zoom Out"+
 	"Fit to Window"+
@@ -316,25 +267,12 @@ var textsEn = i18n.NewTexts(""+
 	"Read file"+
 	"Find files"+
 	"Search files"+
-	"Settings"+
-	"Provider"+
-	"Any API compatible with OpenAI's chat completions, such as OpenAI, DeepSeek, OpenRouter, Ollama or LM Studio."+
-	"Base URL"+
-	"The API's root, ending before /chat/completions"+
-	"API key"+
-	"Stored on this device. Leave it empty for local servers."+
-	"Model"+
-	"The model's ID, which must support tool calls"+
 	"Cancel"+
-	"Done"+
 	"To do"+
 	"In progress"+
 	"Done"+
 	"Blocked"+
 	"Skipped"+
-	"Statistics"+
-	"Send usage statistics"+
-	"Sends how often and how long the app is used, with no charts, messages or personal data, to help improve Scenra."+
 	"Read the project"+
 	"Add screen"+
 	"Draw interface"+
@@ -358,20 +296,14 @@ var textsEn = i18n.NewTexts(""+
 	"Change element"+
 	"Resolve comment",
 	[]uint16{
-		6,
 		8,
 		6,
-		4,
-		4,
-		4,
 		8,
 		7,
 		4,
 		10,
 		9,
 		66,
-		11,
-		11,
 		11,
 		7,
 		8,
@@ -408,25 +340,12 @@ var textsEn = i18n.NewTexts(""+
 		9,
 		10,
 		12,
-		8,
-		8,
-		109,
-		8,
-		47,
-		7,
-		56,
-		5,
-		45,
 		6,
-		4,
 		5,
 		11,
 		4,
 		7,
 		7,
-		10,
-		21,
-		112,
 		16,
 		10,
 		14,
@@ -453,12 +372,8 @@ var textsEn = i18n.NewTexts(""+
 
 // textsZhHans are the messages without arguments in zh-Hans.
 var textsZhHans = i18n.NewTexts(""+
-	"Scenra"+
 	"未命名"+
 	"已编辑"+
-	"文件"+
-	"编辑"+
-	"显示"+
 	"新建流程"+
 	"打开…"+
 	"保存"+
@@ -466,8 +381,6 @@ var textsZhHans = i18n.NewTexts(""+
 	"关闭标签页"+
 	"新建或打开一个 Scenra 文件，开始设计应用或绘制流程。"+
 	"设置…"+
-	"撤销更改"+
-	"重做更改"+
 	"放大"+
 	"缩小"+
 	"适合窗口"+
@@ -503,25 +416,12 @@ var textsZhHans = i18n.NewTexts(""+
 	"读取文件"+
 	"查找文件"+
 	"搜索文件"+
-	"设置"+
-	"提供商"+
-	"任何兼容 OpenAI Chat Completions 的 API，例如 OpenAI、DeepSeek、OpenRouter、Ollama 或 LM Studio。"+
-	"接口地址"+
-	"API 的根地址，即 /chat/completions 之前的部分"+
-	"API 密钥"+
-	"保存在本机。本地服务可留空。"+
-	"模型"+
-	"模型 ID，需支持工具调用"+
 	"取消"+
-	"完成"+
 	"待办"+
 	"进行中"+
 	"已完成"+
 	"受阻"+
 	"已跳过"+
-	"统计"+
-	"发送使用统计"+
-	"发送应用的使用次数和时长，不含流程图、消息或个人信息，帮助改进 Scenra。"+
 	"读取项目"+
 	"添加界面"+
 	"绘制界面"+
@@ -545,12 +445,8 @@ var textsZhHans = i18n.NewTexts(""+
 	"修改元素"+
 	"处理评论",
 	[]uint16{
-		6,
 		9,
 		9,
-		6,
-		6,
-		6,
 		12,
 		9,
 		6,
@@ -558,8 +454,6 @@ var textsZhHans = i18n.NewTexts(""+
 		15,
 		74,
 		9,
-		12,
-		12,
 		6,
 		6,
 		12,
@@ -596,24 +490,11 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		12,
 		6,
-		9,
-		110,
-		12,
-		56,
-		10,
-		42,
-		6,
-		33,
-		6,
-		6,
 		6,
 		9,
 		9,
 		6,
 		9,
-		6,
-		18,
-		103,
 		12,
 		12,
 		12,
@@ -738,15 +619,6 @@ func (msgs Messages) arg(s string) string {
 	return s
 }
 
-// AppName says "Scenra"
-// in the language the app shows under cx.
-//
-// The app's name.
-func AppName(cx *core.Scope) string { return For(cx).AppName() }
-
-// AppName is the package's AppName in the language of msgs.
-func (msgs Messages) AppName() string { return msgs.text(textAppName) }
-
 // Untitled says "Untitled"
 // in the language the app shows under cx.
 func Untitled(cx *core.Scope) string { return For(cx).Untitled() }
@@ -760,27 +632,6 @@ func Edited(cx *core.Scope) string { return For(cx).Edited() }
 
 // Edited is the package's Edited in the language of msgs.
 func (msgs Messages) Edited() string { return msgs.text(textEdited) }
-
-// FileMenu says "File"
-// in the language the app shows under cx.
-func FileMenu(cx *core.Scope) string { return For(cx).FileMenu() }
-
-// FileMenu is the package's FileMenu in the language of msgs.
-func (msgs Messages) FileMenu() string { return msgs.text(textFileMenu) }
-
-// EditMenu says "Edit"
-// in the language the app shows under cx.
-func EditMenu(cx *core.Scope) string { return For(cx).EditMenu() }
-
-// EditMenu is the package's EditMenu in the language of msgs.
-func (msgs Messages) EditMenu() string { return msgs.text(textEditMenu) }
-
-// ViewMenu says "View"
-// in the language the app shows under cx.
-func ViewMenu(cx *core.Scope) string { return For(cx).ViewMenu() }
-
-// ViewMenu is the package's ViewMenu in the language of msgs.
-func (msgs Messages) ViewMenu() string { return msgs.text(textViewMenu) }
 
 // NewFlow says "New Flow"
 // in the language the app shows under cx.
@@ -830,20 +681,6 @@ func Settings(cx *core.Scope) string { return For(cx).Settings() }
 
 // Settings is the package's Settings in the language of msgs.
 func (msgs Messages) Settings() string { return msgs.text(textSettings) }
-
-// UndoChange says "Undo Change"
-// in the language the app shows under cx.
-func UndoChange(cx *core.Scope) string { return For(cx).UndoChange() }
-
-// UndoChange is the package's UndoChange in the language of msgs.
-func (msgs Messages) UndoChange() string { return msgs.text(textUndoChange) }
-
-// RedoChange says "Redo Change"
-// in the language the app shows under cx.
-func RedoChange(cx *core.Scope) string { return For(cx).RedoChange() }
-
-// RedoChange is the package's RedoChange in the language of msgs.
-func (msgs Messages) RedoChange() string { return msgs.text(textRedoChange) }
 
 // ZoomIn says "Zoom In"
 // in the language the app shows under cx.
@@ -1277,82 +1114,12 @@ func ToolGrep(cx *core.Scope) string { return For(cx).ToolGrep() }
 // ToolGrep is the package's ToolGrep in the language of msgs.
 func (msgs Messages) ToolGrep() string { return msgs.text(textToolGrep) }
 
-// SettingsTitle says "Settings"
-// in the language the app shows under cx.
-func SettingsTitle(cx *core.Scope) string { return For(cx).SettingsTitle() }
-
-// SettingsTitle is the package's SettingsTitle in the language of msgs.
-func (msgs Messages) SettingsTitle() string { return msgs.text(textSettingsTitle) }
-
-// ProviderSection says "Provider"
-// in the language the app shows under cx.
-func ProviderSection(cx *core.Scope) string { return For(cx).ProviderSection() }
-
-// ProviderSection is the package's ProviderSection in the language of msgs.
-func (msgs Messages) ProviderSection() string { return msgs.text(textProviderSection) }
-
-// ProviderDescription says "Any API compatible with OpenAI's chat completions, such as OpenAI, DeepSeek, OpenRouter, Ollama or LM Studio."
-// in the language the app shows under cx.
-func ProviderDescription(cx *core.Scope) string { return For(cx).ProviderDescription() }
-
-// ProviderDescription is the package's ProviderDescription in the language of msgs.
-func (msgs Messages) ProviderDescription() string { return msgs.text(textProviderDescription) }
-
-// BaseURL says "Base URL"
-// in the language the app shows under cx.
-func BaseURL(cx *core.Scope) string { return For(cx).BaseURL() }
-
-// BaseURL is the package's BaseURL in the language of msgs.
-func (msgs Messages) BaseURL() string { return msgs.text(textBaseURL) }
-
-// BaseURLHint says "The API's root, ending before /chat/completions"
-// in the language the app shows under cx.
-func BaseURLHint(cx *core.Scope) string { return For(cx).BaseURLHint() }
-
-// BaseURLHint is the package's BaseURLHint in the language of msgs.
-func (msgs Messages) BaseURLHint() string { return msgs.text(textBaseURLHint) }
-
-// ApiKey says "API key"
-// in the language the app shows under cx.
-func ApiKey(cx *core.Scope) string { return For(cx).ApiKey() }
-
-// ApiKey is the package's ApiKey in the language of msgs.
-func (msgs Messages) ApiKey() string { return msgs.text(textApiKey) }
-
-// ApiKeyHint says "Stored on this device. Leave it empty for local servers."
-// in the language the app shows under cx.
-func ApiKeyHint(cx *core.Scope) string { return For(cx).ApiKeyHint() }
-
-// ApiKeyHint is the package's ApiKeyHint in the language of msgs.
-func (msgs Messages) ApiKeyHint() string { return msgs.text(textApiKeyHint) }
-
-// Model says "Model"
-// in the language the app shows under cx.
-func Model(cx *core.Scope) string { return For(cx).Model() }
-
-// Model is the package's Model in the language of msgs.
-func (msgs Messages) Model() string { return msgs.text(textModel) }
-
-// ModelHint says "The model's ID, which must support tool calls"
-// in the language the app shows under cx.
-func ModelHint(cx *core.Scope) string { return For(cx).ModelHint() }
-
-// ModelHint is the package's ModelHint in the language of msgs.
-func (msgs Messages) ModelHint() string { return msgs.text(textModelHint) }
-
 // Cancel says "Cancel"
 // in the language the app shows under cx.
 func Cancel(cx *core.Scope) string { return For(cx).Cancel() }
 
 // Cancel is the package's Cancel in the language of msgs.
 func (msgs Messages) Cancel() string { return msgs.text(textCancel) }
-
-// Done says "Done"
-// in the language the app shows under cx.
-func Done(cx *core.Scope) string { return For(cx).Done() }
-
-// Done is the package's Done in the language of msgs.
-func (msgs Messages) Done() string { return msgs.text(textDone) }
 
 // StatusTodo says "To do"
 // in the language the app shows under cx.
@@ -1388,27 +1155,6 @@ func StatusSkipped(cx *core.Scope) string { return For(cx).StatusSkipped() }
 
 // StatusSkipped is the package's StatusSkipped in the language of msgs.
 func (msgs Messages) StatusSkipped() string { return msgs.text(textStatusSkipped) }
-
-// StatsSection says "Statistics"
-// in the language the app shows under cx.
-func StatsSection(cx *core.Scope) string { return For(cx).StatsSection() }
-
-// StatsSection is the package's StatsSection in the language of msgs.
-func (msgs Messages) StatsSection() string { return msgs.text(textStatsSection) }
-
-// StatsSend says "Send usage statistics"
-// in the language the app shows under cx.
-func StatsSend(cx *core.Scope) string { return For(cx).StatsSend() }
-
-// StatsSend is the package's StatsSend in the language of msgs.
-func (msgs Messages) StatsSend() string { return msgs.text(textStatsSend) }
-
-// StatsDetail says "Sends how often and how long the app is used, with no charts, messages or personal data, to help improve Scenra."
-// in the language the app shows under cx.
-func StatsDetail(cx *core.Scope) string { return For(cx).StatsDetail() }
-
-// StatsDetail is the package's StatsDetail in the language of msgs.
-func (msgs Messages) StatsDetail() string { return msgs.text(textStatsDetail) }
 
 // ToolGetProject says "Read the project"
 // in the language the app shows under cx.

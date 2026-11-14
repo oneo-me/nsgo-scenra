@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"slices"

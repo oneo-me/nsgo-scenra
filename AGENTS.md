@@ -1,10 +1,11 @@
 # Scenra
 
-A desktop app and flow designer built on [NSGo](https://github.com/nsgo-dev/nsgo): a Scenra file's screens and their flow charts on the left, an AI assistant that draws them on the right. Read [ARCHITECTURE.md](ARCHITECTURE.md) before coding.
+A desktop app and flow designer built on [NSGo](https://github.com/nsgo-dev/nsgo): a Scenra file's screens and their flow charts on the left, an AI assistant that draws them on the right. `scenraview` gives other apps the same editor; `cmd/scenra` is the app. Read [ARCHITECTURE.md](ARCHITECTURE.md) before coding.
 
 ## Principles
 
-- Follow NSGo's conventions: user-visible words go through `locales/` in both languages, never string literals.
+- Follow NSGo's conventions: user-visible words go through `scenraview/locales/`, or `cmd/scenra/locales/` for the app's own, in both languages, never string literals.
+- Keep `scenraview` usable by other apps: what is Scenra's alone, such as its menu, settings and statistics, stays in `cmd/scenra`.
 - Tests run against a fake model over `httptest`; never call a real provider from tests.
 - Never let usage statistics carry document content, messages, paths or keys, or report from `nsgo dev` builds and tests.
 

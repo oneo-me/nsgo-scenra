@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/Icon.png" alt="Scenra" width="128">
+  <img src="cmd/scenra/assets/Icon.png" alt="Scenra" width="128">
 </p>
 
 <h1 align="center">Scenra</h1>
@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/Preview.png" alt="Scenra">
+  <img src="cmd/scenra/assets/Preview.png" alt="Scenra">
 </p>
 
 ## 名称由来
@@ -45,8 +45,8 @@ Scenra 是一个自造词：*scene*（场景）指构成应用的一个个界面
 Scenra 需要 [Go](https://go.dev/dl/)。在仓库根目录执行：
 
 ```sh
-go tool nsgo dev            # run
-go tool nsgo build          # build macOS, Windows and Linux into dist/
+go tool nsgo dev cmd/scenra     # run
+go tool nsgo build cmd/scenra   # build macOS, Windows and Linux into cmd/scenra/dist/
 ```
 
 在 macOS 上，可以从访达用本应用打开 `.scenra` 文件；在 Windows 和 Linux 上，命令行中给出的 Scenra 文件会在启动时打开。
@@ -64,6 +64,26 @@ go tool nsgo build          # build macOS, Windows and Linux into dist/
 ## 使用统计
 
 正式构建会向 Umami 发送匿名使用统计：应用的使用次数和时长，附带一个随机的安装 ID。不会发送流程图、消息、文件路径或 API 密钥。可在**设置** → **统计**中关闭。`nsgo dev` 的构建和测试不发送任何统计。
+
+## 在你的应用中使用
+
+`scenraview` 为其他 NSGo 应用提供 Scenra 的 `.scenra` 文件编辑器：一个管理已打开文件的 `Editor` 及其视图，可以直接使用 Scenra 的 `Window`，也可以用 `TabBar`、`Sidebar`、`Workspace` 和 `Assistant` 自行布局。
+
+```sh
+go get github.com/oneo-me/nsgo-scenra
+```
+
+```go
+nsgo.Run(func(cx *core.Scope) core.Node {
+	e := scenraview.New(cx, scenraview.Options{Provider: myProvider})
+	e.OpenPath("app.scenra")
+	return core.View{Style: core.Style{Direction: core.Row, FlexGrow: 1}, Children: []core.Node{
+		scenraview.Sidebar{Editor: e}, scenraview.Workspace{Editor: e},
+	}}
+})
+```
+
+`flowfile` 不依赖 NSGo 即可读写该格式，`agent` 是助手的模型客户端和工具。
 
 ## 开发
 

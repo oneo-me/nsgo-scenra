@@ -30,9 +30,9 @@ opens the Chinese page unless another language was chosen.
 
 `public/` holds the icon, the app screenshot, the Open Graph image, the
 favicon, `robots.txt` and `sitemap.xml`. The icon and screenshot are copies of
-the app's `assets/`; render `scripts/og.html` at 1200×630 with Chrome to
-regenerate the Open Graph image from them. A change to the site's address
-belongs in `astro.config.mjs`, the Umami script's `data-domains` in
+the app's `cmd/scenra/assets/`; render `scripts/og.html` at 1200×630 with
+Chrome to regenerate the Open Graph image from them. A change to the site's
+address belongs in `astro.config.mjs`, the Umami script's `data-domains` in
 `Layout.astro`, the sitemap and the Open Graph image together.
 
 ## Statistics

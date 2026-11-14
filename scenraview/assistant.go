@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"context"
@@ -13,13 +13,12 @@ import (
 
 	"github.com/nsgo-dev/nsgo/base/textview"
 	"github.com/nsgo-dev/nsgo/core"
-	"github.com/nsgo-dev/nsgo/desktop"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 	"github.com/nsgo-dev/nsgo/ui/chat"
 
 	"github.com/oneo-me/nsgo-scenra/agent"
-	"github.com/oneo-me/nsgo-scenra/locales"
+	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
 // call is a tool call of a round, as the transcript shows it.
@@ -99,18 +98,16 @@ func (c *conversation) last() *turn {
 // assistant is the conversation about the document shown.
 type assistant struct {
 	cx           *core.Scope
-	e            *editor
+	e            *Editor
 	draft        *core.Signal[string]
 	now          *core.Signal[time.Time]
 	conversation *chat.ConversationState
 	// ids numbers the turns of every document, which the transcript keys.
 	ids int
-	// openSettings shows the provider's settings.
-	openSettings func()
 }
 
-func newAssistant(cx *core.Scope, e *editor, openSettings func()) *assistant {
-	a := &assistant{cx: cx, e: e, openSettings: openSettings,
+func newAssistant(cx *core.Scope, e *Editor) *assistant {
+	a := &assistant{cx: cx, e: e,
 		draft:        core.NewSignal(cx, ""),
 		now:          core.NewSignal(cx, cx.Now()),
 		conversation: chat.NewConversationState(cx)}
@@ -141,10 +138,14 @@ func (a *assistant) send() {
 // ask asks the model prompt about the document shown, stopping the turn
 // running, and runs sent once it is sent.
 func (a *assistant) ask(prompt string, sent func()) {
-	p := core.Untracked(a.cx, func() agent.Provider { return provider(a.cx) })
+	p := core.Untracked(a.cx, a.e.opts.Provider)
 	if !p.Ready() {
-		a.openSettings()
+		a.e.opts.OpenSettings()
 		return
+	}
+	if a.e.opts.OnSend != nil {
+		prev := sent
+		sent = func() { prev(); a.e.opts.OnSend() }
 	}
 	if a.e.empty() {
 		// A conversation is about a file: a new one is saved first.
@@ -371,9 +372,9 @@ func (a *assistant) finish(conv *conversation, t *turn, cancel context.CancelFun
 
 // retry runs a failed turn again in its place.
 func (a *assistant) retry(t *turn) {
-	p := core.Untracked(a.cx, func() agent.Provider { return provider(a.cx) })
+	p := core.Untracked(a.cx, a.e.opts.Provider)
 	if !p.Ready() {
-		a.openSettings()
+		a.e.opts.OpenSettings()
 		return
 	}
 	d := a.e.shown()
@@ -596,29 +597,31 @@ func errorRow(cx *core.Scope, message func() string, retry func()) core.Node {
 	}}
 }
 
-// assistantPane is the conversation over the composer.
-func assistantPane(cx *core.Scope, a *assistant) core.Node {
+// assistantPane is the conversation over the composer, under a header
+// that is the window's title bar with titleBar.
+func assistantPane(cx *core.Scope, a *assistant, titleBar bool) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
+	provider := a.e.opts.Provider
+	openSettings := a.e.opts.OpenSettings
 	empty := func() bool { return len(a.chat().turns.Get()) == 0 }
-	ready := func() bool { return provider(cx).Ready() }
-	// The assistant reaches the window's top: its header is the title
-	// bar there, which drags the window and keeps clear of its controls.
-	header := core.View{Desktop: core.DesktopViewProps{WindowDrag: core.WindowDragOn},
+	ready := func() bool { return provider().Ready() }
+	_, drag := chrome(cx, titleBar)
+	header := core.View{Desktop: core.DesktopViewProps{WindowDrag: drag},
 		Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 8, FlexShrink: 0, Borders: core.Edges{Bottom: 1}},
 		StyleFunc: func() core.Style {
-			bar := desktop.TitleBar(cx)
-			return core.Style{Height: core.Pt(max(titleBarHeight, bar.Top)), Padding: core.Edges{Left: 12, Right: 8 + bar.Right},
+			bar, _ := chrome(cx, titleBar)
+			return core.Style{Height: core.Pt(max(HeaderHeight, bar.Top)), Padding: core.Edges{Left: 12, Right: 8 + bar.Right},
 				Background: ui.Chrome(cx), BorderColors: core.EdgeColors{Bottom: colors.Line()}}
 		},
 		Children: []core.Node{
 			ui.Icon(lucide.Sparkles, 16, colors.Muted),
 			ui.Text(tr.Assistant(), 13, ui.Semibold, colors.Text),
-			core.Text{ContentFunc: func() string { return provider(cx).Model }, MaxLines: 1,
+			core.Text{ContentFunc: func() string { return provider().Model }, MaxLines: 1,
 				Style: ui.TypeCaption.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}), StyleFunc: ui.Colored(colors.Muted)},
 			ui.Spacer{},
 			ui.IconButton{Icon: lucide.MessageSquarePlus, Label: tr.NewChat(), OnPress: a.clear, TestID: "new-chat"},
-			ui.IconButton{Icon: lucide.Settings, Label: tr.Settings(), OnPress: a.openSettings, TestID: "open-settings"},
+			ui.IconButton{Icon: lucide.Settings, Label: tr.Settings(), OnPress: openSettings, TestID: "open-settings"},
 		}}
 	placeholder := core.View{Style: core.Style{FlexGrow: 1, AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Padding: core.All(32), Gap: 10},
 		Children: []core.Node{
@@ -629,7 +632,7 @@ func assistantPane(cx *core.Scope, a *assistant) core.Node {
 			core.Show{When: func() bool { return !ready() }, Then: func(cx *core.Scope) core.Node {
 				return core.View{Style: core.Style{AlignItems: core.AlignCenter, Gap: 10, Margin: core.Edges{Top: 8}}, Children: []core.Node{
 					core.Text{Content: tr.NoProvider(), Style: core.Style{FontSize: 12.5, TextAlign: core.TextAlignCenter}, StyleFunc: ui.Colored(colors.Warn)},
-					ui.Button{Text: tr.OpenSettings(), Variant: ui.ButtonPrimary, OnPress: a.openSettings, TestID: "setup"},
+					ui.Button{Text: tr.OpenSettings(), Variant: ui.ButtonPrimary, OnPress: openSettings, TestID: "setup"},
 				}}
 			}},
 		}}

@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"strings"
@@ -8,7 +8,7 @@ import (
 	"github.com/nsgo-dev/nsgo/ui"
 
 	"github.com/oneo-me/nsgo-scenra/flowfile"
-	"github.com/oneo-me/nsgo-scenra/locales"
+	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
 // pinSize is a comment pin's diameter on screen, and cardWidth the
@@ -45,7 +45,7 @@ func commentPins(cx *core.Scope, s flowfile.Screen, sel selection, zoom func() f
 // says where a card of a size goes in the design pane. The card moves
 // by its position, not a transform, as platforms hit-test views without
 // their transforms.
-func commentCard(cx *core.Scope, e *editor, ask func(prompt string), place func(core.Size) (core.Point, bool)) core.Node {
+func commentCard(cx *core.Scope, e *Editor, ask func(prompt string), place func(core.Size) (core.Point, bool)) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)

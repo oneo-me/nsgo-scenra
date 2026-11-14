@@ -151,11 +151,11 @@ const en = {
     commands: [
       'git clone https://github.com/oneo-me/nsgo-scenra.git',
       'cd nsgo-scenra',
-      'go tool nsgo dev',
+      'go tool nsgo dev cmd/scenra',
     ],
     primary: 'Read the README',
     secondary: 'Browse the examples',
-    note: 'Build macOS, Windows and Linux binaries with go tool nsgo build.',
+    note: 'Build macOS, Windows and Linux binaries with go tool nsgo build cmd/scenra.',
   },
   faq: {
     title: 'Questions, answered.',
@@ -400,11 +400,11 @@ const zh: typeof en = {
     commands: [
       'git clone https://github.com/oneo-me/nsgo-scenra.git',
       'cd nsgo-scenra',
-      'go tool nsgo dev',
+      'go tool nsgo dev cmd/scenra',
     ],
     primary: '阅读 README',
     secondary: '浏览示例',
-    note: '运行 go tool nsgo build 可生成 macOS、Windows 和 Linux 版本。',
+    note: '运行 go tool nsgo build cmd/scenra 可生成 macOS、Windows 和 Linux 版本。',
   },
   faq: {
     title: '常见问题',

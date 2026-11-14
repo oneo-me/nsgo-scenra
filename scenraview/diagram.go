@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"github.com/nsgo-dev/nsgo/core"
@@ -7,13 +7,13 @@ import (
 	uiflow "github.com/nsgo-dev/nsgo/ui/flow"
 
 	"github.com/oneo-me/nsgo-scenra/flowfile"
-	"github.com/oneo-me/nsgo-scenra/locales"
+	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
 // diagramData maps the flow with id, the open one for "", onto the
 // diagram's data. Each node's face reads its node from the document, as
 // the view keeps a face while its ID stays.
-func diagramData(e *editor, flow string) func() uiflow.Data {
+func diagramData(e *Editor, flow string) func() uiflow.Data {
 	return func() uiflow.Data {
 		d := e.cur().flowDoc(cmp(flow, e.cur().flow.Get()))
 		var data uiflow.Data
@@ -30,7 +30,7 @@ func diagramData(e *editor, flow string) func() uiflow.Data {
 
 // diagramDirection is the way the flow with id, the open one for "",
 // points.
-func diagramDirection(e *editor, flow string) func() uiflow.Direction {
+func diagramDirection(e *Editor, flow string) func() uiflow.Direction {
 	return func() uiflow.Direction {
 		if e.cur().flowDoc(cmp(flow, e.cur().flow.Get())).Direction == flowfile.Right {
 			return uiflow.LeftToRight
@@ -42,7 +42,7 @@ func diagramDirection(e *editor, flow string) func() uiflow.Direction {
 // nodeCard is a node's face: its kind's icon tile, label and note, and
 // its status above them.
 type nodeCard struct {
-	e        *editor
+	e        *Editor
 	flow, id string
 }
 
@@ -103,7 +103,7 @@ func card(cx *core.Scope, n flowfile.Node) core.Node {
 }
 
 // flowPane is the open flow's chart, with the view's tools over it.
-func flowPane(cx *core.Scope, e *editor) core.Node {
+func flowPane(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
@@ -120,7 +120,7 @@ func flowPane(cx *core.Scope, e *editor) core.Node {
 			return fin.Raised().Over(core.Style{Background: colors.Surface(), BorderColor: colors.Border()})
 		},
 		Children: []core.Node{
-			tool(lucide.ArrowRightLeft, tr.LeftToRight(), full, e.toggleDirection, "direction"),
+			tool(lucide.ArrowRightLeft, tr.LeftToRight(), full, e.ToggleDirection, "direction"),
 			tool(lucide.ZoomOut, tr.ZoomOut(), full, func() { e.camera.ZoomOut() }, "zoom-out"),
 			tool(lucide.ZoomIn, tr.ZoomIn(), full, func() { e.camera.ZoomIn() }, "zoom-in"),
 			tool(lucide.Scan, tr.Fit(), full, func() { e.camera.Fit() }, "fit"),
@@ -136,8 +136,8 @@ func flowPane(cx *core.Scope, e *editor) core.Node {
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{view}}
 }
 
-// toggleDirection turns the open flow between down and right.
-func (e *editor) toggleDirection() {
+// ToggleDirection turns the open flow between down and right.
+func (e *Editor) ToggleDirection() {
 	d := e.shown()
 	p := d.doc.GetUntracked().Clone()
 	i, j := p.FlowIndex(d.flow.GetUntracked())

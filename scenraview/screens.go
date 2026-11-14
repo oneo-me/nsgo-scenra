@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"slices"
@@ -9,7 +9,7 @@ import (
 	"github.com/nsgo-dev/nsgo/ui"
 
 	"github.com/oneo-me/nsgo-scenra/agent"
-	"github.com/oneo-me/nsgo-scenra/locales"
+	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
 const sidebarWidth = 220
@@ -42,7 +42,7 @@ type flowItem struct{ id, title string }
 
 // sidebar lists the entries of the document shown: under each screen,
 // its design and its flows, the open one selected.
-func sidebar(cx *core.Scope, e *editor) core.Node {
+func sidebar(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	items := core.NewMemoFunc(cx, func() []screenItem {
@@ -100,7 +100,8 @@ func sidebar(cx *core.Scope, e *editor) core.Node {
 
 // workspacePane is the entry the sidebar opened: a screen's design, or a
 // flow chart; or, while no file is open, a way to make or open one.
-func workspacePane(cx *core.Scope, e *editor, a *assistant) core.Node {
+func workspacePane(cx *core.Scope, e *Editor) core.Node {
+	a := e.a
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	message := func(icon func() *core.SVG, text string, actions ...core.Node) core.Node {
@@ -127,8 +128,8 @@ func workspacePane(cx *core.Scope, e *editor, a *assistant) core.Node {
 				return core.Show{When: e.empty,
 					Then: func(*core.Scope) core.Node {
 						return message(lucide.FileStack, tr.NoFiles(),
-							ui.Button{Text: tr.NewFlow(), Icon: lucide.FilePlus, Variant: ui.ButtonPrimary, OnPress: e.newTab, TestID: "new-file"},
-							ui.Button{Text: tr.Open(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: e.open, TestID: "open-file"})
+							ui.Button{Text: tr.NewFlow(), Icon: lucide.FilePlus, Variant: ui.ButtonPrimary, OnPress: e.NewFile, TestID: "new-file"},
+							ui.Button{Text: tr.Open(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: e.Open, TestID: "open-file"})
 					},
 					Else: func(*core.Scope) core.Node { return message(lucide.AppWindow, tr.DiagramEmpty()) }}
 			},

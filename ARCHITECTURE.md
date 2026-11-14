@@ -1,6 +1,6 @@
 # Scenra architecture
 
-Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only. The editor holds the open documents, a tab each across the window's top, beside the assistant running the window's height; a document is an app's screens each with a design and its flow charts, with its file, undo history and conversation. The sidebar, design and diagram draw the document shown, and the assistant runs a model conversation whose tool calls edit the document it began on.
+Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only, built from `scenraview`, which gives other NSGo apps the same support for Scenra files, as Agio's `chatview` does for conversations. The editor holds the open documents, a tab each across the window's top, beside the assistant running the window's height; a document is an app's screens each with a design and its flow charts, with its file, undo history and conversation. The sidebar, design and diagram draw the document shown, and the assistant runs a model conversation whose tool calls edit the document it began on.
 
 ## Code map
 
@@ -8,25 +8,24 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | --- | --- |
 | `flowfile/` | The flow file format: screens, interface elements and flows, parsing, canonical formatting and edits. Its package comment is the format's reference. |
 | `agent/` | The OpenAI-compatible client, the drawing and folder tools and the system prompt, with no UI. |
-| `main.go`, `tabs.go` | The window, its title bar of tabs, the menu and the wiring between editor and assistant. |
-| `editor.go`, `diagram.go` | The open documents, their history, files and open screen and flow, and the flow chart. |
-| `screens.go`, `mockup.go`, `icons.go` | The sidebar of designs and flows, and the drawing of a screen's design. |
-| `comments.go` | The pins on commented elements and the card that edits the selected one's comment. |
-| `assistant.go` | The conversation and the turns that run the model. |
-| `settings.go` | The provider and statistics settings. |
-| `stats.go` | The opt-out usage statistics. |
-| `locales/` | Messages in `en.yaml` and `zh-Hans.yaml`; `catalog_gen.go` is generated. |
+| `scenraview/` | The `Editor` an app opens Scenra files in, and its views: `Window`, or the `TabBar`, `Sidebar`, `Workspace` and `Assistant` it lays out. |
+| `scenraview/editor.go`, `diagram.go` | The open documents, their history, files and open screen and flow, and the flow chart. |
+| `scenraview/screens.go`, `mockup.go`, `icons.go`, `comments.go` | The sidebar of designs and flows, the drawing of a screen's design and the comments on its elements. |
+| `scenraview/assistant.go` | The conversation and the turns that run the model. |
+| `scenraview/locales/` | The views' messages, which an app's catalogs may supply other languages of. |
+| `cmd/scenra/` | Scenra, the app: the window, menu, provider and statistics settings, opt-out usage statistics, `nsgo.yaml`, assets and its own `locales/`. |
 | `website/` | The official static site, in English and Simplified Chinese, deployed to GitHub Pages. |
 
 ## Boundaries
 
 - `flowfile` and `agent` never import NSGo, so the format and the model client stay testable on their own.
+- `scenraview` is product-neutral: the host app gives it the provider, where to set one, its toaster and the storage prefix that reopens files, and keeps menus, settings, statistics and the window to itself. It ships no app catalog, so it never sets the app's languages.
 - Every change to the document goes through the editor, which records it for undo. Tool calls of one assistant turn undo together.
 - A design is a draft drawn from a few primitives shaped by Tailwind CSS classes, not from ready-made controls, so the model can draw any look. Classes NSGo does not know go back to the model as a warning with the tool's result.
 - A design lays out at its device's size on a plane the design canvas moves and scales, as the flow chart's camera does, since NSGo's zooming scroll views exist only on Apple platforms.
 - Platforms hit-test views without that transform, so a layer over the design finds the element under the pointer from the elements' frames, as the flow chart finds its nodes. Elements are named by their paths, which the selection and `set_element` use.
 - A comment is an attribute of its element in the flow file, so it is saved with the file and follows the element through edits, where paths shift. The user adds and removes comments; the assistant only resolves them with `resolve_comment`, `set_element` keeps a rewritten element's comment, and a tool call that drops one otherwise is told so.
-- The flow file names icons by their Lucide names, or older ones it maps to them, as `flowfile` cannot import NSGo. `tools/iconsgen`, run by `go generate` after updating NSGo, writes every name NSGo's Lucide package has into `flowfile` and the map from names to icons into the app.
+- The flow file names icons by their Lucide names, or older ones it maps to them, as `flowfile` cannot import NSGo. `tools/iconsgen`, run by `go generate` after updating NSGo, writes every name NSGo's Lucide package has into `flowfile` and the map from names to icons into `scenraview`.
 - One flow view follows the open flow of the document shown instead of remounting per flow or tab, and the design covers it while its tab is open.
 - The chart fits only once a change's batch is over: remounting a chart, or fitting it while it takes new data, trips NSGo's commit check on macOS.
 - Each document has its own conversation; a turn keeps editing the document it began on while another tab shows.
@@ -48,7 +47,7 @@ Settings, the paths of the files open in tabs and the install's random statistic
 
 ## Verification
 
-`go tool nsgo test` drives the app headless against a fake model served by `httptest`, and covers the format and the client. Check layout and platform behavior by hand with `go tool nsgo dev`, or with `go tool nsgo test -target macos`.
+`go tool nsgo test` drives `scenraview`'s views and the app headless against a fake model served by `httptest`, and covers the format and the client. Check layout and platform behavior by hand with `go tool nsgo dev cmd/scenra`, or with `go tool nsgo test -target macos`.
 
 ## Subjects
 

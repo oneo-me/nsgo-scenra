@@ -1,0 +1,21 @@
+appName:
+  message: Scenra
+  description: The app's name.
+fileMenu: File
+editMenu: Edit
+viewMenu: View
+undoChange: Undo Change
+redoChange: Redo Change
+settingsTitle: Settings
+providerSection: Provider
+providerDescription: Any API compatible with OpenAI's chat completions, such as OpenAI, DeepSeek, OpenRouter, Ollama or LM Studio.
+baseURL: Base URL
+baseURLHint: "The API's root, ending before /chat/completions"
+apiKey: API key
+apiKeyHint: Stored on this device. Leave it empty for local servers.
+model: Model
+modelHint: The model's ID, which must support tool calls
+done: Done
+statsSection: Statistics
+statsSend: Send usage statistics
+statsDetail: Sends how often and how long the app is used, with no charts, messages or personal data, to help improve Scenra.

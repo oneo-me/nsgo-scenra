@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"math"
@@ -8,7 +8,7 @@ import (
 	"github.com/nsgo-dev/nsgo/ui"
 
 	"github.com/oneo-me/nsgo-scenra/flowfile"
-	"github.com/oneo-me/nsgo-scenra/locales"
+	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
 // The design canvas's zoom limits and steps, as the flow chart's.
@@ -164,7 +164,7 @@ func (c *designCanvas) wheel(e core.WheelEvent) {
 // beside where the pointer selected an element, or else beside the
 // element, edits its comment, and ask sends the assistant a prompt about
 // them.
-func designPane(cx *core.Scope, e *editor, ask func(prompt string)) core.Node {
+func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)

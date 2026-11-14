@@ -6,7 +6,7 @@ import (
 	"github.com/nsgo-dev/nsgo/ui"
 
 	"github.com/oneo-me/nsgo-scenra/agent"
-	"github.com/oneo-me/nsgo-scenra/locales"
+	"github.com/oneo-me/nsgo-scenra/cmd/scenra/locales"
 )
 
 // The storage keys of the provider's settings.

@@ -1,4 +1,4 @@
-package main
+package scenraview
 
 import (
 	"strings"
@@ -15,7 +15,7 @@ func TestLongConversationKeepsTheComposer(t *testing.T) {
 		replies = append(replies, deltas(`{"content":"`+strings.Repeat(long+`\n\n`, 6)+`"}`))
 	}
 	url := model(t, replies...)
-	app := nsgotest.Start(t, Root, nsgotest.Size(1280, 800),
+	app := nsgotest.Start(t, testRoot, nsgotest.Size(1280, 800),
 		nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "m"}))
 	newFileAt(t, app, "long.scenra")
 	for i := range 6 {

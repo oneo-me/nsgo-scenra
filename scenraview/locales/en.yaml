@@ -1,11 +1,5 @@
-appName:
-  message: Scenra
-  description: The app's name.
 untitled: Untitled
 edited: Edited
-fileMenu: File
-editMenu: Edit
-viewMenu: View
 newFlow: New Flow
 open: Open…
 save: Save
@@ -13,8 +7,6 @@ saveAs: Save As…
 closeTab: Close Tab
 noFiles: Make a Scenra file, or open one, to design an app or chart a flow.
 settings: Settings…
-undoChange: Undo Change
-redoChange: Redo Change
 zoomIn: Zoom In
 zoomOut: Zoom Out
 fit: Fit to Window
@@ -57,25 +49,12 @@ toolListDir: List folder
 toolReadFile: Read file
 toolGlob: Find files
 toolGrep: Search files
-settingsTitle: Settings
-providerSection: Provider
-providerDescription: Any API compatible with OpenAI's chat completions, such as OpenAI, DeepSeek, OpenRouter, Ollama or LM Studio.
-baseURL: Base URL
-baseURLHint: "The API's root, ending before /chat/completions"
-apiKey: API key
-apiKeyHint: Stored on this device. Leave it empty for local servers.
-model: Model
-modelHint: The model's ID, which must support tool calls
 cancel: Cancel
-done: Done
 statusTodo: To do
 statusDoing: In progress
 statusDone: Done
 statusBlocked: Blocked
 statusSkipped: Skipped
-statsSection: Statistics
-statsSend: Send usage statistics
-statsDetail: Sends how often and how long the app is used, with no charts, messages or personal data, to help improve Scenra.
 toolGetProject: Read the project
 toolAddScreen: Add screen
 toolSetUI: Draw interface
