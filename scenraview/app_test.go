@@ -93,8 +93,8 @@ func TestShowsTheFolderAsATree(t *testing.T) {
 	app.Find("id:sidebar-open-folder")
 	openPath(t, app, e, dir)
 	app.WaitFor("id:files >> label:plan", time.Second)
-	if got := app.Find("id:folder-name").Text; got != filepath.Base(dir) {
-		t.Fatalf("the folder is named %q", got)
+	if got := app.Find("id:header >> id:folder-name").Text; got != filepath.Base(dir) {
+		t.Fatalf("the header names the folder %q", got)
 	}
 	for _, name := range []string{"screens", "home", "broken", "Shopping cart"} {
 		app.Find("id:files >> label:" + name)
@@ -220,8 +220,7 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	openPath(t, app, e, dir)
 	app.WaitFor("id:files >> label:old", time.Second)
 	ask := func(item string) {
-		app.Press("id:new-file")
-		app.Press("id:" + item)
+		app.Post(map[string]func(){"new-design": e.NewDesign, "new-flow": e.NewFlow, "new-component": e.NewComponent}[item])
 		app.WaitFor("id:new-file-dialog", time.Second)
 	}
 	create := func(item, name string) {

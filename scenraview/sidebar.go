@@ -42,9 +42,10 @@ func entryIcon(en entry) func() *core.SVG {
 	return lucide.FileX
 }
 
-// sidebar is the open folder's name and its Scenra files as a tree, in
-// which choosing a file shows it; or, while no folder is open, a way to
-// open one. It holds the dialog naming a new file.
+// sidebar is the open folder's Scenra files as a tree, in which choosing
+// a file shows it; or, while no folder is open, a way to open one. It
+// holds the dialog naming a new file, which the app's menu or the empty
+// workspace asks for.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -124,19 +125,6 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			core.Text{Content: tr.FilesEmpty(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)}}},
 		Style: core.Style{FlexGrow: 1},
 	}
-	header := core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 4, Padding: core.Edges{Left: 12, Right: 6, Bottom: 4}},
-		Children: []core.Node{
-			core.Text{ContentFunc: func() string { return filepath.Base(e.folder.Get()) }, MaxLines: 1, TestID: "folder-name",
-				Style: ui.TypeBody.Merge(core.Style{FontWeight: ui.Semibold, FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0)}), StyleFunc: ui.Colored(colors.Text)},
-			ui.Menu{Label: tr.NewFile(), Align: core.AlignEnd, TestID: "new-file",
-				Trigger: ui.Button{Icon: lucide.Plus, Label: tr.NewFile(), Variant: ui.ButtonGhost, Side: 26},
-				Children: []core.Node{
-					ui.MenuItem{Text: tr.NewDesign(), Icon: lucide.AppWindow, OnSelect: e.NewDesign, TestID: "new-design"},
-					ui.MenuItem{Text: tr.NewFlow(), Icon: lucide.Workflow, OnSelect: e.NewFlow, TestID: "new-flow"},
-					ui.MenuItem{Text: tr.NewComponent(), Icon: lucide.Component, OnSelect: e.NewComponent, TestID: "new-component"},
-				}},
-			ui.IconButton{Icon: lucide.FolderOpen, Label: tr.OpenFolder(), Size: 26, OnPress: e.OpenFolder, TestID: "open-folder"},
-		}}
 	noFolder := core.View{Style: core.Style{Padding: core.Symmetric(8, 12), Gap: 10}, Children: []core.Node{
 		core.Text{Content: tr.NoFolder(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
 		ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: e.OpenFolder, TestID: "sidebar-open-folder"},
@@ -149,7 +137,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			core.Show{When: func() bool { return e.folder.Get() == "" },
 				Then: func(*core.Scope) core.Node { return noFolder },
 				Else: func(*core.Scope) core.Node {
-					return core.View{Style: ui.FillRest, Children: []core.Node{header, core.View{Style: core.Style{FlexGrow: 1, Padding: core.Symmetric(0, 4)}, Children: []core.Node{files}}}}
+					return core.View{Style: ui.FillRest.Merge(core.Style{Padding: core.Symmetric(0, 4)}), Children: []core.Node{files}}
 				}},
 			newFileDialog(cx, e),
 		}}

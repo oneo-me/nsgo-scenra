@@ -74,7 +74,6 @@ var supplied = map[string]Translation{}
 // The indexes of the messages without arguments in the tables.
 const (
 	textEdited = iota
-	textNewFile
 	textNewDesign
 	textNewFlow
 	textNewComponent
@@ -132,7 +131,6 @@ const (
 // index, by which Supply reads a Translation's Texts.
 var keyOfText = [numTexts]string{
 	"edited",
-	"newFile",
 	"newDesign",
 	"newFlow",
 	"newComponent",
@@ -188,7 +186,6 @@ var keyOfText = [numTexts]string{
 // textsEn are the messages without arguments in en.
 var textsEn = i18n.NewTexts(""+
 	"Edited"+
-	"New File"+
 	"New Design"+
 	"New Flow"+
 	"New Component"+
@@ -241,7 +238,6 @@ var textsEn = i18n.NewTexts(""+
 	"Show What Can Be Tapped",
 	[]uint16{
 		6,
-		8,
 		10,
 		8,
 		13,
@@ -297,7 +293,6 @@ var textsEn = i18n.NewTexts(""+
 // textsZhHans are the messages without arguments in zh-Hans.
 var textsZhHans = i18n.NewTexts(""+
 	"已编辑"+
-	"新建文件"+
 	"新建设计"+
 	"新建流程"+
 	"新建组件"+
@@ -350,7 +345,6 @@ var textsZhHans = i18n.NewTexts(""+
 	"显示可点击的区域",
 	[]uint16{
 		9,
-		12,
 		12,
 		12,
 		12,
@@ -506,13 +500,6 @@ func Edited(cx *core.Scope) string { return For(cx).Edited() }
 
 // Edited is the package's Edited in the language of msgs.
 func (msgs Messages) Edited() string { return msgs.text(textEdited) }
-
-// NewFile says "New File"
-// in the language the app shows under cx.
-func NewFile(cx *core.Scope) string { return For(cx).NewFile() }
-
-// NewFile is the package's NewFile in the language of msgs.
-func (msgs Messages) NewFile() string { return msgs.text(textNewFile) }
 
 // NewDesign says "New Design"
 // in the language the app shows under cx.

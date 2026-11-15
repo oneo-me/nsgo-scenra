@@ -43,9 +43,7 @@ func TestSettingsTurnAgentsOff(t *testing.T) {
 	os.Mkdir(dir, 0o755)
 	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: dir}} }
 	app.Press("id:chat-open-folder")
-	if got := app.WaitFor("id:folder-name", 5*time.Second).Text; got != "hello" {
-		t.Fatalf("the folder is named %q", got)
-	}
+	app.WaitFor("id:files", 5*time.Second)
 	app.Press("id:open-settings")
 	app.WaitFor("id:settings", time.Second)
 	app.WaitFor("id:settings >> text:Claude Code", 5*time.Second)
