@@ -29,11 +29,13 @@ func deviceIcon(device string) func() *core.SVG {
 }
 
 // entryIcon is the icon of a file of the tree: its design's device, a
-// flow's, or one of a file that does not parse.
+// component's, a flow's, or one of a file that does not parse.
 func entryIcon(en entry) func() *core.SVG {
 	switch en.kind {
 	case flowfile.Design:
 		return deviceIcon(en.device)
+	case flowfile.Component:
+		return lucide.Component
 	case flowfile.Chart:
 		return lucide.Workflow
 	}
@@ -131,6 +133,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 				Children: []core.Node{
 					ui.MenuItem{Text: tr.NewDesign(), Icon: lucide.AppWindow, OnSelect: e.NewDesign, TestID: "new-design"},
 					ui.MenuItem{Text: tr.NewFlow(), Icon: lucide.Workflow, OnSelect: e.NewFlow, TestID: "new-flow"},
+					ui.MenuItem{Text: tr.NewComponent(), Icon: lucide.Component, OnSelect: e.NewComponent, TestID: "new-component"},
 				}},
 			ui.IconButton{Icon: lucide.FolderOpen, Label: tr.OpenFolder(), Size: 26, OnPress: e.OpenFolder, TestID: "open-folder"},
 		}}
@@ -197,8 +200,11 @@ func newFileDialog(cx *core.Scope, e *Editor) core.Node {
 			}
 		}
 		title := tr.NewDesign()
-		if k == flowfile.Chart {
+		switch k {
+		case flowfile.Chart:
 			title = tr.NewFlow()
+		case flowfile.Component:
+			title = tr.NewComponent()
 		}
 		return ui.Dialog{Open: func() bool { return e.naming.Get() != "" }, OnOpenChange: func(open bool, _ base.Reason) {
 			if !open {
@@ -238,7 +244,7 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 	// trips NSGo; the design covers it while one shows.
 	body := core.View{Style: ui.FillRest, Children: []core.Node{
 		flowPane(cx, e),
-		core.Show{When: func() bool { return e.cur().doc.Get().Kind == flowfile.Design }, Then: func(cx *core.Scope) core.Node {
+		core.Show{When: func() bool { k := e.cur().doc.Get().Kind; return k == flowfile.Design || k == flowfile.Component }, Then: func(cx *core.Scope) core.Node {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
 				Children: []core.Node{designPane(cx, e, e.a.ask())}}
 		}},

@@ -1,6 +1,6 @@
 // Package flowfile reads and writes Scenra files: plain text documents
-// that each hold one design of an app's screen or one flow chart, line by
-// line. A folder of them is a project.
+// that each hold one design of an app's screen, one component designs
+// share or one flow chart, line by line. A folder of them is a project.
 //
 //	# A comment runs to the end of the line; indentation is free.
 //	design device=phone              # or tablet, desktop
@@ -15,6 +15,12 @@
 //	  end
 //	  image "A cup of coffee" class="h-40 rounded-2xl"
 //	  svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
+//	  use tab-bar class="mt-auto"      # components/tab-bar.scenra
+//	end
+//
+//	component device=phone           # in components/tab-bar.scenra
+//	box class="flex-row border-t border-border px-2 pt-2 pb-7"
+//	  icon house class="size-6"
 //	end
 //
 //	flow direction=right             # or down
@@ -30,7 +36,11 @@
 // and a box holds the lines up to its end. The interface is a few
 // primitives, listed in Elements, each shaped by Tailwind CSS classes, so
 // a design can look like anything rather than like the controls of one
-// toolkit. Any element may carry a comment, a change the user asks the
+// toolkit. A component is drawn like a design, at its device's width and
+// as high as it needs, and lives in the components folder at the top of
+// the project, so any design or component uses it by its path there; a
+// use is one element, a box holding the component, whatever it holds.
+// Any element may carry a comment, a change the user asks the
 // assistant for, which stays until the assistant resolves it. An edge may
 // name nodes no line declares; they take their ID as their label.
 //

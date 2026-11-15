@@ -120,6 +120,7 @@ func menu(cx *core.Scope, e *scenraview.Editor, settingsOpen *core.Signal[bool])
 		{Label: tr.FileMenu(), Items: []desktop.MenuItem{
 			{Label: w.NewDesign(), Shortcut: "mod+n", Disabled: e.Folder() == "", OnSelect: e.NewDesign},
 			{Label: w.NewFlow(), Shortcut: "mod+shift+n", Disabled: e.Folder() == "", OnSelect: e.NewFlow},
+			{Label: w.NewComponent(), Disabled: e.Folder() == "", OnSelect: e.NewComponent},
 			{Label: w.OpenFolder(), Shortcut: "mod+o", OnSelect: e.OpenFolder},
 			{Separator: true},
 			{Label: w.Save(), Shortcut: "mod+s", OnSelect: e.Save},

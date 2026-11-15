@@ -67,6 +67,7 @@ const (
 	textNewFile
 	textNewDesign
 	textNewFlow
+	textNewComponent
 	textDesign
 	textFlow
 	textDesignOrFlow
@@ -115,6 +116,7 @@ var keyOfText = [numTexts]string{
 	"newFile",
 	"newDesign",
 	"newFlow",
+	"newComponent",
 	"design",
 	"flow",
 	"designOrFlow",
@@ -161,6 +163,7 @@ var textsEn = i18n.NewTexts(""+
 	"New File"+
 	"New Design"+
 	"New Flow"+
+	"New Component"+
 	"Design"+
 	"Flow"+
 	"Design or Flow"+
@@ -204,6 +207,7 @@ var textsEn = i18n.NewTexts(""+
 		8,
 		10,
 		8,
+		13,
 		6,
 		4,
 		14,
@@ -250,6 +254,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"新建文件"+
 	"新建设计"+
 	"新建流程"+
+	"新建组件"+
 	"设计"+
 	"流程"+
 	"设计或流程"+
@@ -290,6 +295,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"让助手处理评论",
 	[]uint16{
 		9,
+		12,
 		12,
 		12,
 		12,
@@ -442,6 +448,13 @@ func NewFlow(cx *core.Scope) string { return For(cx).NewFlow() }
 
 // NewFlow is the package's NewFlow in the language of msgs.
 func (msgs Messages) NewFlow() string { return msgs.text(textNewFlow) }
+
+// NewComponent says "New Component"
+// in the language the app shows under cx.
+func NewComponent(cx *core.Scope) string { return For(cx).NewComponent() }
+
+// NewComponent is the package's NewComponent in the language of msgs.
+func (msgs Messages) NewComponent() string { return msgs.text(textNewComponent) }
 
 // Design says "Design"
 // in the language the app shows under cx.

@@ -255,6 +255,12 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	if got := shownName(app); got != "Sign in-flow" {
 		t.Fatalf("the switch showed %q", got)
 	}
+	// A component goes in the components folder.
+	create("new-component", "tab-bar")
+	if data, err := os.ReadFile(filepath.Join(dir, "components", "tab-bar.scenra")); err != nil || string(data) != "component\n" {
+		t.Fatalf("the component: %q %v", data, err)
+	}
+	app.Find("id:files >> label:tab-bar")
 	// A flow goes in the folder selected.
 	app.Press(`id:files >> text:"flows"`)
 	create("new-flow", "checkout")
@@ -279,6 +285,36 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	if data, _ := os.ReadFile(filepath.Join(dir, "flows", "checkout-flow.scenra")); string(data) != "flow direction=right\n" {
 		t.Fatalf("the file was not saved:\n%s", data)
 	}
+}
+
+func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra":                "design\nbox class=\"flex-1\"\n  text \"Welcome\"\n  use tab-bar class=\"mt-auto\"\n  use gone\nend\n",
+		"components/tab-bar.scenra":  "component\nbox class=\"flex-row\"\n  use nav/item\n  text \"Orders\"\nend\n",
+		"components/nav/item.scenra": "component\ntext \"Home tab\"\n",
+		"components/loop.scenra":     "component\nuse loop\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("design >> text:Home tab", 5*time.Second)
+	app.Find("id:element-0.1 >> text:Orders")
+	// A component's elements select the use drawing them.
+	app.Press("design >> text:Orders")
+	if got := e.cur().element.GetUntracked(); got != "0.1" {
+		t.Fatalf("pressing inside the component selected %q", got)
+	}
+	// Editing a component redraws the designs using it.
+	os.WriteFile(filepath.Join(dir, "components", "nav", "item.scenra"), []byte("component\ntext \"Menu tab\"\n"), 0o644)
+	app.WaitFor("design >> text:Menu tab", 5*time.Second)
+	// A component opens on its own, at its device's width.
+	app.Press("id:files >> label:tab-bar")
+	app.WaitFor("design >> text:Orders", time.Second)
+	if w := app.Find("id:design").Frame.Size.Width; w != 390 {
+		t.Fatalf("the component is %v wide", w)
+	}
+	app.WaitFor("id:files >> label:loop", time.Second)
+	app.Press("id:files >> label:loop")
+	app.WaitFor("id:element-0", time.Second)
 }
 
 func TestTheTreeKeepsAFlowByItsDesign(t *testing.T) {
@@ -358,7 +394,7 @@ func TestEveryIconNameDraws(t *testing.T) {
 }
 
 func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
-	files, _ := scan("../examples", nil)
+	files, _, _ := scan("../examples", nil)
 	if len(files) < 2 {
 		t.Fatalf("examples %v", files)
 	}

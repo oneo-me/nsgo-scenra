@@ -37,6 +37,7 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 - The assistant is a coding agent you have installed, such as Claude Code, Codex, pi or CodeBuddy Code: it asks what it needs, then writes and makes the folder's files as the Scenra skill teaches, and each redraws as it writes.
 - The assistant works on what you select, resolves the comments you leave on design elements, and works in the open folder, so it can chart how the code there works.
 - Sending a message saves your changes; while the assistant works the files stay as it leaves them, and each of its turns undoes as one step.
+- Pieces screens share, such as a tab bar, are components in the folder's `components/`, which designs draw with `use`, so changing one changes every screen.
 - Designs are plain-text `.scenra` files you can read, diff and edit by hand.
 - Runs on macOS, Windows and Linux, in English and Simplified Chinese.
 
@@ -54,10 +55,10 @@ On macOS, `.scenra` files open with the app from the Finder; on Windows and Linu
 ## Getting started
 
 1. Install and sign in to a coding agent such as [Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex); **Settings** (⌘,) shows the agents Scenra found and turns them or their models on or off.
-2. Open a folder (⌘O), such as a project's, which the assistant works in, or `examples/` to start from an example.
+2. Open a folder (⌘O), such as a project's, which the assistant works in, or `examples/coffee-shop` to start from an example.
 3. Describe an app or a process in the assistant, such as "Design the sign-in screen of a coffee shop app" or "Chart how we handle an order".
 4. Answer its questions and watch it make and draw the designs and flows; pick one in the tree on the left.
-5. Make a design (⌘N) or a flow (⌘⇧N) yourself in the folder selected in the tree.
+5. Make a design (⌘N), a flow (⌘⇧N) or a component yourself in the folder selected in the tree.
 
 The [`flowfile` package comment](flowfile/) describes the file format.
 

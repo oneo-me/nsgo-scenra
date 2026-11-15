@@ -41,28 +41,57 @@ func TestParseDesign(t *testing.T) {
 
 func TestParseFileErrors(t *testing.T) {
 	for src, want := range map[string]string{
-		"":                         "line 1: a file starts with design or flow",
-		"text \"x\"":               "a file starts with design or flow",
-		"design\nwidget":           "line 2: unknown element",
-		"design\nbox\ntext \"x\"":  "line 3: box has no end",
-		"design\nend":              "end closes no",
-		"design\ntext \"x\" src=y": "text takes no attribute \"src\"; use class",
-		"design\ntext x y":         "quote text with spaces",
-		"design\nicon nope":        "unknown icon \"nope\"",
-		"design\nicon cofee-cup":   "such as cup-soda",
-		"design\nsvg \"<div/>\"":   "svg needs a document",
-		"design\nsvg \"<svg>\"":    "svg XML syntax error",
-		"design device=watch":      "unknown device",
-		"design direction=right":   "a design takes device",
-		"flow device=phone":        "a flow takes direction",
-		"design\nflow":             "line 2: a file holds one design or one flow",
-		"flow\na -> b\ndesign":     "line 3: a file holds one design or one flow",
-		"design\nnode a":           "a design holds no flow",
-		"design\na -> b":           "a design holds no flow",
+		"":                                 "line 1: a file starts with design, component or flow",
+		"text \"x\"":                       "a file starts with design, component or flow",
+		"design\nwidget":                   "line 2: unknown element",
+		"design\nbox\ntext \"x\"":          "line 3: box has no end",
+		"design\nend":                      "end closes no",
+		"design\ntext \"x\" src=y":         "text takes no attribute \"src\"; use class",
+		"design\ntext x y":                 "quote text with spaces",
+		"design\nicon nope":                "unknown icon \"nope\"",
+		"design\nicon cofee-cup":           "such as cup-soda",
+		"design\nsvg \"<div/>\"":           "svg needs a document",
+		"design\nsvg \"<svg>\"":            "svg XML syntax error",
+		"design device=watch":              "unknown device",
+		"design direction=right":           "a design takes device",
+		"flow device=phone":                "a flow takes direction",
+		"design\nflow":                     "line 2: a file holds one design, component or flow",
+		"flow\na -> b\ndesign":             "line 3: a file holds one design, component or flow",
+		"design\ncomponent":                "line 2: a file holds one design, component or flow",
+		"component direction=down":         "a component takes device",
+		"component\nnode a":                "a component holds no flow",
+		"design\nuse":                      "\"\" names no component",
+		"design\nuse \"a b\"":              "names no component",
+		"design\nuse ../secret":            "names no component",
+		"design\nuse x\n  text \"y\"\nend": "end closes no box",
+		"design\nnode a":                   "a design holds no flow",
+		"design\na -> b":                   "a design holds no flow",
 	} {
 		if _, err := Parse(src); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v, want %q", src, err, want)
 		}
+	}
+}
+
+func TestComponents(t *testing.T) {
+	src := "component device=tablet\nbox class=\"flex-row\"\n  use nav/item class=\"flex-1\"\nend\n"
+	f, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Kind != Component || f.Device != "tablet" || f.Format() != strings.Replace(src, "use nav/item", `use "nav/item"`, 1) {
+		t.Fatalf("component %+v:\n%s", f, f.Format())
+	}
+	if got := Uses(f.UI); !slices.Equal(got, []string{"nav/item"}) {
+		t.Fatalf("uses %v", got)
+	}
+	for p, want := range map[string]string{"components/tab-bar.scenra": "tab-bar", "components/nav/item.scenra": "nav/item", "tab-bar.scenra": "", "components/x.txt": ""} {
+		if got, ok := ComponentName(p); got != want || ok != (want != "") {
+			t.Errorf("%s names %q %v", p, got, ok)
+		}
+	}
+	if ComponentPath("nav/item") != "components/nav/item.scenra" {
+		t.Fatal(ComponentPath("nav/item"))
 	}
 }
 

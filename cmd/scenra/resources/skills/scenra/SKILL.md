@@ -5,7 +5,7 @@ description: Design app screens and draw flow charts in Scenra files (.scenra), 
 
 # Scenra files
 
-Scenra files (`.scenra`) are plain text, and each holds one thing: a design, a draft of how one screen of an app looks, or a flow chart, such as what the app does when the user presses a screen's main button. The user opens a folder in the Scenra editor, which lists the folder's Scenra files as a tree on the left and draws the one open in the middle. A project is a folder of them: give each screen a design file named after it, such as `sign-in.scenra`, and put what happens on that screen in its flow beside it, named the same with `-flow`, such as `sign-in-flow.scenra`; the editor keeps the two together and switches between them. Group screens in folders as the app grows. When the user only wants a flow chart, make only a flow file, still named `<name>-flow.scenra`. Never name a design with `-flow` at the end.
+Scenra files (`.scenra`) are plain text, and each holds one thing: a design, a draft of how one screen of an app looks, or a flow chart, such as what the app does when the user presses a screen's main button. The user opens a folder in the Scenra editor, which lists the folder's Scenra files as a tree on the left and draws the one open in the middle. A project is a folder of them: give each screen a design file named after it, such as `sign-in.scenra`, and put what happens on that screen in its flow beside it, named the same with `-flow`, such as `sign-in-flow.scenra`; the editor keeps the two together and switches between them. Group screens in folders as the app grows. When the user only wants a flow chart, make only a flow file, still named `<name>-flow.scenra`. Never name a design with `-flow` at the end. Put the pieces several screens share, such as a tab bar, a navigation bar or a card, in components, which live in one folder, `components/`, at the top of the open folder.
 
 ## Working on files
 
@@ -20,7 +20,7 @@ When a design or flow is about code at hand, read the code first and draw what i
 
 ## Format
 
-A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. A file holds one design or one flow, never both and never two.
+A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), `component`, a piece designs share, with the same `device=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. A file holds one design, component or flow, never two.
 
 ```
 # A comment runs to the end of the line; indentation is free.
@@ -68,6 +68,7 @@ A design is drawn with a few primitives, an element a line, each styled with Tai
 - `icon`: the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*
 - `image`: a picture its text describes: the image at the URL `src="…"`, or a placeholder; size it with classes
 - `svg`: any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox
+- `use`: the component its text names, a file of `components/`, drawn as a box with its classes holding the component's elements; see Components
 
 Draw any interface with them, as a designer draws in Figma: buttons, fields, switches, tabs, cards, lists, charts and navigation are boxes, texts, icons and SVG shaped by classes, with exactly the look the app needs. Make designs look like a finished product, with a clear hierarchy, consistent spacing and realistic content, not wireframes.
 
@@ -78,6 +79,36 @@ The design is the device's size and clips what overflows; give the main box flex
 An icon takes the name of any Lucide icon (lucide.dev), by its current name or an older one such as home or alert-circle; common ones are house, search, bell, settings, user, users, circle-user, mail, message-circle, message-square, phone, send, inbox, heart, star, bookmark, share-2, link, paperclip, image, camera, video, mic, music, play, pause, calendar, clock, map-pin, navigation, compass, globe, shopping-cart, shopping-bag, store, credit-card, wallet, gift, tag, package, truck, file, file-text, folder, download, upload, cloud, plus, minus, x, check, pencil, trash, copy, funnel, sliders-horizontal, list, layout-grid, layout-dashboard, menu, ellipsis, ellipsis-vertical, chevron-right, chevron-left, chevron-down, chevron-up, arrow-right, arrow-left, arrow-up, arrow-down, external-link, refresh-cw, rotate-ccw, log-in, log-out, lock, key, shield, eye, eye-off, info, circle-alert, triangle-alert, circle-check, circle-x, circle-question-mark, chart-bar, chart-line, chart-pie, activity, trending-up, trending-down, zap, sparkles, flame, award, trophy, target, sun, moon, wifi, battery, smartphone, monitor, qr-code, scan, book, briefcase, building, coffee, utensils, car, plane, bike, dumbbell, headphones, graduation-cap. Draw a logo, a chart or an illustration with svg.
 
 `get_view` names elements by their paths: an element's index among its siblings at each level from 0, joined by dots, so 1.0 is the first element the second top-level element holds.
+
+## Components
+
+A component is a piece of interface several designs or components share, drawn once in a file of `components/` at the top of the open folder, so changing it changes every screen using it. Its first line is `component`; the rest is elements, as in a design, drawn at its device's width and as high as they need. `use <name>` draws the component named by its path in `components/` without `.scenra`: `use tab-bar` draws `components/tab-bar.scenra`, and `use nav/item` draws `components/nav/item.scenra`.
+
+```
+# components/tab-bar.scenra
+component
+box class="flex-row border-t border-zinc-200 bg-white px-2 pt-2 pb-7"
+  box class="flex-1 items-center gap-1"
+    icon house class="size-6 text-amber-600"
+    text "Home" class="text-[10px] font-medium text-amber-600"
+  end
+end
+```
+
+```
+# menu.scenra
+design
+box class="flex-1 bg-zinc-50"
+  text "Menu" class="p-5 text-2xl font-bold"
+  use tab-bar class="mt-auto"
+end
+```
+
+- A use is one element: a box with its classes holding the component's elements, so place and size it with classes as any box. It holds nothing itself and takes no end.
+- Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
+- Components may use other components, never themselves, directly or through others.
+- Write a component as a whole, the same on every screen; give what differs, such as which tab is active, to the designs, or make one component for each version, such as `tab-bar-home` and `tab-bar-menu`.
+- `get_view` lists the components there are and reports uses of missing ones and loops.
 
 ## Comments
 

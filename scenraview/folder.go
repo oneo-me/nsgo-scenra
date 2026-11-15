@@ -2,6 +2,7 @@ package scenraview
 
 import (
 	"io/fs"
+	"maps"
 	"path"
 	"path/filepath"
 	"slices"
@@ -51,10 +52,19 @@ type entry struct {
 }
 
 // scanned is what a scan read of a file, kept while the file stays the
-// same.
+// same: a component's elements too.
 type scanned struct {
 	stamp stamp
 	entry entry
+	ui    []flowfile.Element
+}
+
+// components are the elements of the components the open folder's
+// designs use, by name.
+type components map[string][]flowfile.Element
+
+func sameComponents(a, b components) bool {
+	return maps.EqualFunc(a, b, func(x, y []flowfile.Element) bool { return flowfile.FormatUI(x) == flowfile.FormatUI(y) })
 }
 
 // skipped says a scan leaves out the folder or file named name: hidden
@@ -62,10 +72,11 @@ type scanned struct {
 func skipped(name string) bool { return strings.HasPrefix(name, ".") || name == "node_modules" }
 
 // scan finds the Scenra files under root, reading again only those that
-// changed since the scan whose files were cache, and returns them with
-// the cache of this one.
-func scan(root string, cache map[string]scanned) ([]entry, map[string]scanned) {
+// changed since the scan whose files were cache, and returns them, the
+// components among them and the cache of this one.
+func scan(root string, cache map[string]scanned) ([]entry, components, map[string]scanned) {
 	var out []entry
+	parts := components{}
 	next := map[string]scanned{}
 	seen := 0
 	filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -90,15 +101,21 @@ func scan(root string, cache map[string]scanned) ([]entry, map[string]scanned) {
 			c = scanned{stamp: st}
 			if f, err := readFile(p); err == nil {
 				c.entry.kind, c.entry.device = f.Kind, f.Device
+				if f.Kind == flowfile.Component {
+					c.ui = f.UI
+				}
 			}
 		}
 		rel, _ := filepath.Rel(root, p)
 		c.entry.path = filepath.ToSlash(rel)
 		next[p] = c
 		out = append(out, c.entry)
+		if name, ok := flowfile.ComponentName(c.entry.path); ok && c.entry.kind == flowfile.Component {
+			parts[name] = c.ui
+		}
 		return nil
 	})
-	return out, next
+	return out, parts, next
 }
 
 // scanNow has the scan read the open folder now.
@@ -116,20 +133,31 @@ func (e *Editor) found(en entry) {
 }
 
 // scannedFiles takes the files a scan of dir found, and opens those the
-// agent made in its turn.
-func (e *Editor) scannedFiles(dir string, files []entry, first bool) {
+// agent made in its turn: a component only when it made nothing else, so
+// the screen using it shows.
+func (e *Editor) scannedFiles(dir string, files []entry, parts components, first bool) {
 	if e.folder.GetUntracked() != dir {
 		return
 	}
 	before := e.files.GetUntracked()
-	e.files.Set(files)
+	e.cx.Batch(func() {
+		e.files.Set(files)
+		e.parts.Set(parts)
+	})
 	if first || !e.a.busy() {
 		return
 	}
+	var made []entry
 	for _, f := range files {
 		if !slices.ContainsFunc(before, func(b entry) bool { return b.path == f.path }) && f.kind != "" {
-			e.open(filepath.Join(dir, filepath.FromSlash(f.path)))
+			made = append(made, f)
 		}
+	}
+	if slices.ContainsFunc(made, func(f entry) bool { return f.kind != flowfile.Component }) {
+		made = slices.DeleteFunc(made, func(f entry) bool { return f.kind == flowfile.Component })
+	}
+	for _, f := range made {
+		e.open(filepath.Join(dir, filepath.FromSlash(f.path)))
 	}
 }
 

@@ -155,6 +155,13 @@ func (c *designCanvas) wheel(e core.WheelEvent) {
 	}
 }
 
+// lookOf is what a design is drawn from: its text, and the components it
+// may use.
+type lookOf struct {
+	text  string
+	parts components
+}
+
 // designPane is the design shown on the canvas, with its zoom
 // tools. A layer over the design takes the pointer and finds the element
 // under it itself, as the camera's transform moves the design where the
@@ -169,7 +176,9 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
 	c := newDesignCanvas(cx)
-	look := core.NewMemo(cx, func() string { return e.cur().doc.Get().Format() })
+	// A design is drawn again as it or a component changes.
+	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{e.cur().doc.Get().Format(), e.parts.Get()} },
+		func(a, b lookOf) bool { return a.text == b.text && sameComponents(a.parts, b.parts) })
 	// Another design shows fitted.
 	shown := core.NewMemo(cx, e.cur)
 	cx.Effect(func() {
@@ -217,9 +226,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	}, 1, "design-hovered")
 	elementAt := func(p core.Point) string {
 		s := e.cur().doc.Get()
-		w, h := deviceSize(s.Device)
 		at := c.toDesign(p)
-		if at.X < 0 || at.Y < 0 || at.X >= core.Points(w) || at.Y >= core.Points(h) {
+		if at.X < 0 || at.Y < 0 || float64(at.X) >= c.contentW || float64(at.Y) >= c.contentH {
 			return ""
 		}
 		return sel.elementAt(s.UI, nil, core.Point{}, at)
@@ -231,7 +239,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		hovered.Set("")
 	})
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
-		look.Get()
+		sel.parts = look.Get().parts
 		s := core.Untracked(cx, func() flowfile.File { return e.cur().doc.Get() })
 		clear(sel.frames)
 		if len(s.UI) == 0 {

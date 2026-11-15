@@ -217,6 +217,25 @@ func TestAssistantDrawsInTheFolder(t *testing.T) {
 	app.WaitFor("text:Let's design an app together", 5*time.Second)
 }
 
+func TestAScreenShowsOverTheComponentsMadeWithIt(t *testing.T) {
+	app, e, d := startAssistant(t)
+	dir := t.TempDir()
+	openPath(t, app, e, dir)
+	app.WaitFor("text:Let's design an app together", 5*time.Second)
+	os.MkdirAll(filepath.Join(dir, "components"), 0o755)
+	d.script(reply{steps: []step{
+		{file: filepath.Join(dir, "components", "tab-bar.scenra"), text: "component\ntext \"Home tab\"\n"},
+		{file: filepath.Join(dir, "about.scenra"), text: "design\nuse tab-bar\n"},
+		{view: true},
+	}, text: "Drew it."})
+	send(app, "Design an about screen")
+	app.WaitFor("text:Drew it.", 5*time.Second)
+	app.WaitFor("design >> text:Home tab", 5*time.Second)
+	if got := shownName(app); got != "about" {
+		t.Fatalf("the header names %q", got)
+	}
+}
+
 func TestSendingSavesWhatTheUserChanged(t *testing.T) {
 	path := writeFlow(t, "shop.scenra", "design\nbox class=\"flex-1 gap-4 p-6 bg-nope\"\n  text \"Welcome\"\nend\n")
 	app, e, d := startAssistant(t)
@@ -319,7 +338,8 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 	if out, failed := ask(); !failed || !strings.Contains(out, "no Scenra editor") {
 		t.Fatalf("a call without an editor: %q", out)
 	}
-	dir := folderOfFiles(t, map[string]string{"a/plan.scenra": "design\ntext \"x\" class=\"bg-nope\"\n"})
+	dir := folderOfFiles(t, map[string]string{"a/plan.scenra": "design\ntext \"x\" class=\"bg-nope\"\nuse card\nuse gone\n",
+		"components/card.scenra": "component\nuse card\n", "a/stray.scenra": "component\n"})
 	var e *Editor
 	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
 		e = New(cx, Options{})
@@ -344,7 +364,12 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		t.Fatalf("a call without a folder: %q", out)
 	}
 	openPath(t, app, e, dir)
-	if out, failed := answer(); failed || !strings.Contains(out, "no file open") || !strings.Contains(out, "a/plan.scenra: bg-nope") {
-		t.Fatalf("a folder with no file open: %q", out)
+	out, failed := answer()
+	for _, want := range []string{"no file open", "a/plan.scenra: bg-nope", "draw with use <name>: card.",
+		`a/plan.scenra: use "card": components use each other`, `a/plan.scenra: use "gone": there is no components/gone.scenra`,
+		`components/card.scenra: use "card": components use each other`, "a/stray.scenra: a component outside components/"} {
+		if failed || !strings.Contains(out, want) {
+			t.Fatalf("the view tells nothing of %q: %s", want, out)
+		}
 	}
 }

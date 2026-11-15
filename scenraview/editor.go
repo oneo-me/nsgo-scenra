@@ -72,10 +72,11 @@ type document struct {
 type Editor struct {
 	cx   *core.Scope
 	opts Options
-	// folder is the open folder, "" before one is, and files the Scenra
-	// files found in it.
+	// folder is the open folder, "" before one is, files the Scenra
+	// files found in it and parts the components among them.
 	folder *core.Signal[string]
 	files  *core.Signal[[]entry]
+	parts  *core.Signal[components]
 	active *core.Signal[*document]
 	// blank stands for the document shown while none is open.
 	blank *document
@@ -101,6 +102,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 		toasts = ui.NewToaster(cx)
 	}
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
+		parts:  core.NewSignalFunc(cx, components(nil), sameComponents),
 		active: core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
 		camera: &uiflow.State{}, toasts: toasts, rescan: make(chan struct{}, 1)}
 	e.blank = e.newDocument(flowfile.File{}, "")
@@ -226,6 +228,7 @@ func (e *Editor) setFolder(dir string) {
 	e.cx.Batch(func() {
 		e.folder.Set(dir)
 		e.files.Set(nil)
+		e.parts.Set(nil)
 	})
 	e.scanNow()
 }
@@ -307,9 +310,11 @@ func (e *Editor) openDoc(f flowfile.File, path string) {
 }
 
 // NewDesign and NewFlow ask for the name of a new design or flow, which
-// they make in the folder the sidebar has selected and open.
-func (e *Editor) NewDesign() { e.askName(flowfile.Design) }
-func (e *Editor) NewFlow()   { e.askName(flowfile.Chart) }
+// they make in the folder the sidebar has selected and open; NewComponent
+// asks for a component's, which it makes in the components folder.
+func (e *Editor) NewDesign()    { e.askName(flowfile.Design) }
+func (e *Editor) NewFlow()      { e.askName(flowfile.Chart) }
+func (e *Editor) NewComponent() { e.askName(flowfile.Component) }
 
 func (e *Editor) askName(kind flowfile.Kind) {
 	if e.folder.GetUntracked() == "" {
@@ -327,7 +332,8 @@ var (
 
 // create makes a file of kind named name in the folder into, relative to
 // the open one, and opens it: name.scenra for a design, and
-// name-flow.scenra for a flow, which is the design name's flow.
+// name-flow.scenra for a flow, which is the design name's flow. A
+// component goes in the components folder wherever into is.
 func (e *Editor) create(kind flowfile.Kind, into, name string) error {
 	name = strings.TrimSuffix(strings.TrimSpace(name), ".scenra")
 	if kind == flowfile.Chart {
@@ -336,8 +342,17 @@ func (e *Editor) create(kind flowfile.Kind, into, name string) error {
 	if name == "" || strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, ".") || strings.HasSuffix(name, flowSuffix) {
 		return errName
 	}
+	if kind == flowfile.Component {
+		if !flowfile.ValidComponentName(name) {
+			return errName
+		}
+		into = flowfile.ComponentsDir
+	}
 	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(into), fileName(name, kind))
 	f := flowfile.File{Kind: kind}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if errors.Is(err, os.ErrExist) {
 		return errExists
@@ -376,7 +391,7 @@ func (d *document) show(l location) {
 	if _, ok := f.Flow.Node(l.node); !ok || f.Kind != flowfile.Chart {
 		l.node = ""
 	}
-	if _, ok := flowfile.ElementAt(f.UI, l.element); !ok || f.Kind != flowfile.Design {
+	if _, ok := flowfile.ElementAt(f.UI, l.element); !ok || f.Kind == flowfile.Chart {
 		l.element = ""
 	}
 	d.e.cx.Batch(func() {

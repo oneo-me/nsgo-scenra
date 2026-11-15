@@ -1,6 +1,7 @@
 package scenraview
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/nsgo-dev/nsgo/core"
@@ -30,6 +31,12 @@ type selection struct {
 	// laidOut counts the changes of.
 	frames  map[string]core.Bounds
 	laidOut *core.Signal[int]
+	// parts are the components a use draws. Inside one, owner is the
+	// path of the use, which its elements select, and using the
+	// components it is in, which it cannot use again.
+	parts components
+	owner string
+	using []string
 }
 
 // bounds is the frame of the element at path in the design's.
@@ -74,18 +81,22 @@ func (sel selection) elementAt(els []flowfile.Element, parent []int, origin, p c
 }
 
 // screenView draws a design at its device's size: its elements stack in
-// the device's frame, which clips what overflows.
+// the device's frame, which clips what overflows. A component is drawn
+// at the device's width, as high as it needs.
 func screenView(cx *core.Scope, s flowfile.File, sel selection) core.Node {
 	colors := ui.ColorsOf(cx)
 	w, h := deviceSize(s.Device)
+	height := core.Pt(core.Points(h))
 	radius := core.Points(44)
-	switch s.Device {
-	case "tablet":
+	switch {
+	case s.Kind == flowfile.Component:
+		height, radius = core.Length{}, 12
+	case s.Device == "tablet":
 		radius = 28
-	case "desktop":
+	case s.Device == "desktop":
 		radius = 12
 	}
-	return core.View{Style: core.Style{Width: core.Pt(core.Points(w)), Height: core.Pt(core.Points(h)), CornerRadius: radius, FlexShrink: 0,
+	return core.View{Style: core.Style{Width: core.Pt(core.Points(w)), Height: height, CornerRadius: radius, FlexShrink: 0,
 		BorderCurve: core.BorderCurveContinuous, Overflow: core.Hidden, BorderWidth: 1, FontSize: 15},
 		StyleFunc: func() core.Style {
 			return core.Style{Background: colors.Background(), Color: colors.Text(), BorderColor: colors.Border()}
@@ -104,17 +115,25 @@ func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selectio
 // element draws the element at path, shaped by its classes, recording
 // where it is laid out. The design's pointer layer selects it under the
 // pointer; its own press is for the keyboard and assistive technology.
-// An image without a picture, or an SVG NSGo cannot read, draws a
-// placeholder.
+// An image without a picture, an SVG NSGo cannot read, or a use of a
+// component that is missing or in which it is, draws a placeholder. The
+// elements of a component are the use's, so they record nothing and
+// select it.
 func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) core.Node {
 	class := el.Attr("class")
 	id := flowfile.FormatPath(path)
-	press := func(core.PressEvent) { sel.choose(id) }
-	layout := func(b core.Bounds) {
-		sel.frames[id] = b
-		sel.laidOut.Update(func(n int) int { return n + 1 })
+	var layout func(core.Bounds)
+	testID := ""
+	if sel.owner == "" {
+		layout = func(b core.Bounds) {
+			sel.frames[id] = b
+			sel.laidOut.Update(func(n int) int { return n + 1 })
+		}
+		testID = "element-" + id
+	} else {
+		id = sel.owner
 	}
-	testID := "element-" + id
+	press := func(core.PressEvent) { sel.choose(id) }
 	placeholder := func(icon func() *core.SVG) core.Node {
 		return core.View{Class: "h-40 items-center justify-center overflow-hidden bg-muted " + class, Label: el.Text,
 			OnPress: press, OnLayout: layout, TestID: testID,
@@ -139,8 +158,48 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 			return placeholder(lucide.ImageOff)
 		}
 		return core.SVGView{SVG: doc, Class: class, OnPress: press, OnLayout: layout, TestID: testID}
+	case "use":
+		els, ok := sel.parts[el.Text]
+		if !ok || slices.Contains(sel.using, el.Text) {
+			return placeholder(lucide.Component)
+		}
+		inner := sel
+		inner.owner = id
+		inner.using = append(slices.Clone(sel.using), el.Text)
+		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, Children: elements(cx, els, nil, inner)}
 	}
 	return core.Group{}
+}
+
+// componentProblems are what is wrong with the components els use: those
+// missing from the folder, and those used inside themselves. self is the
+// name of the component els are, "" for a design.
+func componentProblems(els []flowfile.Element, self string, parts components) []string {
+	var out []string
+	var visit func(name string, using []string) bool
+	visit = func(name string, using []string) bool {
+		if slices.Contains(using, name) {
+			return false
+		}
+		for _, n := range flowfile.Uses(parts[name]) {
+			if !visit(n, slices.Concat(using, []string{name})) {
+				return false
+			}
+		}
+		return true
+	}
+	var using []string
+	if self != "" {
+		using = []string{self}
+	}
+	for _, name := range flowfile.Uses(els) {
+		if _, ok := parts[name]; !ok {
+			out = append(out, fmt.Sprintf("use %q: there is no %s", name, flowfile.ComponentPath(name)))
+		} else if !visit(name, using) {
+			out = append(out, fmt.Sprintf("use %q: components use each other in a loop", name))
+		}
+	}
+	return out
 }
 
 // unknownClasses are the classes of a design's elements that draw

@@ -17,12 +17,14 @@ var Devices = []string{"phone", "tablet", "desktop"}
 type Kind string
 
 const (
-	Design Kind = "design"
-	Chart  Kind = "flow"
+	Design    Kind = "design"
+	Component Kind = "component"
+	Chart     Kind = "flow"
 )
 
 // File is a Scenra file's content: a design of a screen, its Device and
-// UI, or a flow chart, its Flow.
+// UI, a component designs use, its UI drawn at its Device's width, or a
+// flow chart, its Flow.
 type File struct {
 	Kind   Kind
 	Device string
@@ -65,6 +67,7 @@ var Elements = []ElementSpec{
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
 	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the image at the URL src, or a placeholder; size it with classes"},
 	{Kind: "svg", Doc: "any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox"},
+	{Kind: "use", Doc: "the component its text names, a file of the components folder, drawn as a box with its classes holding the component's elements"},
 }
 
 // commonAttrs are the attributes every element takes: the classes that
@@ -168,6 +171,10 @@ func checkElement(el Element) string {
 		if err := checkSVG(el.Text); err != nil {
 			return "svg " + err.Error()
 		}
+	case "use":
+		if !ValidComponentName(el.Text) {
+			return fmt.Sprintf("%q names no component; use the path of a file in %s/ without .scenra, such as tab-bar", el.Text, ComponentsDir)
+		}
 	}
 	return ""
 }
@@ -231,12 +238,12 @@ func Parse(src string) (File, error) {
 		switch {
 		case lines == 1:
 			return f.header(toks)
-		case word == string(Design) || word == string(Chart):
-			return "a file holds one design or one flow; put another in a file of its own"
+		case word == string(Design) || word == string(Component) || word == string(Chart):
+			return "a file holds one design, component or flow; put another in a file of its own"
 		case f.Kind == Chart:
 			return f.Flow.line(toks)
 		case word == "node" || len(toks) > 2 && !toks[1].quoted && (toks[1].text == "->" || toks[1].text == "..>"):
-			return "a design holds no flow; draw a flow in a file of its own"
+			return fmt.Sprintf("a %s holds no flow; draw a flow in a file of its own", f.Kind)
 		default:
 			return ui.line(toks)
 		}
@@ -256,13 +263,13 @@ func Parse(src string) (File, error) {
 	return f, nil
 }
 
-const headerHelp = "a file starts with design or flow, the one it holds"
+const headerHelp = "a file starts with design, component or flow, the one it holds"
 
-// header reads the first line: design with its device, or flow with its
-// direction.
+// header reads the first line: design or component with its device, or
+// flow with its direction.
 func (f *File) header(toks []token) string {
 	head := toks[0]
-	if head.quoted || head.text != string(Design) && head.text != string(Chart) {
+	if head.quoted || !slices.Contains([]Kind{Design, Component, Chart}, Kind(head.text)) {
 		return headerHelp
 	}
 	f.Kind = Kind(head.text)
@@ -271,7 +278,7 @@ func (f *File) header(toks []token) string {
 		switch {
 		case !isAttr:
 			return fmt.Sprintf("unexpected %q; write attributes as key=value", t.text)
-		case f.Kind == Design && key == "device":
+		case f.Kind != Chart && key == "device":
 			if !slices.Contains(Devices, value) {
 				return fmt.Sprintf("unknown device %q; use one of %s", value, strings.Join(Devices, ", "))
 			}
@@ -283,8 +290,8 @@ func (f *File) header(toks []token) string {
 			default:
 				return fmt.Sprintf("unknown direction %q; use down or right", value)
 			}
-		case f.Kind == Design:
-			return fmt.Sprintf("unknown attribute %q; a design takes device", key)
+		case f.Kind != Chart:
+			return fmt.Sprintf("unknown attribute %q; a %s takes device", key, f.Kind)
 		default:
 			return fmt.Sprintf("unknown attribute %q; a flow takes direction", key)
 		}
@@ -320,7 +327,11 @@ func (f File) Format() string {
 		f.Flow.body(&b)
 		return b.String()
 	}
-	b.WriteString(string(Design))
+	kind := f.Kind
+	if kind == "" {
+		kind = Design
+	}
+	b.WriteString(string(kind))
 	if f.Device != "" && f.Device != "phone" {
 		fmt.Fprintf(&b, " device=%s", f.Device)
 	}

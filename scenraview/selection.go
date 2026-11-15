@@ -2,6 +2,8 @@ package scenraview
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/oneo-me/nsgo-scenra/flowfile"
@@ -24,9 +26,10 @@ type fileView struct {
 
 // view tells an agent what the user sees of the folder dir and the
 // problems of its files: the file shown and what is selected in it, the
-// user's comments, the files that do not parse and the classes that draw
-// nothing.
-func view(dir string, files []fileView) string {
+// components designs can use, the user's comments, the files that do not
+// parse, the components missing or used in a loop, and the classes that
+// draw nothing.
+func view(dir string, files []fileView, parts components) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "The open folder is %s; the paths below are relative to it.\n", dir)
 	if len(files) == 0 {
@@ -47,10 +50,15 @@ func view(dir string, files []fileView) string {
 			fmt.Fprintf(&b, "The user has selected node %q of the flow.\n", n)
 		}
 	default:
-		fmt.Fprintf(&b, "The user has design %s open.\n", shown.path)
+		kind := shown.file.Kind
+		fmt.Fprintf(&b, "The user has %s %s open.\n", kind, shown.path)
 		if el, ok := flowfile.ElementAt(shown.file.UI, shown.shown.element); ok {
-			fmt.Fprintf(&b, "The user has selected element %s of the design:\n\n```\n%s```\n", shown.shown.element, flowfile.FormatUI([]flowfile.Element{el}))
+			fmt.Fprintf(&b, "The user has selected element %s of the %s:\n\n```\n%s```\n", shown.shown.element, kind, flowfile.FormatUI([]flowfile.Element{el}))
 		}
+	}
+	if len(parts) > 0 {
+		names := slices.Sorted(maps.Keys(parts))
+		fmt.Fprintf(&b, "Components, which designs and components draw with use <name>: %s.\n", strings.Join(names, ", "))
 	}
 	section := func(title string, line func(f fileView) []string) {
 		var lines []string
@@ -76,6 +84,17 @@ func view(dir string, files []fileView) string {
 			return nil
 		}
 		return []string{f.path + ": " + f.broken}
+	})
+	section("Components that are missing or used in a loop:", func(f fileView) []string {
+		self, _ := flowfile.ComponentName(f.path)
+		var out []string
+		for _, p := range componentProblems(f.file.UI, self, parts) {
+			out = append(out, f.path+": "+p)
+		}
+		if f.file.Kind == flowfile.Component && self == "" {
+			out = append(out, fmt.Sprintf("%s: a component outside %s/, which nothing can use", f.path, flowfile.ComponentsDir))
+		}
+		return out
 	})
 	section("Classes that draw nothing:", func(f fileView) []string {
 		if classes := unknownClasses(f.file.UI); len(classes) > 0 {
