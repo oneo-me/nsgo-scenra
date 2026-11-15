@@ -60,9 +60,10 @@ type document struct {
 	group string
 	// stamp is the version of the file the document was last read from
 	// or written to, and broken why the file's latest version does not
-	// parse, "" when it does.
+	// parse, "" when it does. A document whose file never parsed holds
+	// no file, which the workspace shows as broken.
 	stamp  stamp
-	broken string
+	broken *core.Signal[string]
 }
 
 // Editor is a folder of Scenra files and the one shown for editing, with
@@ -151,8 +152,8 @@ func (e *Editor) restore(folderKey, fileKey string) {
 	if path == "" || !e.inside(path) {
 		return
 	}
-	if f, err := readFile(path); err == nil {
-		e.active.Set(e.newDocument(f, path))
+	if d, err := e.load(path); err == nil {
+		e.active.Set(d)
 	}
 }
 
@@ -165,13 +166,30 @@ func readFile(path string) (flowfile.File, error) {
 	return flowfile.Parse(string(data))
 }
 
+// load is a document of the Scenra file at path, broken when the file
+// does not parse, so the user can have it fixed; it fails only when the
+// file cannot be read.
+func (e *Editor) load(path string) (*document, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	f, err := flowfile.Parse(string(data))
+	d := e.newDocument(f, path)
+	if err != nil {
+		d.doc.Set(flowfile.File{})
+		d.broken.Set(err.Error())
+	}
+	return d, nil
+}
+
 // newDocument is a document of f, from the file at path.
 func (e *Editor) newDocument(f flowfile.File, path string) *document {
 	cx := e.cx
 	never := func(a, b flowfile.File) bool { return false }
 	stacks := func(a, b []flowfile.File) bool { return false }
 	d := &document{e: e, doc: core.NewSignalFunc(cx, f, never), path: path, dirty: core.NewSignal(cx, false),
-		selected: core.NewSignal(cx, ""), element: core.NewSignal(cx, ""),
+		selected: core.NewSignal(cx, ""), element: core.NewSignal(cx, ""), broken: core.NewSignal(cx, ""),
 		undos: core.NewSignalFunc(cx, []flowfile.File(nil), stacks), redos: core.NewSignalFunc(cx, []flowfile.File(nil), stacks)}
 	d.mark()
 	return d
@@ -277,12 +295,12 @@ func (e *Editor) OpenPath(path string) error {
 		e.openFolder(path)
 		return nil
 	}
-	f, err := readFile(path)
+	d, err := e.load(path)
 	if err != nil {
 		return err
 	}
 	if e.inside(path) || e.openFolder(filepath.Dir(path)) {
-		e.openDoc(f, path)
+		e.openDoc(d)
 	}
 	return nil
 }
@@ -292,21 +310,21 @@ func (e *Editor) open(path string) {
 	if e.shown().path == path {
 		return
 	}
-	f, err := readFile(path)
+	d, err := e.load(path)
 	if err != nil {
 		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).OpenFailed(err.Error())})
 		return
 	}
-	e.openDoc(f, path)
+	e.openDoc(d)
 }
 
-// openDoc shows f from the file at path, once the changes of the
-// document shown are saved; the document shown stays when saving fails.
-func (e *Editor) openDoc(f flowfile.File, path string) {
-	if e.shown().path == path || !e.SaveChanges() {
+// openDoc shows d in place of the document shown, once its changes are
+// saved; the document shown stays when saving fails.
+func (e *Editor) openDoc(d *document) {
+	if e.shown().path == d.path || !e.SaveChanges() {
 		return
 	}
-	e.show(e.newDocument(f, path))
+	e.show(d)
 }
 
 // NewDesign and NewFlow ask for the name of a new design or flow, which
@@ -368,7 +386,7 @@ func (e *Editor) create(kind flowfile.Kind, into, name string) error {
 		return err
 	}
 	e.found(entry{path: e.rel(path), kind: kind})
-	e.openDoc(f, path)
+	e.openDoc(e.newDocument(f, path))
 	return nil
 }
 
@@ -379,6 +397,10 @@ func (d *document) name() string {
 	}
 	return filepath.Base(d.path)
 }
+
+// unread says the document's file never parsed, so it holds nothing to
+// show, edit or save; a caller reading it follows.
+func (d *document) unread() bool { return d.broken.Get() != "" && d.doc.Get().Kind == "" }
 
 // at is what the user selected.
 func (d *document) at() location {
@@ -472,13 +494,17 @@ func (e *Editor) SaveChanges() bool {
 
 // Save writes the document shown to its file.
 func (e *Editor) Save() {
-	if !e.empty() && e.save(e.shown()) {
+	if !e.empty() && !core.Untracked(e.cx, e.shown().unread) && e.save(e.shown()) {
 		e.toasts.Show(ui.ToastContent{Type: ui.ToastSuccess, Title: locales.For(e.cx).Saved()})
 	}
 }
 
-// save writes d to its file, and says it did.
+// save writes d to its file, and says it did. A document whose file
+// never parsed leaves the file as it is.
 func (e *Editor) save(d *document) bool {
+	if core.Untracked(e.cx, d.unread) {
+		return true
+	}
 	if err := writeFile(d.path, d.doc.GetUntracked().Format()); err != nil {
 		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).SaveFailed(err.Error())})
 		return false

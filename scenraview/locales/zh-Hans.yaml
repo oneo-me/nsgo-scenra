@@ -46,3 +46,6 @@ askAssistant: 问助手
 resolveComment: "处理我在元素 {path} 上的评论：{comment}"
 resolveComments: 让助手处理评论
 resolveCommentsPrompt: "处理我在这张设计上的 {count, number} 条评论。"
+fileBroken: 无法打开这个文件
+fixFile: 让助手修复
+fixFilePrompt: "修复 Scenra 无法打开的 {path}：{error}"

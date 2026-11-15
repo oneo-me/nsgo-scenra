@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/ui"
 
 	"github.com/oneo-me/nsgo-scenra/flowfile"
@@ -83,7 +84,9 @@ func (d *document) mark() {
 // written, as an agent writing it does. The user's unsaved changes keep
 // the document as it is. A file that does not parse leaves the document
 // alone and tells of the error once, which the agent hears through the
-// server too.
+// server too; the workspace tells of it while the file never parsed. A
+// document that never parsed takes the file as it was opened, with no
+// change to undo back to nothing.
 func (e *Editor) reload(d *document) {
 	path := d.path
 	if path == "" || d.dirty.GetUntracked() {
@@ -99,14 +102,25 @@ func (e *Editor) reload(d *document) {
 		return
 	}
 	f, err := flowfile.Parse(string(data))
+	unread := core.Untracked(e.cx, d.unread)
 	if err != nil {
-		if d.broken != err.Error() {
-			d.broken = err.Error()
-			e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).OpenFailed(err.Error())})
+		if d.broken.GetUntracked() != err.Error() {
+			d.broken.Set(err.Error())
+			if !unread {
+				e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).OpenFailed(err.Error())})
+			}
 		}
 		return
 	}
-	d.broken = ""
+	if unread {
+		e.cx.Batch(func() {
+			d.broken.Set("")
+			d.doc.Set(f)
+		})
+		e.cx.Post(e.camera.Fit)
+		return
+	}
+	d.broken.Set("")
 	if f.Format() == d.doc.GetUntracked().Format() {
 		return
 	}
@@ -144,7 +158,7 @@ func (e *Editor) viewOf() string {
 		path := filepath.Join(dir, filepath.FromSlash(en.path))
 		fv := fileView{path: en.path}
 		if shown.path == path {
-			fv.file, fv.broken = shown.doc.GetUntracked(), shown.broken
+			fv.file, fv.broken = shown.doc.GetUntracked(), shown.broken.GetUntracked()
 		} else if f, err := readFile(path); err != nil {
 			fv.broken = err.Error()
 		} else {

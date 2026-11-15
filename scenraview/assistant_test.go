@@ -283,6 +283,42 @@ func TestAgentsHearOfFilesThatDoNotParse(t *testing.T) {
 	app.Find("flow >> label:Research")
 }
 
+func TestAFileThatDoesNotParseShowsWhyAndTheAssistantFixesIt(t *testing.T) {
+	path := writeFlow(t, "home.scenra", "design\nbox\n")
+	app, e, d := startAssistant(t)
+	openPath(t, app, e, path)
+	app.WaitFor("id:file-broken", time.Second)
+	if got := app.Find("id:file-problem").Text; !strings.Contains(got, "line 2") {
+		t.Fatalf("the problem shown is %q", got)
+	}
+	if got := shownName(app); got != "home" {
+		t.Fatalf("the header names %q", got)
+	}
+	// Saving leaves the file as it is.
+	app.Post(e.Save)
+	app.Settle()
+	if data, _ := os.ReadFile(path); string(data) != "design\nbox\n" {
+		t.Fatalf("saving wrote the file:\n%s", data)
+	}
+
+	d.script(reply{steps: []step{{view: true}, {file: path, text: "design\nbox\n  text \"Fixed\"\nend\n"}}, text: "Fixed it."})
+	waitComposer(app)
+	app.Press("id:fix-file")
+	app.WaitFor("text:Fixed it.", 5*time.Second)
+	if _, prompts, _ := d.get(); len(prompts) != 1 || !strings.HasPrefix(prompts[0], "Fix home.scenra, which Scenra cannot open: line 2") {
+		t.Fatalf("prompts %q", prompts)
+	}
+	if _, _, views := d.get(); !strings.Contains(views[0], "home.scenra open, which has never parsed") {
+		t.Fatalf("views %q", views)
+	}
+	// The fixed file shows, with nothing to undo back to.
+	app.WaitFor("design >> text:Fixed", 5*time.Second)
+	app.WaitForGone("id:file-broken", time.Second)
+	if core.Untracked(e.cx, e.CanUndo) {
+		t.Fatal("undo is offered back to the broken file")
+	}
+}
+
 func TestCommentsAskTheAssistant(t *testing.T) {
 	path := writeFlow(t, "shop.scenra", "design\nbox class=\"flex-1 gap-4 p-6\"\n  text \"Welcome\"\n  text \"Mail\" comment=\"Smaller\"\nend\n")
 	app, e, d := startAssistant(t)

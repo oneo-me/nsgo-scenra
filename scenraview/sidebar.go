@@ -248,6 +248,10 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
 				Children: []core.Node{designPane(cx, e, e.a.ask())}}
 		}},
+		core.Show{When: func() bool { return e.cur().unread() }, Then: func(cx *core.Scope) core.Node {
+			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
+				StyleFunc: ui.Filled(colors.Background), Children: []core.Node{brokenPane(cx, e, e.a.ask())}}
+		}},
 	}}
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
 		core.Show{When: e.empty,
@@ -265,4 +269,28 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 			},
 			Else: func(*core.Scope) core.Node { return body }},
 	}}
+}
+
+// brokenPane tells why the file shown does not parse, as it never has,
+// and with ask asks the assistant to fix it; the file shows once it
+// parses.
+func brokenPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
+	tr := locales.For(cx)
+	colors := ui.ColorsOf(cx)
+	problem := func() string { return e.cur().broken.Get() }
+	return core.View{TestID: "file-broken", Style: core.Style{FlexGrow: 1, AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Padding: core.All(32), Gap: 12},
+		Children: []core.Node{
+			ui.Icon(lucide.FileExclamationPoint, 32, colors.Danger),
+			ui.Text(tr.FileBroken(), 15, ui.Semibold, colors.Text),
+			core.Text{ContentFunc: problem, TestID: "file-problem", Style: ui.TypeCode.Merge(core.Style{TextAlign: core.TextAlignCenter, MaxWidth: core.Pt(480)}),
+				StyleFunc: ui.Colored(colors.Muted)},
+			core.Show{When: func() bool { return ask != nil }, Then: func(*core.Scope) core.Node {
+				return ui.Button{Text: tr.FixFile(), Icon: lucide.Sparkles, Variant: ui.ButtonPrimary, TestID: "fix-file",
+					Disabled: e.Working,
+					OnPress: func() {
+						d := e.shown()
+						ask(tr.FixFilePrompt(e.rel(d.path), d.broken.GetUntracked()))
+					}}
+			}},
+		}}
 }

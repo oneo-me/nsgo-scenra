@@ -44,6 +44,8 @@ func view(dir string, files []fileView, parts components) string {
 	switch {
 	case shown == nil:
 		b.WriteString("The user has no file open.\n")
+	case shown.file.Kind == "":
+		fmt.Fprintf(&b, "The user has %s open, which has never parsed, so the editor shows its error instead.\n", shown.path)
 	case shown.file.Kind == flowfile.Chart:
 		fmt.Fprintf(&b, "The user has flow %s open.\n", shown.path)
 		if n := shown.shown.node; n != "" {
@@ -79,7 +81,7 @@ func view(dir string, files []fileView, parts components) string {
 		}
 		return out
 	})
-	section("Files that do not parse, which the editor shows as they last parsed:", func(f fileView) []string {
+	section("Files that do not parse, which the editor shows as they last parsed, if ever:", func(f fileView) []string {
 		if f.broken == "" {
 			return nil
 		}

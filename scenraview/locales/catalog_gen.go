@@ -44,6 +44,7 @@ var Parameters = map[string][]string{
 	"SaveFailed":            {"error_"},
 	"ResolveComment":        {"path", "comment"},
 	"ResolveCommentsPrompt": {"count"},
+	"FixFilePrompt":         {"path", "error_"},
 }
 
 // Translation is a language's messages another package supplies:
@@ -57,6 +58,7 @@ type Translation struct {
 	SaveFailed            func(error_ string) string
 	ResolveComment        func(path string, comment string) string
 	ResolveCommentsPrompt func(count int) string
+	FixFilePrompt         func(path string, error_ string) string
 }
 
 var supplied = map[string]Translation{}
@@ -106,6 +108,8 @@ const (
 	textRemoveComment
 	textAskAssistant
 	textResolveComments
+	textFileBroken
+	textFixFile
 	numTexts
 )
 
@@ -155,6 +159,8 @@ var keyOfText = [numTexts]string{
 	"removeComment",
 	"askAssistant",
 	"resolveComments",
+	"fileBroken",
+	"fixFile",
 }
 
 // textsEn are the messages without arguments in en.
@@ -201,7 +207,9 @@ var textsEn = i18n.NewTexts(""+
 	"Save"+
 	"Remove Comment"+
 	"Ask Assistant"+
-	"Ask the Assistant to Resolve Comments",
+	"Ask the Assistant to Resolve Comments"+
+	"This file could not be opened"+
+	"Ask the Assistant to Fix It",
 	[]uint16{
 		6,
 		8,
@@ -246,6 +254,8 @@ var textsEn = i18n.NewTexts(""+
 		14,
 		13,
 		37,
+		29,
+		27,
 	})
 
 // textsZhHans are the messages without arguments in zh-Hans.
@@ -292,7 +302,9 @@ var textsZhHans = i18n.NewTexts(""+
 	"保存"+
 	"删除评论"+
 	"问助手"+
-	"让助手处理评论",
+	"让助手处理评论"+
+	"无法打开这个文件"+
+	"让助手修复",
 	[]uint16{
 		9,
 		12,
@@ -337,6 +349,8 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		9,
 		21,
+		24,
+		15,
 	})
 
 // texts returns the messages without arguments in lang, nil for a
@@ -407,6 +421,9 @@ func Supply(lang string, t Translation) {
 	}
 	if t.ResolveCommentsPrompt != nil {
 		s.ResolveCommentsPrompt = t.ResolveCommentsPrompt
+	}
+	if t.FixFilePrompt != nil {
+		s.FixFilePrompt = t.FixFilePrompt
 	}
 	supplied[lang] = s
 	Catalog.Add(lang)
@@ -863,6 +880,44 @@ func (msgs Messages) ResolveCommentsPrompt(count int) string {
 			return b.String()
 		case "zh-Hans":
 			return "处理我在这张设计上的 " + i18n.FormatNumber("zh-Hans", float64(count)) + " 条评论。"
+		}
+	}
+}
+
+// FileBroken says "This file could not be opened"
+// in the language the app shows under cx.
+func FileBroken(cx *core.Scope) string { return For(cx).FileBroken() }
+
+// FileBroken is the package's FileBroken in the language of msgs.
+func (msgs Messages) FileBroken() string { return msgs.text(textFileBroken) }
+
+// FixFile says "Ask the Assistant to Fix It"
+// in the language the app shows under cx.
+func FixFile(cx *core.Scope) string { return For(cx).FixFile() }
+
+// FixFile is the package's FixFile in the language of msgs.
+func (msgs Messages) FixFile() string { return msgs.text(textFixFile) }
+
+// FixFilePrompt says "Fix {path}, which Scenra cannot open: {error}"
+// in the language the app shows under cx.
+func FixFilePrompt(cx *core.Scope, path string, error_ string) string {
+	return For(cx).FixFilePrompt(path, error_)
+}
+
+// FixFilePrompt is the package's FixFilePrompt in the language of msgs.
+func (msgs Messages) FixFilePrompt(path string, error_ string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.FixFilePrompt(path, error_))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].FixFilePrompt; f != nil {
+			return f(path, error_)
+		}
+		switch lang {
+		case "", "en":
+			return "Fix " + msgs.arg(path) + ", which Scenra cannot open: " + msgs.arg(error_)
+		case "zh-Hans":
+			return "修复 Scenra 无法打开的 " + path + "：" + error_
 		}
 	}
 }

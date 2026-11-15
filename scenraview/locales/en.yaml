@@ -46,3 +46,6 @@ askAssistant: Ask Assistant
 resolveComment: "Resolve my comment on element {path}: {comment}"
 resolveComments: Ask the Assistant to Resolve Comments
 resolveCommentsPrompt: "{count, plural, one {Resolve my comment on this design.} other {Resolve my # comments on this design.}}"
+fileBroken: This file could not be opened
+fixFile: Ask the Assistant to Fix It
+fixFilePrompt: "Fix {path}, which Scenra cannot open: {error}"
