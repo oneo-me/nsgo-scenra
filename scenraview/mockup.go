@@ -11,17 +11,6 @@ import (
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
-// deviceSize is the size a design of device is laid out at.
-func deviceSize(device string) (w, h float32) {
-	switch device {
-	case "tablet":
-		return 820, 1080
-	case "desktop":
-		return 1200, 760
-	}
-	return 390, 800
-}
-
 // selection is which element of a design is selected, by its path, how
 // pressing one selects it, and where each element was laid out.
 type selection struct {
@@ -80,17 +69,20 @@ func (sel selection) elementAt(els []flowfile.Element, parent []int, origin, p c
 	return ""
 }
 
-// screenView draws a design at its device's size: its elements stack in
-// the device's frame, which clips what overflows. A component is drawn
-// at the device's width, as high as it needs.
+// screenView draws a design at its size: its elements stack in its
+// frame, which clips what overflows. A component without a height is as
+// high as it needs.
 func screenView(cx *core.Scope, s flowfile.File, sel selection) core.Node {
 	colors := ui.ColorsOf(cx)
-	w, h := deviceSize(s.Device)
-	height := core.Pt(core.Points(h))
+	w, h := s.Size()
+	var height core.Length
+	if h != 0 {
+		height = core.Pt(core.Points(h))
+	}
 	radius := core.Points(44)
 	switch {
 	case s.Kind == flowfile.Component:
-		height, radius = core.Length{}, 12
+		radius = 12
 	case s.Device == "tablet":
 		radius = 28
 	case s.Device == "desktop":

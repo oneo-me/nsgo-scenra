@@ -20,7 +20,7 @@ When a design or flow is about code at hand, read the code first and draw what i
 
 ## Format
 
-A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), `component`, a piece designs share, with the same `device=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. A file holds one design, component or flow, never two.
+A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), and optional `width=` and `height=` in points, 100 to 4000, which replace the device's size where the screen needs another, such as `design device=desktop width=1440 height=900` or a long page; `component`, a piece designs share, with the same `device=`, `width=` and `height=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. A file holds one design, component or flow, never two.
 
 ```
 # A comment runs to the end of the line; indentation is free.
@@ -74,7 +74,7 @@ Draw any interface with them, as a designer draws in Figma: buttons, fields, swi
 
 Layout is flexbox: a box is a column unless flex-row, children stretch across it, flex-1 fills the rest, and absolute with top-*, left-*, right-* or bottom-* places a box over its parent, as a badge or a floating button. Classes cover sizes (w-*, h-*, size-*, w-full, w-1/2), spacing (p-*, gap-*, m-*), colors (bg-*, text-*, border-*, with /opacity such as bg-black/40, and any value as bg-[#0f172a]), the palette (zinc, slate, blue, amber, emerald, rose and the others, 50 to 950), corners (rounded-*, rounded-full), borders, shadows (shadow-sm to shadow-2xl), gradients (bg-linear-to-br from-indigo-500 to-pink-500), opacity, overflow-hidden, text (text-xs to text-6xl, font-medium, font-bold, leading-*, tracking-*, text-center, truncate, line-clamp-2, uppercase) and theme colors that follow light and dark mode (bg-background, text-foreground, bg-card, bg-primary, text-primary-foreground, bg-muted, text-muted-foreground, border-border).
 
-The design is the device's size and clips what overflows; give the main box flex-1 to fill it, and draw the status bar, navigation bars and tab bars yourself where the app has them.
+The design is its size, the device's or its own, and clips what overflows; change `width=` or `height=` when the content needs room or the user asks for a screen size; give the main box flex-1 to fill it, and draw the status bar, navigation bars and tab bars yourself where the app has them.
 
 An icon takes the name of any Lucide icon (lucide.dev), by its current name or an older one such as home or alert-circle; common ones are house, search, bell, settings, user, users, circle-user, mail, message-circle, message-square, phone, send, inbox, heart, star, bookmark, share-2, link, paperclip, image, camera, video, mic, music, play, pause, calendar, clock, map-pin, navigation, compass, globe, shopping-cart, shopping-bag, store, credit-card, wallet, gift, tag, package, truck, file, file-text, folder, download, upload, cloud, plus, minus, x, check, pencil, trash, copy, funnel, sliders-horizontal, list, layout-grid, layout-dashboard, menu, ellipsis, ellipsis-vertical, chevron-right, chevron-left, chevron-down, chevron-up, arrow-right, arrow-left, arrow-up, arrow-down, external-link, refresh-cw, rotate-ccw, log-in, log-out, lock, key, shield, eye, eye-off, info, circle-alert, triangle-alert, circle-check, circle-x, circle-question-mark, chart-bar, chart-line, chart-pie, activity, trending-up, trending-down, zap, sparkles, flame, award, trophy, target, sun, moon, wifi, battery, smartphone, monitor, qr-code, scan, book, briefcase, building, coffee, utensils, car, plane, bike, dumbbell, headphones, graduation-cap. Draw a logo, a chart or an illustration with svg.
 
@@ -82,7 +82,7 @@ An icon takes the name of any Lucide icon (lucide.dev), by its current name or a
 
 ## Components
 
-A component is a piece of interface several designs or components share, drawn once in a file of `components/` at the top of the open folder, so changing it changes every screen using it. Its first line is `component`; the rest is elements, as in a design, drawn at its device's width and as high as they need. `use <name>` draws the component named by its path in `components/` without `.scenra`: `use tab-bar` draws `components/tab-bar.scenra`, and `use nav/item` draws `components/nav/item.scenra`.
+A component is a piece of interface several designs or components share, drawn once in a file of `components/` at the top of the open folder, so changing it changes every screen using it. Its first line is `component`; the rest is elements, as in a design, drawn at its device's width, or its `width=`, and as high as they need unless it sets `height=`. `use <name>` draws the component named by its path in `components/` without `.scenra`: `use tab-bar` draws `components/tab-bar.scenra`, and `use nav/item` draws `components/nav/item.scenra`.
 
 ```
 # components/tab-bar.scenra

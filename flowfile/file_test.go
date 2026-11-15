@@ -53,6 +53,8 @@ func TestParseFileErrors(t *testing.T) {
 		"design\nsvg \"<div/>\"":           "svg needs a document",
 		"design\nsvg \"<svg>\"":            "svg XML syntax error",
 		"design device=watch":              "unknown device",
+		"design width=wide":                "width=\"wide\" is not a size",
+		"design height=20":                 "height=\"20\" is not a size",
 		"design direction=right":           "a design takes device",
 		"flow device=phone":                "a flow takes direction",
 		"design\nflow":                     "line 2: a file holds one design, component or flow",
@@ -71,6 +73,27 @@ func TestParseFileErrors(t *testing.T) {
 			t.Errorf("%q: %v, want %q", src, err, want)
 		}
 	}
+}
+
+func TestDesignSize(t *testing.T) {
+	f, err := Parse("design device=tablet width=1024 height=1366\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w, h := f.Size(); w != 1024 || h != 1366 || f.Format() != "design device=tablet width=1024 height=1366\n" {
+		t.Fatalf("%d×%d:\n%s", w, h, f.Format())
+	}
+	if f, _ := Parse("design height=600\n"); !sizeIs(f, 390, 600) {
+		t.Fatalf("a phone 600 high: %+v", f)
+	}
+	if f, _ := Parse("component width=320\n"); !sizeIs(f, 320, 0) {
+		t.Fatalf("a component 320 wide: %+v", f)
+	}
+}
+
+func sizeIs(f File, w, h int) bool {
+	gw, gh := f.Size()
+	return gw == w && gh == h
 }
 
 func TestComponents(t *testing.T) {

@@ -7,11 +7,30 @@ import (
 	"io"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 )
 
 // Devices a design may be drawn on; an empty device is a phone.
 var Devices = []string{"phone", "tablet", "desktop"}
+
+// MinSize and MaxSize bound a design's width and height in points.
+const (
+	MinSize = 100
+	MaxSize = 4000
+)
+
+// DeviceSize is the size in points a design of device is drawn at
+// unless its file sets width or height.
+func DeviceSize(device string) (w, h int) {
+	switch device {
+	case "tablet":
+		return 820, 1080
+	case "desktop":
+		return 1200, 760
+	}
+	return 390, 800
+}
 
 // Kind is what a file holds.
 type Kind string
@@ -24,12 +43,30 @@ const (
 
 // File is a Scenra file's content: a design of a screen, its Device and
 // UI, a component designs use, its UI drawn at its Device's width, or a
-// flow chart, its Flow.
+// flow chart, its Flow. Width and Height, when set, replace the device's.
 type File struct {
-	Kind   Kind
-	Device string
-	UI     []Element
-	Flow   Flow
+	Kind          Kind
+	Device        string
+	Width, Height int
+	UI            []Element
+	Flow          Flow
+}
+
+// Size is the size in points a design is drawn at: its device's, or the
+// width and height it sets. A component's height is 0 unless set, as it
+// is as high as it needs.
+func (f File) Size() (w, h int) {
+	w, h = DeviceSize(f.Device)
+	if f.Kind == Component {
+		h = 0
+	}
+	if f.Width != 0 {
+		w = f.Width
+	}
+	if f.Height != 0 {
+		h = f.Height
+	}
+	return w, h
 }
 
 // Element is a piece of a design: a box holding others, a
@@ -265,8 +302,8 @@ func Parse(src string) (File, error) {
 
 const headerHelp = "a file starts with design, component or flow, the one it holds"
 
-// header reads the first line: design or component with its device, or
-// flow with its direction.
+// header reads the first line: design or component with its device and
+// size, or flow with its direction.
 func (f *File) header(toks []token) string {
 	head := toks[0]
 	if head.quoted || !slices.Contains([]Kind{Design, Component, Chart}, Kind(head.text)) {
@@ -283,6 +320,16 @@ func (f *File) header(toks []token) string {
 				return fmt.Sprintf("unknown device %q; use one of %s", value, strings.Join(Devices, ", "))
 			}
 			f.Device = value
+		case f.Kind != Chart && (key == "width" || key == "height"):
+			n, err := strconv.Atoi(value)
+			if err != nil || n < MinSize || n > MaxSize {
+				return fmt.Sprintf("%s=%q is not a size; use whole points from %d to %d", key, value, MinSize, MaxSize)
+			}
+			if key == "width" {
+				f.Width = n
+			} else {
+				f.Height = n
+			}
 		case f.Kind == Chart && key == "direction":
 			switch dir := Direction(value); dir {
 			case Down, Right:
@@ -291,7 +338,7 @@ func (f *File) header(toks []token) string {
 				return fmt.Sprintf("unknown direction %q; use down or right", value)
 			}
 		case f.Kind != Chart:
-			return fmt.Sprintf("unknown attribute %q; a %s takes device", key, f.Kind)
+			return fmt.Sprintf("unknown attribute %q; a %s takes device, width and height", key, f.Kind)
 		default:
 			return fmt.Sprintf("unknown attribute %q; a flow takes direction", key)
 		}
@@ -334,6 +381,12 @@ func (f File) Format() string {
 	b.WriteString(string(kind))
 	if f.Device != "" && f.Device != "phone" {
 		fmt.Fprintf(&b, " device=%s", f.Device)
+	}
+	if f.Width != 0 {
+		fmt.Fprintf(&b, " width=%d", f.Width)
+	}
+	if f.Height != 0 {
+		fmt.Fprintf(&b, " height=%d", f.Height)
 	}
 	b.WriteByte('\n')
 	formatUI(&b, f.UI, "")

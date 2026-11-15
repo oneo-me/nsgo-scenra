@@ -317,6 +317,20 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	app.WaitFor("id:element-0", time.Second)
 }
 
+func TestADesignIsDrawnAtTheSizeItSets(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{"wide.scenra": "design width=1440 height=900\ntext \"Wide\"\n"})
+	app, e := startEditor(t)
+	openPath(t, app, e, dir)
+	app.Press("id:files >> label:wide")
+	app.WaitFor("design >> text:Wide", time.Second)
+	if size := app.Find("id:design").Frame.Size; size.Width != 1440 || size.Height != 900 {
+		t.Fatalf("the design is %v", size)
+	}
+	// An agent resizing the file redraws it at its new size.
+	os.WriteFile(filepath.Join(dir, "wide.scenra"), []byte("design width=600 height=400\ntext \"Wide\"\n"), 0o644)
+	app.WaitUntil(5*time.Second, func() bool { return app.Find("id:design").Frame.Size.Width == 600 })
+}
+
 func TestTheTreeKeepsAFlowByItsDesign(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"sign-in.scenra": "design\n", "sign-in-flow.scenra": "flow\n", "sign-in-error.scenra": "design\n", "about.scenra": "design\n",

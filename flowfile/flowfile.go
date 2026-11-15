@@ -3,7 +3,7 @@
 // share or one flow chart, line by line. A folder of them is a project.
 //
 //	# A comment runs to the end of the line; indentation is free.
-//	design device=phone              # or tablet, desktop
+//	design device=phone              # or tablet, desktop; width=, height= resize it
 //	box class="flex-1 gap-4 p-6"
 //	  text "Welcome back" class="text-2xl font-bold" comment="Friendlier"
 //	  box class="flex-row items-center gap-2 rounded-xl border border-border px-3 h-11"
@@ -36,8 +36,10 @@
 // and a box holds the lines up to its end. The interface is a few
 // primitives, listed in Elements, each shaped by Tailwind CSS classes, so
 // a design can look like anything rather than like the controls of one
-// toolkit. A component is drawn like a design, at its device's width and
-// as high as it needs, and lives in the components folder at the top of
+// toolkit. A design is drawn at its device's size unless its first line
+// sets width or height in points. A component is drawn like a design, at
+// its device's or its own width and as high as it needs unless it sets a
+// height, and lives in the components folder at the top of
 // the project, so any design or component uses it by its path there; a
 // use is one element, a box holding the component, whatever it holds.
 // Any element may carry a comment, a change the user asks the
