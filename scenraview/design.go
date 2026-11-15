@@ -2,6 +2,7 @@ package scenraview
 
 import (
 	"math"
+	"time"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
@@ -162,15 +163,21 @@ type lookOf struct {
 	parts components
 }
 
+// peekDelay is how long the pointer rests on an element before its card
+// shows, or off it before the card goes.
+const peekDelay = 600 * time.Millisecond
+
 // designPane is the design shown on the canvas, with its zoom
-// tools. A layer over the design takes the pointer and finds the element
-// under it itself, as the camera's transform moves the design where the
-// platforms' hit testing does not follow: an outline marks the element
-// the pointer is over, pressing selects it, and pressing around it clears
-// the selection. Pins mark the elements the user commented on, a card
-// beside where the pointer selected an element, or else beside the
-// element, edits its comment, and ask, when set, sends the assistant a
-// prompt about them.
+// tools, played as the app would be. A layer over the design takes the
+// pointer and finds the element under it itself, as the camera's
+// transform moves the design where the platforms' hit testing does not
+// follow: an outline marks the element the pointer is over, pressing an
+// element with a tap plays it, as do those it holds, and pressing another
+// selects it, as Alt does any, and pressing around it clears the
+// selection. Pins mark the elements the user commented on or noted, and
+// a card edits the comment and note of the element the pointer rests on
+// or selected, beside where it pressed or else beside the element; ask,
+// when set, sends the assistant a prompt about them.
 func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -179,13 +186,15 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	// A design is drawn again as it or a component changes.
 	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{e.cur().doc.Get().Format(), e.parts.Get()} },
 		func(a, b lookOf) bool { return a.text == b.text && sameComponents(a.parts, b.parts) })
-	// Another design shows fitted.
-	shown := core.NewMemo(cx, e.cur)
-	cx.Effect(func() {
-		shown.Get()
-		cx.Post(func() { c.fit(false) })
-	})
+	play := newPlayer(cx, func() string { return e.designName(e.cur().path) })
 	hovered := core.NewSignal(cx, "")
+	// tappable says the pointer is over an element pressing which plays a
+	// tap.
+	tappable := core.NewSignal(cx, false)
+	// peek is the element whose card shows, held while the pointer is
+	// over the card or the card has changes.
+	peek := core.NewSignal(cx, "")
+	overCard, held := core.NewSignal(cx, false), core.NewSignal(cx, false)
 	// clicked is the element the pointer last selected and where, in the
 	// design's coordinates.
 	type click struct {
@@ -193,15 +202,59 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		at   core.Point
 	}
 	clicked := core.NewSignal(cx, click{})
+	// Another design shows fitted, its tabs at their first, and no card.
+	shown := core.NewMemo(cx, e.cur)
+	cx.Effect(func() {
+		shown.Get()
+		core.Untracked(cx, func() bool {
+			play.tabs.Set(nil)
+			peek.Set("")
+			clicked.Set(click{})
+			return true
+		})
+		cx.Post(func() { c.fit(false) })
+	})
 	sel := selection{
 		selected: func() string { return e.cur().element.Get() },
 		choose: func(path string) {
-			d := e.shown()
-			d.element.Set(path)
+			cx.Batch(func() {
+				e.shown().element.Set(path)
+				peek.Set(path)
+			})
+		},
+		tap: func(t flowfile.Tap) {
+			peek.Set("")
+			switch t.Action {
+			case flowfile.TapOpen:
+				e.tapOpen(t.Target)
+			case flowfile.TapClose:
+				e.tapClose()
+			case flowfile.TapTab:
+				play.showTab(t.Target)
+			}
 		},
 		frames:  map[string]core.Bounds{},
 		laidOut: core.NewSignal(cx, 0),
+		play:    play,
 	}
+	// The card follows the element the pointer rests on, once it has
+	// rested there a while, unless it is held.
+	var stop func() bool
+	cx.Effect(func() {
+		path, over, keep := hovered.Get(), overCard.Get(), held.Get()
+		if stop != nil {
+			stop()
+			stop = nil
+		}
+		if over || keep {
+			return
+		}
+		stop = cx.AfterFunc(peekDelay, func() {
+			if !held.GetUntracked() && !overCard.GetUntracked() {
+				peek.Set(path)
+			}
+		})
+	})
 	// mark outlines the element at path, its line width points on screen
 	// at any zoom.
 	mark := func(path func() string, width float64, testID string) core.Node {
@@ -224,24 +277,28 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		}
 		return ""
 	}, 1, "design-hovered")
-	elementAt := func(p core.Point) string {
+	// targetAt is the element of the design under a point of the view and
+	// the tap pressing there plays.
+	targetAt := func(p core.Point) (string, *flowfile.Tap) {
 		s := e.cur().doc.Get()
 		at := c.toDesign(p)
 		if at.X < 0 || at.Y < 0 || float64(at.X) >= c.contentW || float64(at.Y) >= c.contentH {
-			return ""
+			return "", nil
 		}
-		return sel.elementAt(s.UI, nil, core.Point{}, at)
+		return target(sel.hits(s.UI, "", nil, core.Point{}, at, nil))
 	}
 	// A changed design is laid out afresh, the pointer over nothing until
 	// it moves.
 	cx.Effect(func() {
 		look.Get()
 		hovered.Set("")
+		tappable.Set(false)
 	})
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
 		sel.parts = look.Get().parts
 		s := core.Untracked(cx, func() flowfile.File { return e.cur().doc.Get() })
 		clear(sel.frames)
+		play.scan(s.UI, sel.parts)
 		if len(s.UI) == 0 {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
 				AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Gap: 10}, Children: []core.Node{
@@ -253,13 +310,13 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pt(0)}},
 			Animated:        &core.AnimatedStyle{TranslateX: c.x, TranslateY: c.y, Scale: c.zoom}},
 			OnLayout: c.measured,
-			Children: append(append([]core.Node{screenView(cx, s, sel)}, commentPins(cx, s, sel, c.zoomed.Get)...), hover, selected)}
+			Children: append(append([]core.Node{screenView(cx, s, sel)}, remarkPins(cx, s, sel, c.zoomed.Get)...), hover, selected)}
 	})
 	// comments counts the design's comments.
 	comments := func() int { return len(e.cur().doc.Get().Comments()) }
-	// anchor is the point of the view the comment card opens beside.
+	// anchor is the point of the view the card opens beside.
 	anchor := func() (core.Point, bool) {
-		path := sel.selected()
+		path := peek.Get()
 		if k := clicked.Get(); k.path == path {
 			return c.toView(k.at), true
 		}
@@ -302,19 +359,37 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		}}
 	pointer := core.View{TestID: "design-pointer", NoFocus: true, ImportantForAccessibility: core.ImportantNo,
 		Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
+		StyleFunc: func() core.Style {
+			if tappable.Get() {
+				return core.Style{Cursor: core.CursorPointer}
+			}
+			return core.Style{}
+		},
 		OnPress: func(ev core.PressEvent) {
-			path := elementAt(ev.Position)
+			path, tap := targetAt(ev.Position)
+			if tap != nil && !ev.Modifiers.Alt {
+				sel.tap(*tap)
+				return
+			}
 			clicked.Set(click{path, c.toDesign(ev.Position)})
 			sel.choose(path)
 		},
 		OnMouseMove: func(ev core.MouseEvent) {
-			path := ""
+			path, tap := "", (*flowfile.Tap)(nil)
 			if ev.PressedButton == core.MouseButtonNone {
-				path = elementAt(ev.Position)
+				path, tap = targetAt(ev.Position)
 			}
-			hovered.Set(path)
+			cx.Batch(func() {
+				hovered.Set(path)
+				tappable.Set(tap != nil)
+			})
 		},
-		OnMouseLeave: func(core.MouseEvent) { hovered.Set("") },
+		OnMouseLeave: func(core.MouseEvent) {
+			cx.Batch(func() {
+				hovered.Set("")
+				tappable.Set(false)
+			})
+		},
 		OnWheel:      c.wheel,
 		OnPan: func(ev core.PanEvent) {
 			switch ev.Phase {
@@ -341,6 +416,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		OnLayout: c.resize,
 		Children: []core.Node{picture, pointer, toolbar,
 			// The user cannot comment while the agent works.
-			core.Show{When: func() bool { return e.cur().element.Get() != "" && !e.Working() }, Then: func(cx *core.Scope) core.Node { return commentCard(cx, e, ask, place) }},
+			core.Show{When: func() bool { return peek.Get() != "" && !e.Working() }, Then: func(cx *core.Scope) core.Node {
+				return remarkCard(cx, e, remarkOptions{path: peek.Get, ask: ask, place: place, over: overCard.Set, held: held.Set})
+			}},
 		}}
 }

@@ -10,9 +10,24 @@
 //	    icon mail class="size-4 text-muted-foreground"
 //	    text "you@example.com" class="text-muted-foreground"
 //	  end
-//	  box class="h-11 items-center justify-center rounded-xl bg-blue-600"
+//	  box class="h-11 items-center justify-center rounded-xl bg-blue-600" tap="open home"
 //	    text "Sign in" class="font-semibold text-white"
 //	  end
+//	  box class="flex-row gap-2"
+//	    box class="group selected:bg-blue-50" tap="tab mail"   # selected while mail shows
+//	      text "Mail" class="group-selected:text-blue-600"
+//	    end
+//	    box tap="tab phone" note="Sends a code by SMS"
+//	      text "Phone"
+//	    end
+//	  end
+//	  box panel=mail                   # the first panel of its siblings shows
+//	    text "We mail you a link"
+//	  end
+//	  box panel=phone
+//	    text "We text you a code"
+//	  end
+//	  text "Back" tap=close
 //	  image "A cup of coffee" class="h-40 rounded-2xl"
 //	  svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
 //	  use tab-bar class="mt-auto"      # components/tab-bar.scenra
@@ -43,7 +58,13 @@
 // the project, so any design or component uses it by its path there; a
 // use is one element, a box holding the component, whatever it holds.
 // Any element may carry a comment, a change the user asks the
-// assistant for, which stays until the assistant resolves it. An edge may
+// assistant for, which stays until the assistant resolves it, and a note,
+// which says what the design cannot show, such as when it changes. The
+// editor plays a design: pressing an element with a tap opens another
+// design, closes the one shown, returning to the one that opened it, or
+// shows the panels of a name in place of their siblings. The element
+// whose tap shows the design or the tab shown is selected, which
+// selected: and group-selected: classes style. An edge may
 // name nodes no line declares; they take their ID as their label.
 //
 // Format writes a file back in the canonical form, without the #

@@ -9,9 +9,9 @@ Scenra files (`.scenra`) are plain text, and each holds one thing: a design, a d
 
 ## Working on files
 
-1. Before you change files, call the `get_view` tool of the `scenra` MCP server. It names the open folder and the file the user is looking at and what they selected, lists their comments and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger".
+1. Before you change files, call the `get_view` tool of the `scenra` MCP server. It names the open folder and the file the user is looking at and what they selected, lists the comments and notes on elements and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger".
 2. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads the file shown as you write it, shows the files you make, and the user cannot edit them while you work.
-3. After you write them, call `get_view` again: it reports the files that do not parse and the classes that draw nothing. Fix what it reports.
+3. After you write them, call `get_view` again: it reports the files that do not parse, the classes that draw nothing and the taps that lead nowhere. Fix what it reports.
 4. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
 
 The editor saves files in their canonical form, which drops `#` comments, so do not keep notes in them.
@@ -107,9 +107,40 @@ end
 - A use is one element: a box with its classes holding the component's elements, so place and size it with classes as any box. It holds nothing itself and takes no end.
 - Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
 - Components may use other components, never themselves, directly or through others.
-- Write a component as a whole, the same on every screen; give what differs, such as which tab is active, to the designs, or make one component for each version, such as `tab-bar-home` and `tab-bar-menu`.
+- Write a component as a whole, the same on every screen. A tab bar marks the screen shown by itself when its items open the screens, as Interactions shows; give what else differs to the designs, or make one component for each version.
 - `get_view` lists the components there are and reports uses of missing ones and loops.
 
-## Comments
+## Interactions
+
+The editor plays a design as the app would run: pressing an element with `tap="…"`, or one inside it, does what the tap says, so the user can click through the screens.
+
+- `tap="open <design>"` opens another design, named by its path in the open folder without `.scenra`, such as `tap="open menu"` or `tap="open orders/detail"`.
+- `tap="close"` closes the screen shown, returning to the design that opened it, as a back button, a dialog's Cancel or a sheet's close button.
+- `tap="tab <name>"` shows the elements with `panel=<name>` in place of the panels beside them. The first panel among its siblings shows until a tab shows another, so draw the panels of one place side by side, as the content of a segmented control or of tabs.
+
+A box whose tap leads to what shows, opening the design shown or showing its panel, is selected: style it with `selected:` classes, and what it holds with `group-selected:` classes and `group` on the box.
+
+```
+box class="flex-row gap-2"
+  box class="group rounded-full px-4 py-2 selected:bg-zinc-900" tap="tab coffee"
+    text "Coffee" class="text-zinc-700 group-selected:text-white"
+  end
+  box class="group rounded-full px-4 py-2 selected:bg-zinc-900" tap="tab tea"
+    text "Tea" class="text-zinc-700 group-selected:text-white"
+  end
+end
+box class="gap-2" panel=coffee
+  text "Latte"
+end
+box class="gap-2" panel=tea
+  text "Matcha"
+end
+```
+
+In a tab bar component, give each item `tap="open <screen>"` and the selected styles, so every screen using it marks its own tab. Add taps where the user asks for a clickable prototype or where they make the flow between screens clear; open only designs that exist or that you make.
+
+## Comments and notes
 
 The user comments on elements to ask for changes: an element's `comment="…"` is the user's, not part of the design. Do what a comment asks, or discuss it when it is unclear, then remove the attribute and say what you did. Keep comments on the elements you rewrite until they are resolved, and never add one yourself.
+
+An element's `note="…"` says what the design cannot show, such as what it does, where its data comes from or when it changes. Notes stay: read them as part of the design, keep them true as you change it, and add one when the user asks or when a behavior matters and the design cannot show it.

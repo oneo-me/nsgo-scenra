@@ -27,6 +27,10 @@ func TestTheSkillTeachesTheWholeFormat(t *testing.T) {
 		}
 	}
 	words = append(words, "`"+string(flowfile.Component)+"`", "`"+flowfile.ComponentsDir+"/`")
+	words = append(words, `comment="…"`, `note="…"`, `tap="…"`, "panel=", "selected:", "group-selected:")
+	for _, a := range flowfile.Taps {
+		words = append(words, `tap="`+a)
+	}
 	words = append(words, flowfile.Kinds...)
 	words = append(words, flowfile.Statuses...)
 	words = append(words, flowfile.Devices...)

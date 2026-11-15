@@ -169,6 +169,46 @@ func TestComments(t *testing.T) {
 	}
 }
 
+func TestNotes(t *testing.T) {
+	p, err := Parse("design\nbox note=\"Scrolls\" comment=\"Roomier\"\n  text \"a\" note=\"Live\"\nend\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := p.Notes(), []Comment{{"0", "Scrolls"}, {"0.0", "Live"}}; !slices.Equal(got, want) {
+		t.Fatalf("notes %v", got)
+	}
+	els, _ := SetNote(p.UI, "0", "")
+	if els, _ = SetNote(els, "0.0", "Updates live"); FormatUI(els) != "box comment=\"Roomier\"\n  text \"a\" note=\"Updates live\"\nend\n" {
+		t.Fatalf("set as\n%s", FormatUI(els))
+	}
+}
+
+func TestTaps(t *testing.T) {
+	p, err := Parse("design\nbox tap=\"open orders/detail\" class=\"p-2\"\n  text \"x\" tap=close\nend\n" +
+		"box tap=\"tab past\"\nend\nbox panel=past\nend\nbox tap=\"open Sign in\"\nend\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for path, want := range map[string]Tap{"0": {TapOpen, "orders/detail"}, "0.0": {TapClose, ""}, "1": {TapTab, "past"}, "3": {TapOpen, "Sign in"}} {
+		el, _ := ElementAt(p.UI, path)
+		if got, ok := el.Tap(); !ok || got != want {
+			t.Errorf("%s taps %+v", path, got)
+		}
+	}
+	if el, _ := ElementAt(p.UI, "2"); el.Attr("panel") != "past" {
+		t.Fatalf("the panel is %q", el.Attr("panel"))
+	}
+	if got := FormatUI(p.UI[:1]); got != "box class=\"p-2\" tap=\"open orders/detail\"\n  text \"x\" tap=\"close\"\nend\n" {
+		t.Fatalf("formatted as\n%s", got)
+	}
+	for _, src := range []string{"box tap=jump\nend\n", "box tap=open\nend\n", "box tap=\"open ../x\"\nend\n", "box tap=\"close now\"\nend\n",
+		"box tap=\"tab a b\"\nend\n", "box panel=\"a b\"\nend\n"} {
+		if _, err := ParseUI(src); err == nil {
+			t.Errorf("%q parsed", src)
+		}
+	}
+}
+
 func TestIconsTakeLucideNamesAndAliases(t *testing.T) {
 	els, err := ParseUI("icon \"alert-circle\"\nicon \"badge-dollar-sign\"\n")
 	if err != nil {

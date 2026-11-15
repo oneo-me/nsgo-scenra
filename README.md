@@ -35,7 +35,9 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 - Choosing another file saves the one shown, as does ⌘S, and the folder and its file reopen at the next start.
 - Phone, tablet and desktop designs are drawn from boxes, texts, icons, images and SVG shaped by Tailwind CSS classes, so a draft can look like anything; zoom, pan and select its elements as in the flow charts.
 - The assistant is a coding agent you have installed, such as Claude Code, Codex, pi or CodeBuddy Code: it asks what it needs, then writes and makes the folder's files as the Scenra skill teaches, and each redraws as it writes.
-- The assistant works on what you select, resolves the comments you leave on design elements, and works in the open folder, so it can chart how the code there works.
+- Designs play as the app would: pressing an element opens another screen, closes the one shown or switches tabs, and a tab bar marks the screen shown.
+- Resting the pointer on an element shows its comment and note: a comment asks the assistant for a change, and a note records what the design cannot show.
+- The assistant works on what you select, resolves your comments, keeps the notes true, and works in the open folder, so it can chart how the code there works.
 - Sending a message saves your changes; while the assistant works the files stay as it leaves them, and each of its turns undoes as one step.
 - Pieces screens share, such as a tab bar, are components in the folder's `components/`, which designs draw with `use`, so changing one changes every screen.
 - Designs are plain-text `.scenra` files you can read, diff and edit by hand.

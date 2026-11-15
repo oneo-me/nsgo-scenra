@@ -27,7 +27,7 @@ box class="flex-1 gap-6 bg-white px-6 pt-16 pb-10"
       text "Forgot password?" class="text-sm font-medium text-amber-700"
     end
   end
-  box class="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-amber-600 shadow-md"
+  box class="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-amber-600 shadow-md" tap="open menu"
     text "Sign in" class="text-base font-semibold text-white"
     icon arrow-right class="size-4 text-white"
   end

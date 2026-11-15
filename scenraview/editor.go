@@ -2,6 +2,7 @@ package scenraview
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -87,6 +88,9 @@ type Editor struct {
 	into   string
 	camera *uiflow.State
 	toasts *ui.Toaster
+	// trail is the designs whose taps opened the designs shown since,
+	// by path, which closing one returns through.
+	trail []string
 	a      *assistant
 	// scanning is the folder the scan reads, shared with its goroutine,
 	// and rescan asks it to read the folder now.
@@ -261,6 +265,7 @@ func (e *Editor) openFolder(dir string) bool {
 	if !e.SaveChanges() {
 		return false
 	}
+	e.trail = nil
 	e.cx.Batch(func() {
 		e.active.Set(nil)
 		e.setFolder(dir)
@@ -299,6 +304,7 @@ func (e *Editor) OpenPath(path string) error {
 		return err
 	}
 	if e.inside(path) || e.openFolder(filepath.Dir(path)) {
+		e.trail = nil
 		e.openDoc(d)
 	}
 	return nil
@@ -309,6 +315,7 @@ func (e *Editor) open(path string) {
 	if e.shown().path == path {
 		return
 	}
+	e.trail = nil
 	d, err := e.load(path)
 	if err != nil {
 		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).OpenFailed(err.Error())})
@@ -324,6 +331,56 @@ func (e *Editor) openDoc(d *document) {
 		return
 	}
 	e.show(d)
+}
+
+// designName is the name of the design at path, which taps open it by:
+// its path in the folder without .scenra.
+func (e *Editor) designName(path string) string {
+	return strings.TrimSuffix(e.rel(path), ".scenra")
+}
+
+// tapOpen shows the design named name, as a tap in the design shown
+// opens it, which a close returns from.
+func (e *Editor) tapOpen(name string) {
+	tr := locales.For(e.cx)
+	from := e.shown().path
+	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(flowfile.DesignPath(name)))
+	d, err := e.load(path)
+	switch {
+	case err != nil && errors.Is(err, os.ErrNotExist):
+		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.NoDesign(name)})
+		return
+	case err != nil:
+		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.OpenFailed(err.Error())})
+		return
+	case d.broken.GetUntracked() == "" && d.doc.GetUntracked().Kind == flowfile.Chart:
+		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.NoDesign(name)})
+		return
+	}
+	e.openDoc(d)
+	if e.shown().path == path && from != path {
+		e.trail = append(e.trail, from)
+	}
+}
+
+// tapClose shows the design whose tap opened the design shown, as a tap
+// closing it does; it does nothing when the user opened the design shown.
+func (e *Editor) tapClose() {
+	n := len(e.trail)
+	if n == 0 {
+		return
+	}
+	path := e.trail[n-1]
+	d, err := e.load(path)
+	if err != nil {
+		e.trail = nil
+		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).OpenFailed(err.Error())})
+		return
+	}
+	e.openDoc(d)
+	if e.shown().path == path {
+		e.trail = e.trail[:n-1]
+	}
 }
 
 // NewDesign and NewFlow ask for the name of a new design or flow, which
@@ -448,13 +505,36 @@ func (d *document) change(f flowfile.File, group string) {
 
 // setComment sets the comment on the element at path of the design, or
 // removes it when text is "", as a change undo reverts.
-func (d *document) setComment(path, text string) {
+func (d *document) setComment(path, text string) { d.annotate(path, map[string]string{"comment": text}) }
+
+// setNote sets the note on the element at path of the design, or
+// removes it when text is "", as a change undo reverts.
+func (d *document) setNote(path, text string) { d.annotate(path, map[string]string{"note": text}) }
+
+// annotate sets the attributes of the element at path of the design to
+// values, removing those set to "", as one change undo reverts; it
+// changes nothing when they have those values.
+func (d *document) annotate(path string, values map[string]string) {
 	if d.e.locked() {
 		return
 	}
 	f := d.doc.GetUntracked()
-	els, err := flowfile.SetComment(f.UI, path, text)
-	if err != nil {
+	els, changed := f.UI, false
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		el, ok := flowfile.ElementAt(els, path)
+		if !ok {
+			return
+		}
+		if el.Attr(key) == values[key] {
+			continue
+		}
+		var err error
+		if els, err = flowfile.SetAttr(els, path, key, values[key]); err != nil {
+			return
+		}
+		changed = true
+	}
+	if !changed {
 		return
 	}
 	f.UI = els

@@ -2,7 +2,9 @@ package scenraview
 
 import (
 	"fmt"
+	"maps"
 	"slices"
+	"strings"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
@@ -12,61 +14,203 @@ import (
 )
 
 // selection is which element of a design is selected, by its path, how
-// pressing one selects it, and where each element was laid out.
+// pressing one selects it or plays its tap, and where each element was
+// laid out.
 type selection struct {
 	selected func() string
 	choose   func(path string)
-	// frames are the elements' frames in their parents', by path, which
-	// laidOut counts the changes of.
+	tap      func(flowfile.Tap)
+	// frames are the elements' frames in their parents', by key, which
+	// laidOut counts the changes of. A key is an element's path, and in a
+	// component the key of the use drawing it, a colon and its path in
+	// the component.
 	frames  map[string]core.Bounds
 	laidOut *core.Signal[int]
+	play    *player
 	// parts are the components a use draws. Inside one, owner is the
-	// path of the use, which its elements select, and using the
-	// components it is in, which it cannot use again.
-	parts components
-	owner string
-	using []string
+	// path of the use, which its elements select, prefix the key of the
+	// use and a colon, and using the components it is in, which it cannot
+	// use again.
+	parts  components
+	owner  string
+	prefix string
+	using  []string
+	// tapping is the tap of the element an element is in, which pressing
+	// it plays.
+	tapping *flowfile.Tap
 }
 
-// bounds is the frame of the element at path in the design's.
-func (sel selection) bounds(path string) (core.Bounds, bool) {
-	at, err := flowfile.ParsePath(path)
-	if path == "" || err != nil {
+// bounds is the frame of the element at key in the design's.
+func (sel selection) bounds(key string) (core.Bounds, bool) {
+	if key == "" {
 		return core.Bounds{}, false
 	}
 	var b core.Bounds
-	for i := range at {
-		f, ok := sel.frames[flowfile.FormatPath(at[:i+1])]
-		if !ok {
+	prefix := ""
+	for _, part := range strings.Split(key, ":") {
+		at, err := flowfile.ParsePath(part)
+		if err != nil {
 			return core.Bounds{}, false
 		}
-		b.Origin.X += f.Origin.X
-		b.Origin.Y += f.Origin.Y
-		b.Size = f.Size
+		for i := range at {
+			f, ok := sel.frames[prefix+flowfile.FormatPath(at[:i+1])]
+			if !ok {
+				return core.Bounds{}, false
+			}
+			b.Origin.X += f.Origin.X
+			b.Origin.Y += f.Origin.Y
+			b.Size = f.Size
+		}
+		prefix += part + ":"
 	}
 	return b, true
 }
 
-// elementAt is the path of the innermost element of els at p, in the
-// design's coordinates with els's parent at origin, the one drawn last
-// where several overlap, or "" for none. Children are looked in where
-// they reach outside their parent, as positioned ones can.
-func (sel selection) elementAt(els []flowfile.Element, parent []int, origin, p core.Point) string {
+// hit is an element under the pointer, by its key.
+type hit struct {
+	key string
+	el  flowfile.Element
+}
+
+// hits are the elements of els at p, from the outermost to the
+// innermost, in the design's coordinates with els's parent at origin:
+// the one drawn last where several overlap, and into the components
+// uses draw. Children are looked in where they reach outside their
+// parent, as positioned ones can, and hidden panels are passed over.
+func (sel selection) hits(els []flowfile.Element, prefix string, parent []int, origin, p core.Point, using []string) []hit {
 	for i := len(els) - 1; i >= 0; i-- {
 		path := append(slices.Clone(parent), i)
-		f, ok := sel.frames[flowfile.FormatPath(path)]
-		if !ok {
+		key := prefix + flowfile.FormatPath(path)
+		f, ok := sel.frames[key]
+		if !ok || !sel.play.showing(groupKey(prefix, parent), els[i]) {
 			continue
 		}
 		at := core.Point{X: origin.X + f.Origin.X, Y: origin.Y + f.Origin.Y}
-		if hit := sel.elementAt(els[i].Children, path, at, p); hit != "" {
-			return hit
+		var inner []hit
+		if el := els[i]; el.Kind == "use" {
+			if part, ok := sel.parts[el.Text]; ok && !slices.Contains(using, el.Text) {
+				inner = sel.hits(part, key+":", nil, at, p, append(slices.Clone(using), el.Text))
+			}
+		} else {
+			inner = sel.hits(el.Children, prefix, path, at, p, using)
+		}
+		if inner != nil {
+			return append([]hit{{key, els[i]}}, inner...)
 		}
 		if p.X >= at.X && p.Y >= at.Y && p.X < at.X+f.Size.Width && p.Y < at.Y+f.Size.Height {
-			return flowfile.FormatPath(path)
+			return []hit{{key, els[i]}}
 		}
 	}
-	return ""
+	return nil
+}
+
+// target is what pressing the elements hit selects, the innermost
+// element of the design, and the innermost tap among them, if any.
+func target(hits []hit) (path string, tap *flowfile.Tap) {
+	for _, h := range hits {
+		if !strings.Contains(h.key, ":") {
+			path = h.key
+		}
+		if t, ok := h.el.Tap(); ok {
+			tap = &t
+		}
+	}
+	return path, tap
+}
+
+// groupKey is the key of the element the elements at parent are in, by
+// which its panels take turns: the use drawing them at a component's
+// top, "" at the design's.
+func groupKey(prefix string, parent []int) string {
+	if len(parent) == 0 {
+		return strings.TrimSuffix(prefix, ":")
+	}
+	return prefix + flowfile.FormatPath(parent)
+}
+
+// player plays a design: which of its panels show, and which taps lead
+// to what shows.
+type player struct {
+	// tabs is the panel shown among the panels of each element, by its
+	// key, while the user has shown another than the first; panels the
+	// panels' names there, in order, as the design was last drawn.
+	tabs   *core.Signal[map[string]string]
+	panels map[string][]string
+	// shown is the name of the design shown, which taps opening it
+	// lead to.
+	shown func() string
+}
+
+func newPlayer(cx *core.Scope, shown func() string) *player {
+	return &player{tabs: core.NewSignalFunc(cx, map[string]string(nil), maps.Equal[map[string]string]), shown: shown}
+}
+
+// scan finds the panels of els, at the design's top when prefix is "",
+// and in the components they use.
+func (pl *player) scan(els []flowfile.Element, parts components) {
+	pl.panels = map[string][]string{}
+	var walk func(els []flowfile.Element, prefix string, parent []int, using []string)
+	walk = func(els []flowfile.Element, prefix string, parent []int, using []string) {
+		for i, el := range els {
+			path := append(slices.Clone(parent), i)
+			if name := el.Attr("panel"); name != "" {
+				g := groupKey(prefix, parent)
+				if !slices.Contains(pl.panels[g], name) {
+					pl.panels[g] = append(pl.panels[g], name)
+				}
+			}
+			if part, ok := parts[el.Text]; el.Kind == "use" && ok && !slices.Contains(using, el.Text) {
+				walk(part, prefix+flowfile.FormatPath(path)+":", nil, append(slices.Clone(using), el.Text))
+			}
+			walk(el.Children, prefix, path, using)
+		}
+	}
+	walk(els, "", nil, nil)
+}
+
+// showing says el, in the element at the key group, shows: it is no
+// panel, or the panel shown there, the first unless a tap showed another.
+func (pl *player) showing(group string, el flowfile.Element) bool {
+	name := el.Attr("panel")
+	if pl == nil || name == "" {
+		return true
+	}
+	names := pl.panels[group]
+	shown := pl.tabs.Get()[group]
+	if !slices.Contains(names, shown) && len(names) > 0 {
+		shown = names[0]
+	}
+	return shown == name
+}
+
+// leadsTo says tap leads to what shows: it opens the design shown, or
+// shows a tab that shows.
+func (pl *player) leadsTo(t flowfile.Tap) bool {
+	switch t.Action {
+	case flowfile.TapOpen:
+		return t.Target == pl.shown()
+	case flowfile.TapTab:
+		for g, names := range pl.panels {
+			if slices.Contains(names, t.Target) && pl.showing(g, flowfile.Element{Attrs: map[string]string{"panel": t.Target}}) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// showTab shows the panels named name in place of their siblings.
+func (pl *player) showTab(name string) {
+	tabs := maps.Clone(pl.tabs.GetUntracked())
+	if tabs == nil {
+		tabs = map[string]string{}
+	}
+	for g, names := range pl.panels {
+		if slices.Contains(names, name) {
+			tabs[g] = name
+		}
+	}
+	pl.tabs.Set(tabs)
 }
 
 // screenView draws a design at its size: its elements stack in its
@@ -106,42 +250,62 @@ func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selectio
 
 // element draws the element at path, shaped by its classes, recording
 // where it is laid out. The design's pointer layer selects it under the
-// pointer; its own press is for the keyboard and assistive technology.
-// An image without a picture, an SVG NSGo cannot read, or a use of a
-// component that is missing or in which it is, draws a placeholder. The
-// elements of a component are the use's, so they record nothing and
-// select it.
+// pointer or plays its tap; its own press is for the keyboard and
+// assistive technology. A panel shows while its tab does, and a box
+// whose tap leads to what shows is selected. An image without a
+// picture, an SVG NSGo cannot read, or a use of a component that is
+// missing or in which it is, draws a placeholder. The elements of a
+// component select the use.
 func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) core.Node {
 	class := el.Attr("class")
-	id := flowfile.FormatPath(path)
-	var layout func(core.Bounds)
-	testID := ""
-	if sel.owner == "" {
-		layout = func(b core.Bounds) {
-			sel.frames[id] = b
-			sel.laidOut.Update(func(n int) int { return n + 1 })
-		}
-		testID = "element-" + id
-	} else {
+	key := sel.prefix + flowfile.FormatPath(path)
+	layout := func(b core.Bounds) {
+		sel.frames[key] = b
+		sel.laidOut.Update(func(n int) int { return n + 1 })
+	}
+	id, testID := key, "element-"+key
+	if sel.owner != "" {
 		id = sel.owner
 	}
-	press := func(core.PressEvent) { sel.choose(id) }
+	var selected func() bool
+	if t, ok := el.Tap(); ok {
+		sel.tapping = &t
+		selected = func() bool { return sel.play.leadsTo(t) }
+	}
+	press := func(ev core.PressEvent) {
+		if sel.tapping != nil && !ev.Modifiers.Alt {
+			sel.tap(*sel.tapping)
+			return
+		}
+		sel.choose(id)
+	}
+	var hide func() core.Style
+	if el.Attr("panel") != "" {
+		group := groupKey(sel.prefix, path[:len(path)-1])
+		hide = func() core.Style {
+			if sel.play.showing(group, el) {
+				return core.Style{}
+			}
+			return core.Style{Display: core.DisplayNone}
+		}
+	}
 	placeholder := func(icon func() *core.SVG) core.Node {
 		return core.View{Class: "h-40 items-center justify-center overflow-hidden bg-muted " + class, Label: el.Text,
-			OnPress: press, OnLayout: layout, TestID: testID,
+			OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide,
 			Children: []core.Node{core.Icon{SVG: icon(), Class: "size-8 text-muted-foreground"}}}
 	}
 	switch el.Kind {
 	case "box":
-		return core.View{Class: class, OnPress: press, OnLayout: layout, TestID: testID, Children: elements(cx, el.Children, path, sel)}
+		return core.View{Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
+			Children: elements(cx, el.Children, path, sel)}
 	case "text":
-		return core.Text{Content: el.Text, Class: class, OnPress: press, OnLayout: layout, TestID: testID}
+		return core.Text{Content: el.Text, Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "icon":
-		return core.Icon{SVG: iconNamed(el.Text)(), Class: class, OnPress: press, OnLayout: layout, TestID: testID}
+		return core.Icon{SVG: iconNamed(el.Text)(), Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "image":
 		if src := el.Attr("src"); src != "" {
 			return core.Image{Source: core.Src(src), ResizeMode: core.Cover, Class: "h-40 overflow-hidden bg-muted " + class, Label: el.Text,
-				OnPress: press, OnLayout: layout, TestID: testID}
+				OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 		}
 		return placeholder(lucide.Image)
 	case "svg":
@@ -149,7 +313,7 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		if err != nil {
 			return placeholder(lucide.ImageOff)
 		}
-		return core.SVGView{SVG: doc, Class: class, OnPress: press, OnLayout: layout, TestID: testID}
+		return core.SVGView{SVG: doc, Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "use":
 		els, ok := sel.parts[el.Text]
 		if !ok || slices.Contains(sel.using, el.Text) {
@@ -157,8 +321,10 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		}
 		inner := sel
 		inner.owner = id
+		inner.prefix = key + ":"
 		inner.using = append(slices.Clone(sel.using), el.Text)
-		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, Children: elements(cx, els, nil, inner)}
+		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
+			Children: elements(cx, els, nil, inner)}
 	}
 	return core.Group{}
 }

@@ -45,6 +45,9 @@ var Parameters = map[string][]string{
 	"ResolveComment":        {"path", "comment"},
 	"ResolveCommentsPrompt": {"count"},
 	"FixFilePrompt":         {"path", "error_"},
+	"NoDesign":              {"name"},
+	"TapOpens":              {"design"},
+	"TapShows":              {"panel"},
 }
 
 // Translation is a language's messages another package supplies:
@@ -59,6 +62,9 @@ type Translation struct {
 	ResolveComment        func(path string, comment string) string
 	ResolveCommentsPrompt func(count int) string
 	FixFilePrompt         func(path string, error_ string) string
+	NoDesign              func(name string) string
+	TapOpens              func(design string) string
+	TapShows              func(panel string) string
 }
 
 var supplied = map[string]Translation{}
@@ -112,6 +118,10 @@ const (
 	textResolveComments
 	textFileBroken
 	textFixFile
+	textNote
+	textNotePlaceholder
+	textRemoveNote
+	textTapCloses
 	numTexts
 )
 
@@ -165,6 +175,10 @@ var keyOfText = [numTexts]string{
 	"resolveComments",
 	"fileBroken",
 	"fixFile",
+	"note",
+	"notePlaceholder",
+	"removeNote",
+	"tapCloses",
 }
 
 // textsEn are the messages without arguments in en.
@@ -215,7 +229,11 @@ var textsEn = i18n.NewTexts(""+
 	"Ask Assistant"+
 	"Ask the Assistant to Resolve Comments"+
 	"This file could not be opened"+
-	"Ask the Assistant to Fix It",
+	"Ask the Assistant to Fix It"+
+	"Note"+
+	"What should others know here?"+
+	"Remove Note"+
+	"Closes this screen",
 	[]uint16{
 		6,
 		8,
@@ -264,6 +282,10 @@ var textsEn = i18n.NewTexts(""+
 		37,
 		29,
 		27,
+		4,
+		29,
+		11,
+		18,
 	})
 
 // textsZhHans are the messages without arguments in zh-Hans.
@@ -314,7 +336,11 @@ var textsZhHans = i18n.NewTexts(""+
 	"问助手"+
 	"让助手处理评论"+
 	"无法打开这个文件"+
-	"让助手修复",
+	"让助手修复"+
+	"备注"+
+	"这里有什么需要说明的？"+
+	"删除备注"+
+	"关闭这个界面",
 	[]uint16{
 		9,
 		12,
@@ -363,6 +389,10 @@ var textsZhHans = i18n.NewTexts(""+
 		21,
 		24,
 		15,
+		6,
+		33,
+		12,
+		18,
 	})
 
 // texts returns the messages without arguments in lang, nil for a
@@ -436,6 +466,15 @@ func Supply(lang string, t Translation) {
 	}
 	if t.FixFilePrompt != nil {
 		s.FixFilePrompt = t.FixFilePrompt
+	}
+	if t.NoDesign != nil {
+		s.NoDesign = t.NoDesign
+	}
+	if t.TapOpens != nil {
+		s.TapOpens = t.TapOpens
+	}
+	if t.TapShows != nil {
+		s.TapShows = t.TapShows
 	}
 	supplied[lang] = s
 	Catalog.Add(lang)
@@ -944,6 +983,100 @@ func (msgs Messages) FixFilePrompt(path string, error_ string) string {
 			return "Fix " + msgs.arg(path) + ", which Scenra cannot open: " + msgs.arg(error_)
 		case "zh-Hans":
 			return "修复 Scenra 无法打开的 " + path + "：" + error_
+		}
+	}
+}
+
+// Note says "Note"
+// in the language the app shows under cx.
+func Note(cx *core.Scope) string { return For(cx).Note() }
+
+// Note is the package's Note in the language of msgs.
+func (msgs Messages) Note() string { return msgs.text(textNote) }
+
+// NotePlaceholder says "What should others know here?"
+// in the language the app shows under cx.
+func NotePlaceholder(cx *core.Scope) string { return For(cx).NotePlaceholder() }
+
+// NotePlaceholder is the package's NotePlaceholder in the language of msgs.
+func (msgs Messages) NotePlaceholder() string { return msgs.text(textNotePlaceholder) }
+
+// RemoveNote says "Remove Note"
+// in the language the app shows under cx.
+func RemoveNote(cx *core.Scope) string { return For(cx).RemoveNote() }
+
+// RemoveNote is the package's RemoveNote in the language of msgs.
+func (msgs Messages) RemoveNote() string { return msgs.text(textRemoveNote) }
+
+// NoDesign says "There is no design {name} to open."
+// in the language the app shows under cx.
+func NoDesign(cx *core.Scope, name string) string { return For(cx).NoDesign(name) }
+
+// NoDesign is the package's NoDesign in the language of msgs.
+func (msgs Messages) NoDesign(name string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.NoDesign(name))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].NoDesign; f != nil {
+			return f(name)
+		}
+		switch lang {
+		case "", "en":
+			return "There is no design " + msgs.arg(name) + " to open."
+		case "zh-Hans":
+			return "没有可以打开的设计 " + name + "。"
+		}
+	}
+}
+
+// TapOpens says "Opens {design}"
+// in the language the app shows under cx.
+func TapOpens(cx *core.Scope, design string) string { return For(cx).TapOpens(design) }
+
+// TapOpens is the package's TapOpens in the language of msgs.
+func (msgs Messages) TapOpens(design string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.TapOpens(design))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].TapOpens; f != nil {
+			return f(design)
+		}
+		switch lang {
+		case "", "en":
+			return "Opens " + msgs.arg(design)
+		case "zh-Hans":
+			return "打开 " + design
+		}
+	}
+}
+
+// TapCloses says "Closes this screen"
+// in the language the app shows under cx.
+func TapCloses(cx *core.Scope) string { return For(cx).TapCloses() }
+
+// TapCloses is the package's TapCloses in the language of msgs.
+func (msgs Messages) TapCloses() string { return msgs.text(textTapCloses) }
+
+// TapShows says "Shows {panel}"
+// in the language the app shows under cx.
+func TapShows(cx *core.Scope, panel string) string { return For(cx).TapShows(panel) }
+
+// TapShows is the package's TapShows in the language of msgs.
+func (msgs Messages) TapShows(panel string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.TapShows(panel))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].TapShows; f != nil {
+			return f(panel)
+		}
+		switch lang {
+		case "", "en":
+			return "Shows " + msgs.arg(panel)
+		case "zh-Hans":
+			return "显示 " + panel
 		}
 	}
 }

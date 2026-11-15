@@ -81,6 +81,26 @@ func view(dir string, files []fileView, parts components) string {
 		}
 		return out
 	})
+	section("The notes on elements, which say what the designs cannot show, such as what an element does or when it changes; keep them true:", func(f fileView) []string {
+		var out []string
+		for _, n := range f.file.Notes() {
+			out = append(out, fmt.Sprintf("%s, element %s: %q", f.path, n.Path, n.Text))
+		}
+		return out
+	})
+	var designs []string
+	for _, f := range files {
+		if f.file.Kind != flowfile.Chart {
+			designs = append(designs, strings.TrimSuffix(f.path, ".scenra"))
+		}
+	}
+	section("Taps that lead nowhere:", func(f fileView) []string {
+		var out []string
+		for _, p := range tapProblems(f.file, designs, parts) {
+			out = append(out, f.path+": "+p)
+		}
+		return out
+	})
 	section("Files that do not parse, which the editor shows as they last parsed, if ever:", func(f fileView) []string {
 		if f.broken == "" {
 			return nil
@@ -105,4 +125,54 @@ func view(dir string, files []fileView, parts components) string {
 		return nil
 	})
 	return b.String()
+}
+
+// tapProblems are the taps of f's elements that lead nowhere: those
+// opening none of designs, and in a design those showing a panel neither
+// it nor the components it uses has. A component's tabs may show the
+// panels of the designs using it.
+func tapProblems(f flowfile.File, designs []string, parts components) []string {
+	var out []string
+	panels := map[string]bool{}
+	drawn(f.UI, parts, func(el flowfile.Element) {
+		if name := el.Attr("panel"); name != "" {
+			panels[name] = true
+		}
+	})
+	walk(f.UI, func(el flowfile.Element) {
+		t, ok := el.Tap()
+		switch {
+		case !ok:
+		case t.Action == flowfile.TapOpen && !slices.Contains(designs, t.Target):
+			out = append(out, fmt.Sprintf("tap %q: there is no %s", t.String(), flowfile.DesignPath(t.Target)))
+		case t.Action == flowfile.TapTab && f.Kind == flowfile.Design && !panels[t.Target]:
+			out = append(out, fmt.Sprintf("tap %q: no element has panel=%s", t.String(), t.Target))
+		}
+	})
+	return out
+}
+
+// walk runs fn on els and the elements they hold.
+func walk(els []flowfile.Element, fn func(flowfile.Element)) {
+	for _, el := range els {
+		fn(el)
+		walk(el.Children, fn)
+	}
+}
+
+// drawn runs fn on els, the elements they hold and those of the
+// components they use, each component once.
+func drawn(els []flowfile.Element, parts components, fn func(flowfile.Element)) {
+	seen := map[string]bool{}
+	var visit func(els []flowfile.Element)
+	visit = func(els []flowfile.Element) {
+		walk(els, func(el flowfile.Element) {
+			fn(el)
+			if el.Kind == "use" && !seen[el.Text] {
+				seen[el.Text] = true
+				visit(parts[el.Text])
+			}
+		})
+	}
+	visit(els)
 }

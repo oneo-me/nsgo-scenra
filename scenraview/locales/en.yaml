@@ -51,3 +51,10 @@ resolveCommentsPrompt: "{count, plural, one {Resolve my comment on this design.}
 fileBroken: This file could not be opened
 fixFile: Ask the Assistant to Fix It
 fixFilePrompt: "Fix {path}, which Scenra cannot open: {error}"
+note: Note
+notePlaceholder: What should others know here?
+removeNote: Remove Note
+noDesign: "There is no design {name} to open."
+tapOpens: "Opens {design}"
+tapCloses: Closes this screen
+tapShows: "Shows {panel}"

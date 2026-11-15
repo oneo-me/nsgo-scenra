@@ -407,6 +407,23 @@ func TestEveryIconNameDraws(t *testing.T) {
 	}
 }
 
+func TestATabBarMarksTheScreenShown(t *testing.T) {
+	item := func(name string) string {
+		return "  box class=\"group\" tap=\"open " + name + "\"\n    text \"" + name + " tab\" class=\"text-zinc-400 group-selected:text-amber-600\"\n  end\n"
+	}
+	dir := folderOfFiles(t, map[string]string{
+		"menu.scenra":               "design\nuse tab-bar\n",
+		"orders.scenra":             "design\nuse tab-bar\n",
+		"components/tab-bar.scenra": "component\nbox class=\"flex-row\"\n" + item("menu") + item("orders") + "end\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "menu.scenra"))
+	app.WaitFor("design >> text:orders tab", 5*time.Second)
+	if menu, orders := app.Find("design >> text:menu tab").TextStyle.Color, app.Find("design >> text:orders tab").TextStyle.Color; menu == orders {
+		t.Fatalf("the tab of the screen shown is %v as the others", menu)
+	}
+}
+
 func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 	files, _, _ := scan("../examples", nil)
 	if len(files) < 2 {
@@ -456,4 +473,130 @@ func TestAnotherAppShowsOneFile(t *testing.T) {
 	if _, ok := app.Storage().GetItem(keyFolder); ok {
 		t.Fatal("an editor that remembers nothing kept its folder")
 	}
+}
+
+func TestDesignsPlayTheirTaps(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra": "design\nbox class=\"flex-1\"\n" +
+			"  box class=\"flex-row\"\n" +
+			"    box tap=\"tab active\"\n      text \"Active tab\"\n    end\n" +
+			"    box tap=\"tab past\"\n      text \"Past tab\"\n    end\n" +
+			"  end\n" +
+			"  box panel=active\n    text \"Brewing now\"\n  end\n" +
+			"  box panel=past\n    text \"Yesterday\"\n  end\n" +
+			"  box tap=\"open orders/detail\"\n    text \"Open detail\"\n  end\n" +
+			"  text \"Nowhere\" tap=\"open gone\"\n" +
+			"  use tab-bar\n" +
+			"end\n",
+		"orders/detail.scenra":      "design\nbox class=\"flex-1\"\n  text \"Back\" tap=close\n  use tab-bar\nend\n",
+		"components/tab-bar.scenra": "component\nbox class=\"flex-row\"\n  box tap=\"open home\"\n    text \"Home item\"\n  end\nend\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("design >> text:Brewing now", 5*time.Second)
+	// The first panel shows, and a tab shows its own in its place, and
+	// the box whose tap shows what shows is selected.
+	if app.Exists("design >> text:Yesterday") {
+		t.Fatal("a second panel shows")
+	}
+	selected := func(id string) bool { return app.Find("id:" + id).Props.Selected }
+	if !selected("element-0.0.0") || selected("element-0.0.1") {
+		t.Fatal("the first tab is not the selected one")
+	}
+	app.Press("design >> text:Past tab")
+	app.WaitFor("design >> text:Yesterday", time.Second)
+	app.WaitForGone("design >> text:Brewing now", time.Second)
+	if !selected("element-0.0.1") || selected("element-0.0.0") {
+		t.Fatal("the tab shown is not the selected one")
+	}
+	if got := e.cur().element.GetUntracked(); got != "" || app.Exists("id:comment-card") {
+		t.Fatalf("playing a tap selected %q", got)
+	}
+	// A tap opens another design, whose close returns to the one that
+	// opened it; the component's tap leading to the design shown is
+	// selected.
+	app.Press("design >> text:Open detail")
+	app.WaitFor("design >> text:Back", time.Second)
+	if got := shownName(app); got != "detail" {
+		t.Fatalf("the tap opened %q", got)
+	}
+	app.Press("design >> text:Back")
+	app.WaitFor("design >> text:Open detail", time.Second)
+	if got := shownName(app); got != "home" {
+		t.Fatalf("closing showed %q", got)
+	}
+	if !selected("element-0.5:0.0") {
+		t.Fatal("the tab bar's item for the design shown is not selected")
+	}
+	// Coming back shows the first tab again, and a close with nothing to
+	// return to stays.
+	app.Find("design >> text:Brewing now")
+	app.Press("design >> text:Nowhere")
+	if got := shownName(app); got != "home" {
+		t.Fatalf("a tap to no design showed %q", got)
+	}
+	// What leads nowhere, the agent hears of.
+	view := ""
+	app.Post(func() { view = e.viewOf() })
+	app.Settle()
+	if !strings.Contains(view, `home.scenra: tap "open gone": there is no gone.scenra`) {
+		t.Fatalf("the view tells nothing of the tap to no design:\n%s", view)
+	}
+}
+
+func TestTheCardShowsWhereThePointerRests(t *testing.T) {
+	shop := writeFlow(t, "shop.scenra", "design\nbox class=\"flex-1 gap-4 p-6\"\n  text \"Welcome\" class=\"text-2xl\"\n"+
+		"  box class=\"h-12\" tap=\"open menu\"\n    text \"Menu\"\n  end\nend\n")
+	app, e := startEditor(t)
+	openPath(t, app, e, shop)
+	app.WaitFor("design >> text:Menu", time.Second)
+	pane, design := app.Find("id:design-pointer").Frame.Size, app.Find("id:design").Frame.Size
+	zoom := min(1, (pane.Width-2*designFitMargin)/design.Width, (pane.Height-2*designFitMargin)/design.Height)
+	at := func(path string) core.Point {
+		v := app.Find("id:element-" + path)
+		x, y := v.Frame.Size.Width/2, v.Frame.Size.Height/2
+		for ; v.Props.TestID != "design"; v = v.Parent {
+			x, y = x+v.Frame.Origin.X, y+v.Frame.Origin.Y
+		}
+		return core.Point{X: (pane.Width-design.Width*zoom)/2 + x*zoom, Y: (pane.Height-design.Height*zoom)/2 + y*zoom}
+	}
+	// Resting on an element shows its card, even on one whose tap
+	// pressing plays.
+	app.HoverAt("id:design-pointer", at("0.1.0"))
+	if app.Exists("id:comment-card") {
+		t.Fatal("the card shows before the pointer rests")
+	}
+	app.Advance(time.Second)
+	app.WaitFor("id:comment-card", time.Second)
+	app.Find("id:comment-tap >> text:Opens menu")
+	if got := e.cur().element.GetUntracked(); got != "" {
+		t.Fatalf("resting selected %q", got)
+	}
+	// A note saves with the element, and keeps the card while it is
+	// typed.
+	app.Type("id:note-input", "Lists today's drinks")
+	app.HoverOut()
+	app.Advance(time.Second)
+	app.Find("id:comment-card")
+	app.Press("id:comment-save")
+	app.WaitFor("id:note-pin-0.1.0", time.Second)
+	if got := e.shown().doc.GetUntracked().Format(); !strings.Contains(got, `text "Menu" note="Lists today's drinks"`) {
+		t.Fatalf("the note was not saved:\n%s", got)
+	}
+	// Once saved, the card goes when the pointer leaves.
+	app.HoverAt("id:design-pointer", at("0.0"))
+	app.HoverOut()
+	app.Advance(time.Second)
+	app.WaitForGone("id:comment-card", time.Second)
+	view := ""
+	app.Post(func() { view = e.viewOf() })
+	app.Settle()
+	if !strings.Contains(view, `shop.scenra, element 0.1.0: "Lists today's drinks"`) {
+		t.Fatalf("the view tells nothing of the note:\n%s", view)
+	}
+	app.HoverAt("id:design-pointer", at("0.1.0"))
+	app.Advance(time.Second)
+	app.WaitFor("id:comment-card", time.Second)
+	app.Press("id:note-remove")
+	app.WaitForGone("id:note-pin-0.1.0", time.Second)
 }

@@ -108,12 +108,14 @@ var Elements = []ElementSpec{
 }
 
 // commonAttrs are the attributes every element takes: the classes that
-// shape it, and a user's comment on it, which asks the assistant for a
-// change until the assistant resolves it.
-var commonAttrs = []string{"class", "comment"}
+// shape it, what pressing it does and the tab panel it is, a user's
+// comment on it, which asks the assistant for a change until the
+// assistant resolves it, and a note, which says what the design cannot
+// show and stays.
+var commonAttrs = []string{"class", "tap", "panel", "comment", "note"}
 
 // attrOrder is the order Format writes attributes in.
-var attrOrder = []string{"src", "class", "comment"}
+var attrOrder = []string{"src", "class", "tap", "panel", "comment", "note"}
 
 // Spec returns the spec of the element kind.
 func Spec(kind string) (ElementSpec, bool) {
@@ -193,8 +195,17 @@ func (r *uiReader) line(toks []token) string {
 	return ""
 }
 
-// checkElement says what is wrong with an element's text.
+// checkElement says what is wrong with an element's text, its tap or its
+// panel.
 func checkElement(el Element) string {
+	if tap, ok := el.Attrs["tap"]; ok {
+		if _, err := ParseTap(tap); err != nil {
+			return err.Error()
+		}
+	}
+	if panel, ok := el.Attrs["panel"]; ok && !ValidID(panel) {
+		return fmt.Sprintf("panel %q is not a name of letters, digits, _, - or .", panel)
+	}
 	switch el.Kind {
 	case "icon":
 		if _, ok := IconName(el.Text); !ok {

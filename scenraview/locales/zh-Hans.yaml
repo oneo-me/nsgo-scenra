@@ -51,3 +51,10 @@ resolveCommentsPrompt: "处理我在这张设计上的 {count, number} 条评论
 fileBroken: 无法打开这个文件
 fixFile: 让助手修复
 fixFilePrompt: "修复 Scenra 无法打开的 {path}：{error}"
+note: 备注
+notePlaceholder: 这里有什么需要说明的？
+removeNote: 删除备注
+noDesign: "没有可以打开的设计 {name}。"
+tapOpens: "打开 {design}"
+tapCloses: 关闭这个界面
+tapShows: "显示 {panel}"

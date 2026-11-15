@@ -208,18 +208,25 @@ func ReplaceElement(els []Element, path string, with []Element) ([]Element, erro
 	return out, nil
 }
 
-// Comment is a user's comment on an element of a design.
+// Comment is a user's comment or note on an element of a design.
 type Comment struct{ Path, Text string }
 
 // Comments are the comments on f's design, in the order their elements
 // are written.
-func (f File) Comments() []Comment {
+func (f File) Comments() []Comment { return f.remarks("comment") }
+
+// Notes are the notes on f's design, in the order their elements are
+// written.
+func (f File) Notes() []Comment { return f.remarks("note") }
+
+// remarks are the attributes key of f's elements that are set.
+func (f File) remarks(key string) []Comment {
 	var out []Comment
 	var walk func(els []Element, parent []int)
 	walk = func(els []Element, parent []int) {
 		for i, el := range els {
 			path := append(slices.Clone(parent), i)
-			if text := el.Attr("comment"); text != "" {
+			if text := el.Attr(key); text != "" {
 				out = append(out, Comment{FormatPath(path), text})
 			}
 			walk(el.Children, path)
@@ -232,18 +239,30 @@ func (f File) Comments() []Comment {
 // SetComment returns els with the comment on the element at path set to
 // text, or removed when text is ""; els is unchanged.
 func SetComment(els []Element, path, text string) ([]Element, error) {
+	return SetAttr(els, path, "comment", text)
+}
+
+// SetNote returns els with the note on the element at path set to text,
+// or removed when text is ""; els is unchanged.
+func SetNote(els []Element, path, text string) ([]Element, error) {
+	return SetAttr(els, path, "note", text)
+}
+
+// SetAttr returns els with the attribute key of the element at path set
+// to value, or removed when value is ""; els is unchanged.
+func SetAttr(els []Element, path, key, value string) ([]Element, error) {
 	el, ok := ElementAt(els, path)
 	if !ok {
 		return nil, fmt.Errorf("no element at %s", path)
 	}
 	el.Attrs = maps.Clone(el.Attrs)
-	if text == "" {
-		delete(el.Attrs, "comment")
+	if value == "" {
+		delete(el.Attrs, key)
 	} else {
 		if el.Attrs == nil {
 			el.Attrs = map[string]string{}
 		}
-		el.Attrs["comment"] = text
+		el.Attrs[key] = value
 	}
 	return ReplaceElement(els, path, []Element{el})
 }
