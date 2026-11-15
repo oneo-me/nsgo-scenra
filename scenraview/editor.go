@@ -75,10 +75,12 @@ type Editor struct {
 	cx   *core.Scope
 	opts Options
 	// folder is the open folder, "" before one is, files the Scenra
-	// files found in it and parts the components among them.
+	// files found in it, parts the components among them and assets the
+	// pictures of its assets folder.
 	folder *core.Signal[string]
 	files  *core.Signal[[]entry]
 	parts  *core.Signal[components]
+	assets *core.Signal[assets]
 	active *core.Signal[*document]
 	// blank stands for the document shown while none is open.
 	blank *document
@@ -110,7 +112,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 		toasts = ui.NewToaster(cx)
 	}
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
-		parts:  core.NewSignalFunc(cx, components(nil), sameComponents),
+		parts:  core.NewSignalFunc(cx, components(nil), sameComponents), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		active: core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
 		camera: &uiflow.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), rescan: make(chan struct{}, 1)}
 	e.blank = e.newDocument(flowfile.File{}, "")
@@ -254,6 +256,7 @@ func (e *Editor) setFolder(dir string) {
 		e.folder.Set(dir)
 		e.files.Set(nil)
 		e.parts.Set(nil)
+		e.assets.Set(nil)
 	})
 	e.scanNow()
 }

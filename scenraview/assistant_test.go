@@ -417,8 +417,9 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 	if out, failed := ask(); !failed || !strings.Contains(out, "no Scenra editor") {
 		t.Fatalf("a call without an editor: %q", out)
 	}
-	dir := folderOfFiles(t, map[string]string{"a/plan.scenra": "design\ntext \"x\" class=\"bg-nope\"\nuse card\nuse gone\n",
-		"components/card.scenra": "component\nuse card\n", "a/stray.scenra": "component\n"})
+	dir := folderOfFiles(t, map[string]string{"a/plan.scenra": "design\ntext \"x\" class=\"bg-nope\"\nuse card\nuse gone\n" +
+		"image \"Cup\" src=\"assets/cup.png\"\nimage \"Lost\" src=\"assets/lost.jpg\"\nimage \"Stray\" src=\"a/stray.png\"\n",
+		"components/card.scenra": "component\nuse card\n", "a/stray.scenra": "component\n", "assets/cup.png": "cup", "a/stray.png": "stray"})
 	var e *Editor
 	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
 		e = New(cx, Options{})
@@ -446,7 +447,9 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 	out, failed := answer()
 	for _, want := range []string{"no file open", "a/plan.scenra: bg-nope", "draw with use <name>: card.",
 		`a/plan.scenra: use "card": components use each other`, `a/plan.scenra: use "gone": there is no components/gone.scenra`,
-		`components/card.scenra: use "card": components use each other`, "a/stray.scenra: a component outside components/"} {
+		`components/card.scenra: use "card": components use each other`, "a/stray.scenra: a component outside components/",
+		`a/plan.scenra: src "assets/lost.jpg": there is no assets/lost.jpg`,
+		`a/plan.scenra: src "a/stray.png": put the picture in assets/`} {
 		if failed || !strings.Contains(out, want) {
 			t.Fatalf("the view tells nothing of %q: %s", want, out)
 		}

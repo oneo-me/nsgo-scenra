@@ -29,6 +29,7 @@
 //	  end
 //	  text "Back" tap=close
 //	  image "A cup of coffee" class="h-40 rounded-2xl"
+//	  image "Latte art" src="assets/latte.jpg" class="h-40"   # or a URL
 //	  svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
 //	  use tab-bar class="mt-auto"      # components/tab-bar.scenra
 //	end
@@ -62,6 +63,9 @@
 // use is one element, a box holding the component, whatever it holds,
 // and may change the texts, classes, pictures and taps of the elements
 // the component names, as Figma's instances and Sketch's symbols do.
+// An image shows a picture of the assets folder at the top of the
+// project, named by its path there, or one at a URL, and else a
+// placeholder its text describes.
 // Any element may carry a comment, a change the user asks the
 // assistant for, which stays until the assistant resolves it, and a note,
 // which says what the design cannot show, such as when it changes. The

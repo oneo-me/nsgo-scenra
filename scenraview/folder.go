@@ -3,6 +3,7 @@ package scenraview
 import (
 	"io/fs"
 	"maps"
+	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -53,11 +54,12 @@ type entry struct {
 }
 
 // scanned is what a scan read of a file, kept while the file stays the
-// same: a component's elements too.
+// same: a component's elements too, or a picture's bytes.
 type scanned struct {
 	stamp stamp
 	entry entry
 	ui    []flowfile.Element
+	data  []byte
 }
 
 // components are the elements of the components the open folder's
@@ -68,16 +70,38 @@ func sameComponents(a, b components) bool {
 	return maps.EqualFunc(a, b, func(x, y []flowfile.Element) bool { return flowfile.FormatUI(x) == flowfile.FormatUI(y) })
 }
 
+// assets are the pictures of the open folder's assets folder, by their
+// path in the folder with slashes.
+type assets map[string]asset
+
+// asset is a picture's bytes and the version of its file they are, which
+// tells pictures apart without comparing their bytes. The bytes stay the
+// same slice while the file does, so NSGo keeps the picture it decoded.
+type asset struct {
+	stamp stamp
+	data  []byte
+}
+
+func sameAssets(a, b assets) bool {
+	return maps.EqualFunc(a, b, func(x, y asset) bool { return x.stamp == y.stamp })
+}
+
+// assetLimit is the size of the largest picture a scan reads, so a stray
+// video in the assets folder does not fill the memory.
+const assetLimit = 20 << 20
+
 // skipped says a scan leaves out the folder or file named name: hidden
 // ones and installed packages.
 func skipped(name string) bool { return strings.HasPrefix(name, ".") || name == "node_modules" }
 
-// scan finds the Scenra files under root, reading again only those that
-// changed since the scan whose files were cache, and returns them, the
-// components among them and the cache of this one.
-func scan(root string, cache map[string]scanned) ([]entry, components, map[string]scanned) {
+// scan finds the Scenra files under root and the pictures of its assets
+// folder, reading again only those that changed since the scan whose
+// files were cache, and returns the Scenra files, the components among
+// them, the pictures and the cache of this one.
+func scan(root string, cache map[string]scanned) ([]entry, components, assets, map[string]scanned) {
 	var out []entry
 	parts := components{}
+	pics := assets{}
 	next := map[string]scanned{}
 	seen := 0
 	filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
@@ -93,7 +117,27 @@ func scan(root string, cache map[string]scanned) ([]entry, components, map[strin
 			}
 			return nil
 		}
-		if d.IsDir() || !strings.HasSuffix(d.Name(), ".scenra") {
+		if d.IsDir() {
+			return nil
+		}
+		rel, _ := filepath.Rel(root, p)
+		rel = filepath.ToSlash(rel)
+		if flowfile.IsAsset(rel) {
+			st := stampOf(p)
+			c, ok := cache[p]
+			if !ok || c.stamp != st {
+				c = scanned{stamp: st}
+				if st.size > 0 && st.size <= assetLimit {
+					c.data, _ = os.ReadFile(p)
+				}
+			}
+			next[p] = c
+			if len(c.data) > 0 {
+				pics[rel] = asset{c.stamp, c.data}
+			}
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".scenra") {
 			return nil
 		}
 		st := stampOf(p)
@@ -107,8 +151,7 @@ func scan(root string, cache map[string]scanned) ([]entry, components, map[strin
 				}
 			}
 		}
-		rel, _ := filepath.Rel(root, p)
-		c.entry.path = filepath.ToSlash(rel)
+		c.entry.path = rel
 		next[p] = c
 		out = append(out, c.entry)
 		if name, ok := flowfile.ComponentName(c.entry.path); ok && c.entry.kind == flowfile.Component {
@@ -116,7 +159,7 @@ func scan(root string, cache map[string]scanned) ([]entry, components, map[strin
 		}
 		return nil
 	})
-	return out, parts, next
+	return out, parts, pics, next
 }
 
 // scanNow has the scan read the open folder now.
@@ -136,7 +179,7 @@ func (e *Editor) found(en entry) {
 // scannedFiles takes the files a scan of dir found, and opens those the
 // agent made in its turn: a component only when it made nothing else, so
 // the screen using it shows.
-func (e *Editor) scannedFiles(dir string, files []entry, parts components, first bool) {
+func (e *Editor) scannedFiles(dir string, files []entry, parts components, pics assets, first bool) {
 	if e.folder.GetUntracked() != dir {
 		return
 	}
@@ -144,6 +187,7 @@ func (e *Editor) scannedFiles(dir string, files []entry, parts components, first
 	e.cx.Batch(func() {
 		e.files.Set(files)
 		e.parts.Set(parts)
+		e.assets.Set(pics)
 	})
 	if first || !e.a.busy() {
 		return

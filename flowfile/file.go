@@ -105,7 +105,7 @@ var Elements = []ElementSpec{
 	{Kind: "box", Holds: true, Doc: "a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line"},
 	{Kind: "text", Doc: "its text, which wraps; size, weight and color it with classes"},
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
-	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the image at the URL src, or a placeholder; size it with classes"},
+	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the one src names, a file of the assets folder such as assets/latte.jpg or a URL, or a placeholder; size it with classes"},
 	{Kind: "svg", Doc: "any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox"},
 	{Kind: "use", Doc: "the component its text names, a file of the components folder, drawn as a box with its classes holding the component's elements"},
 }

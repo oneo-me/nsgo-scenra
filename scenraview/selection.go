@@ -26,10 +26,10 @@ type fileView struct {
 
 // view tells an agent what the user sees of the folder dir and the
 // problems of its files: the file shown and what is selected in it, the
-// components designs can use, the user's comments, the files that do not
-// parse, the components missing or used in a loop, and the classes that
-// draw nothing.
-func view(dir string, files []fileView, parts components) string {
+// components designs can use, the user's comments, the files that do not parse, the components missing
+// or used in a loop, the pictures missing and the classes that draw
+// nothing.
+func view(dir string, files []fileView, parts components, pics assets) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "The open folder is %s; the paths below are relative to it.\n", dir)
 	if len(files) == 0 {
@@ -118,6 +118,13 @@ func view(dir string, files []fileView, parts components) string {
 		}
 		return out
 	})
+	section("Pictures that images cannot show:", func(f fileView) []string {
+		var out []string
+		for _, p := range imageProblems(f.file.UI, pics) {
+			out = append(out, f.path+": "+p)
+		}
+		return out
+	})
 	section("Classes that draw nothing:", func(f fileView) []string {
 		if classes := unknownClasses(f.file.UI); len(classes) > 0 {
 			return []string{f.path + ": " + strings.Join(classes, ", ")}
@@ -125,6 +132,24 @@ func view(dir string, files []fileView, parts components) string {
 		return nil
 	})
 	return b.String()
+}
+
+// imageProblems are what is wrong with the pictures the images of els,
+// and the uses changing theirs, name in the folder: those outside the
+// assets folder or of a kind it does not show, and those missing.
+func imageProblems(els []flowfile.Element, pics assets) []string {
+	var out []string
+	for _, src := range flowfile.Images(els) {
+		p, ok := flowfile.AssetPath(src)
+		switch {
+		case !ok:
+		case !flowfile.IsAsset(p):
+			out = append(out, fmt.Sprintf("src %q: put the picture in %s/, as a file ending in %s, and name it there", src, flowfile.AssetsDir, strings.Join(flowfile.AssetExts, ", ")))
+		case pics[p].data == nil:
+			out = append(out, fmt.Sprintf("src %q: there is no %s", src, p))
+		}
+	}
+	return out
 }
 
 // tapProblems are the taps of f's elements, and those its uses give the

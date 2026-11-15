@@ -33,6 +33,8 @@ type selection struct {
 	// use again.
 	parts  components
 	owner  string
+	// assets are the pictures of the folder an image's src may name.
+	assets assets
 	prefix string
 	using  []string
 	// tapping is the tap of the element an element is in, which pressing
@@ -276,8 +278,9 @@ func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selectio
 // where it is laid out. The design's pointer layer selects it under the
 // pointer or plays its tap; its own press is for the keyboard and
 // assistive technology. A panel shows while its tab does, and a box
-// whose tap leads to what shows is selected. An image without a
-// picture, an SVG NSGo cannot read, or a use of a component that is
+// whose tap leads to what shows is selected. An image shows the picture
+// of the assets folder or the URL its src names; one without a src, one
+// of a picture the folder lacks, an SVG NSGo cannot read, or a use of a component that is
 // missing or in which it is, draws a placeholder. A use draws its
 // component with what it changes, and the elements of a component
 // select the use.
@@ -328,11 +331,20 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 	case "icon":
 		return core.Icon{SVG: iconNamed(el.Text)(), Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "image":
-		if src := el.Attr("src"); src != "" {
-			return core.Image{Source: core.Src(src), ResizeMode: core.Cover, Class: "h-40 overflow-hidden bg-muted " + class, Label: el.Text,
-				OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
+		src := el.Attr("src")
+		if src == "" {
+			return placeholder(lucide.Image)
 		}
-		return placeholder(lucide.Image)
+		source := core.Src(src)
+		if p, ok := flowfile.AssetPath(src); ok {
+			pic, ok := sel.assets[p]
+			if !ok {
+				return placeholder(lucide.ImageOff)
+			}
+			source = core.ImageSource{Data: pic.data}
+		}
+		return core.Image{Source: source, ResizeMode: core.Cover, Class: "h-40 overflow-hidden bg-muted " + class, Label: el.Text,
+			OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "svg":
 		doc, err := core.ParseSVG([]byte(el.Text))
 		if err != nil {

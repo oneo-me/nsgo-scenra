@@ -156,11 +156,12 @@ func (c *designCanvas) wheel(e core.WheelEvent) {
 	}
 }
 
-// lookOf is what a design is drawn from: its text, and the components it
-// may use.
+// lookOf is what a design is drawn from: its text, and the components
+// and pictures it may use.
 type lookOf struct {
-	text  string
-	parts components
+	text   string
+	parts  components
+	assets assets
 }
 
 // peekDelay is how long the pointer rests on an element before its card
@@ -185,9 +186,11 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
 	c := newDesignCanvas(cx)
-	// A design is drawn again as it or a component changes.
-	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{e.cur().doc.Get().Format(), e.parts.Get()} },
-		func(a, b lookOf) bool { return a.text == b.text && sameComponents(a.parts, b.parts) })
+	// A design is drawn again as it, a component or a picture changes.
+	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{e.cur().doc.Get().Format(), e.parts.Get(), e.assets.Get()} },
+		func(a, b lookOf) bool {
+			return a.text == b.text && sameComponents(a.parts, b.parts) && sameAssets(a.assets, b.assets)
+		})
 	play := newPlayer(cx, func() string { return e.designName(e.cur().path) })
 	hovered := core.NewSignal(cx, "")
 	// tappable says the pointer is over an element pressing which plays a
@@ -343,7 +346,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		tappable.Set(false)
 	})
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
-		sel.parts = look.Get().parts
+		sel.parts, sel.assets = look.Get().parts, look.Get().assets
 		s := core.Untracked(cx, func() flowfile.File { return e.cur().doc.Get() })
 		clear(sel.frames)
 		play.scan(s.UI, sel.parts)

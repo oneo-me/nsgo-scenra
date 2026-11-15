@@ -299,3 +299,20 @@ func TestOverrides(t *testing.T) {
 		}
 	}
 }
+
+func TestImagesNameThePicturesOfTheAssetsFolder(t *testing.T) {
+	for src, want := range map[string]string{"assets/a.png": "assets/a.png", "./assets/b/c.JPG": "assets/b/c.JPG", "https://x.io/a.png": "", "data:image/png;base64,AA": ""} {
+		if got, _ := AssetPath(src); got != want {
+			t.Errorf("AssetPath(%q) = %q, want %q", src, got, want)
+		}
+	}
+	for p, want := range map[string]bool{"assets/a.png": true, "assets/b/c.JPG": true, "assets/a.mp4": false, "a/assets/a.png": false, "assets/../a.png": false} {
+		if IsAsset(p) != want {
+			t.Errorf("IsAsset(%q) is %v", p, !want)
+		}
+	}
+	els, _ := ParseUI("image \"a\" src=assets/a.png\nbox\n  use card pic.src=assets/b.png\n  image \"a\" src=assets/a.png\nend\n")
+	if got := Images(els); !slices.Equal(got, []string{"assets/a.png", "assets/b.png"}) {
+		t.Fatalf("images %v", got)
+	}
+}

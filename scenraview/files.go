@@ -64,10 +64,11 @@ func (e *Editor) watch() {
 			}
 			var files []entry
 			var parts components
-			files, parts, cache = scan(dir, cache)
+			var pics assets
+			files, parts, pics, cache = scan(dir, cache)
 			first := dir != last
 			last = dir
-			e.cx.Post(func() { e.scannedFiles(dir, files, parts, first) })
+			e.cx.Post(func() { e.scannedFiles(dir, files, parts, pics, first) })
 		}
 	}()
 }
@@ -155,8 +156,8 @@ func (e *Editor) viewOf() string {
 	var files []fileView
 	// What the agent just wrote counts.
 	e.reload(e.shown())
-	found, parts, _ := scan(dir, nil)
-	e.scannedFiles(dir, found, parts, false)
+	found, parts, pics, _ := scan(dir, nil)
+	e.scannedFiles(dir, found, parts, pics, false)
 	shown := e.shown()
 	for _, en := range found {
 		path := filepath.Join(dir, filepath.FromSlash(en.path))
@@ -174,5 +175,5 @@ func (e *Editor) viewOf() string {
 		}
 		files = append(files, fv)
 	}
-	return view(dir, files, parts)
+	return view(dir, files, parts, pics)
 }

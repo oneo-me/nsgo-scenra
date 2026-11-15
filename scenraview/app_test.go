@@ -328,6 +328,28 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	app.WaitFor("id:element-0", time.Second)
 }
 
+func TestImagesShowThePicturesOfTheAssetsFolder(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra":            "design\nimage \"Latte\" src=\"assets/latte.png\"\nimage \"Gone\" src=\"assets/gone.png\"\nuse card pic.src=\"./assets/cups/mocha.png\"\n",
+		"components/card.scenra": "component\nimage \"Cup\" name=pic\n",
+		"assets/latte.png":       "latte",
+		"assets/cups/mocha.png":  "mocha",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	picture := func(sel string) string { return string(app.Find(sel).Image.Source.Data) }
+	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0") == "latte" })
+	if got := picture("id:element-2:0"); got != "mocha" {
+		t.Fatalf("the use shows %q", got)
+	}
+	if app.Find("id:element-1").Image.Source.Data != nil {
+		t.Fatal("a missing picture shows")
+	}
+	// Changing a picture redraws the designs showing it.
+	os.WriteFile(filepath.Join(dir, "assets", "latte.png"), []byte("latte art"), 0o644)
+	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0") == "latte art" })
+}
+
 func TestAUseChangesTheNamedElementsOfItsComponent(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"menu.scenra": "design\nbox class=\"flex-1\"\n" +
@@ -468,7 +490,7 @@ func TestATabBarMarksTheScreenShown(t *testing.T) {
 }
 
 func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
-	files, _, _ := scan("../examples", nil)
+	files, _, _, _ := scan("../examples", nil)
 	if len(files) < 2 {
 		t.Fatalf("examples %v", files)
 	}
