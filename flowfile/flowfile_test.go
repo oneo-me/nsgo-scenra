@@ -21,7 +21,7 @@ func TestParseFlow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	d := f.Flow
+	d := f.Flows[0]
 	if f.Kind != Chart || d.Direction != Right {
 		t.Fatalf("header: %q %q", f.Kind, d.Direction)
 	}

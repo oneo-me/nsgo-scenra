@@ -31,7 +31,7 @@ func TestTheSkillTeachesTheWholeFormat(t *testing.T) {
 	for _, a := range flowfile.OverrideAttrs {
 		words = append(words, "`<name>."+a+`="…"`+"`")
 	}
-	words = append(words, `comment="…"`, `note="…"`, `tap="…"`, "panel=", "selected:", "group-selected:")
+	words = append(words, `comment="…"`, `note="…"`, `tap="…"`, "panel=", "selected:", "group-selected:", "gap=", `tap="open #`)
 	for _, a := range flowfile.Taps {
 		words = append(words, `tap="`+a)
 	}

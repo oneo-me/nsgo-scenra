@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/nsgo-dev/nsgo/base/camera"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/ui"
 	uiflow "github.com/nsgo-dev/nsgo/ui/flow"
@@ -67,6 +68,17 @@ type document struct {
 	broken *core.Signal[string]
 }
 
+// opened is a design a tap opened or opened from: its file's path and
+// its ID, "" for the file's first.
+type opened struct{ path, id string }
+
+// focusing asks the canvas to show the design with id of the file shown,
+// the whole file for ""; each request counts anew.
+type focusing struct {
+	id string
+	n  int
+}
+
 // Editor is a folder of Scenra files and the one shown for editing, with
 // an assistant that works in the folder. Showing another file saves the
 // one shown. The views show an editor; an app showing one file opens just
@@ -88,11 +100,16 @@ type Editor struct {
 	// is closed, and into the folder it goes in, relative to the open one.
 	naming *core.Signal[flowfile.Kind]
 	into   string
-	camera *uiflow.State
+	// camera shows the flows of the file shown, and charts their
+	// diagrams' states by index.
+	camera *camera.State
+	charts []*uiflow.State
 	toasts *ui.Toaster
 	// trail is the designs whose taps opened the designs shown since,
-	// by path, which closing one returns through.
-	trail []string
+	// which closing one returns through, and focus the design of the file
+	// shown a tap opened, which the canvas moves to.
+	trail []opened
+	focus *core.Signal[focusing]
 	// reloads counts the times the file shown was read again as it
 	// changed, which shows its taps again.
 	reloads *core.Signal[int]
@@ -114,7 +131,8 @@ func New(cx *core.Scope, opts Options) *Editor {
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
 		parts:  core.NewSignalFunc(cx, components(nil), sameComponents), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		active: core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
-		camera: &uiflow.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), rescan: make(chan struct{}, 1)}
+		camera: &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), rescan: make(chan struct{}, 1),
+		focus: core.NewSignal(cx, focusing{})}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)
 	e.watch()
@@ -219,10 +237,19 @@ func (e *Editor) shown() *document { return core.Untracked(e.cx, e.cur) }
 // empty says no document is open.
 func (e *Editor) empty() bool { return e.active.Get() == nil }
 
-// show shows d in place of the document shown.
+// show shows d in place of the document shown, whole.
 func (e *Editor) show(d *document) {
-	e.active.Set(d)
+	e.cx.Batch(func() {
+		e.active.Set(d)
+		e.focusOn("")
+	})
 	e.cx.Post(e.camera.Fit)
+}
+
+// focusOn has the canvas show the design with id of the file shown, or
+// the whole file for "".
+func (e *Editor) focusOn(id string) {
+	e.focus.Set(focusing{id, e.focus.GetUntracked().n + 1})
 }
 
 // inside says path is in the open folder.
@@ -339,33 +366,55 @@ func (e *Editor) openDoc(d *document) {
 	e.show(d)
 }
 
-// designName is the name of the design at path, which taps open it by:
-// its path in the folder without .scenra.
+// designName is the name of the file of designs at path, which taps open
+// its designs by: its path in the folder without .scenra.
 func (e *Editor) designName(path string) string {
 	return strings.TrimSuffix(e.rel(path), ".scenra")
 }
 
-// tapOpen shows the design named name, as a tap in the design shown
-// opens it, which a close returns from.
-func (e *Editor) tapOpen(name string) {
+// tapOpen shows the design t opens, as a tap in the design at index
+// screen of the file shown opens it, which a close returns from: it
+// moves to a design of the same file, and opens another's file.
+func (e *Editor) tapOpen(t flowfile.Tap, screen int) {
 	tr := locales.For(e.cx)
-	from := e.shown().path
+	shown := e.shown()
+	f := shown.doc.GetUntracked()
+	from := opened{path: shown.path}
+	if screen < len(f.Screens) {
+		from.id = f.Screens[screen].ID
+	}
+	name, id := t.Opens()
+	if name == "" || name == e.designName(shown.path) {
+		if _, ok := f.Screen(id); !ok {
+			e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.NoDesign(t.Target)})
+			return
+		}
+		e.trail = append(e.trail, from)
+		e.focusOn(id)
+		return
+	}
 	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(flowfile.DesignPath(name)))
 	d, err := e.load(path)
+	if err == nil && d.broken.GetUntracked() == "" {
+		if _, ok := d.doc.GetUntracked().Screen(id); !ok {
+			err = os.ErrNotExist
+		}
+	}
 	switch {
 	case err != nil && errors.Is(err, os.ErrNotExist):
-		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.NoDesign(name)})
+		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.NoDesign(t.Target)})
 		return
 	case err != nil:
 		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.OpenFailed(err.Error())})
 		return
 	case d.broken.GetUntracked() == "" && d.doc.GetUntracked().Kind == flowfile.Chart:
-		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.NoDesign(name)})
+		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.NoDesign(t.Target)})
 		return
 	}
 	e.openDoc(d)
-	if e.shown().path == path && from != path {
+	if e.shown().path == path {
 		e.trail = append(e.trail, from)
+		e.focusOn(id)
 	}
 }
 
@@ -376,16 +425,22 @@ func (e *Editor) tapClose() {
 	if n == 0 {
 		return
 	}
-	path := e.trail[n-1]
-	d, err := e.load(path)
+	back := e.trail[n-1]
+	if back.path == e.shown().path {
+		e.trail = e.trail[:n-1]
+		e.focusOn(back.id)
+		return
+	}
+	d, err := e.load(back.path)
 	if err != nil {
 		e.trail = nil
 		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).OpenFailed(err.Error())})
 		return
 	}
 	e.openDoc(d)
-	if e.shown().path == path {
+	if e.shown().path == back.path {
 		e.trail = e.trail[:n-1]
+		e.focusOn(back.id)
 	}
 }
 
@@ -429,7 +484,8 @@ func (e *Editor) create(kind flowfile.Kind, into, name string) error {
 		into = flowfile.ComponentsDir
 	}
 	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(into), fileName(name, kind))
-	f := flowfile.File{Kind: kind}
+	// A new file holds one empty design or flow, as it reads back.
+	f, _ := flowfile.Parse(flowfile.File{Kind: kind}.Format())
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -472,10 +528,10 @@ func (d *document) at() location {
 // show selects the node of l, and the element, dropping what is gone.
 func (d *document) show(l location) {
 	f := d.doc.GetUntracked()
-	if _, ok := f.Flow.Node(l.node); !ok || f.Kind != flowfile.Chart {
+	if _, ok := nodeOf(f, l.node); !ok {
 		l.node = ""
 	}
-	if _, ok := flowfile.ElementAt(f.UI, l.element); !ok || f.Kind == flowfile.Chart {
+	if _, ok := elementOf(f, l.element); !ok {
 		l.element = ""
 	}
 	d.e.cx.Batch(func() {
@@ -483,7 +539,7 @@ func (d *document) show(l location) {
 		d.element.Set(l.element)
 	})
 	if l.node != "" && d.e.shown() == d {
-		d.e.cx.Post(func() { d.e.camera.Reveal(l.node) })
+		d.e.cx.Post(func() { d.e.revealNode(l.node) })
 	}
 }
 
@@ -509,23 +565,24 @@ func (d *document) change(f flowfile.File, group string) {
 	})
 }
 
-// setComment sets the comment on the element at path of the design, or
+// setComment sets the comment on the element at key of the designs, or
 // removes it when text is "", as a change undo reverts.
-func (d *document) setComment(path, text string) { d.annotate(path, map[string]string{"comment": text}) }
+func (d *document) setComment(key, text string) { d.annotate(key, map[string]string{"comment": text}) }
 
-// setNote sets the note on the element at path of the design, or
+// setNote sets the note on the element at key of the designs, or
 // removes it when text is "", as a change undo reverts.
-func (d *document) setNote(path, text string) { d.annotate(path, map[string]string{"note": text}) }
+func (d *document) setNote(key, text string) { d.annotate(key, map[string]string{"note": text}) }
 
-// annotate sets the attributes of the element at path of the design to
+// annotate sets the attributes of the element at key of the designs to
 // values, removing those set to "", as one change undo reverts; it
 // changes nothing when they have those values.
-func (d *document) annotate(path string, values map[string]string) {
-	if d.e.locked() {
+func (d *document) annotate(key string, values map[string]string) {
+	screen, path, ok := splitKey(key)
+	f := d.doc.GetUntracked().Clone()
+	if d.e.locked() || !ok || screen >= len(f.Screens) {
 		return
 	}
-	f := d.doc.GetUntracked()
-	els, changed := f.UI, false
+	els, changed := f.Screens[screen].UI, false
 	for _, key := range slices.Sorted(maps.Keys(values)) {
 		el, ok := flowfile.ElementAt(els, path)
 		if !ok {
@@ -543,7 +600,7 @@ func (d *document) annotate(path string, values map[string]string) {
 	if !changed {
 		return
 	}
-	f.UI = els
+	f.Screens[screen].UI = els
 	d.change(f, "")
 }
 
@@ -634,7 +691,7 @@ func (e *Editor) Name() string { return e.cur().name() }
 // Title is the name the document shown gives itself, or else its file
 // name without the extension, "" while none is open.
 func (e *Editor) Title() string {
-	if name := e.cur().doc.Get().Name; name != "" {
+	if name := e.cur().doc.Get().Title(); name != "" {
 		return name
 	}
 	return keyName(e.cur().name())
@@ -652,11 +709,13 @@ func (e *Editor) File() flowfile.File { return e.cur().doc.Get() }
 func (e *Editor) CanUndo() bool { return len(e.cur().undos.Get()) > 0 && !e.Working() }
 func (e *Editor) CanRedo() bool { return len(e.cur().redos.Get()) > 0 && !e.Working() }
 
-// FlowOpen says the document shown is a flow, and LeftToRight that it
-// points right.
+// FlowOpen says the document shown holds flows, and LeftToRight that the
+// flow ToggleDirection turns first points right.
 func (e *Editor) FlowOpen() bool { return e.cur().doc.Get().Kind == flowfile.Chart }
 func (e *Editor) LeftToRight() bool {
-	return e.cur().doc.Get().Flow.Direction == flowfile.Right
+	f := e.cur().doc.Get()
+	which := toggled(f, e.cur().selected.Get())
+	return len(which) > 0 && f.Flows[which[0]].Direction == flowfile.Right
 }
 
 // ZoomIn, ZoomOut and Fit move the flow chart's camera.

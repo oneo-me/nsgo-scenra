@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/nsgo-dev/nsgo/core"
@@ -13,20 +14,25 @@ import (
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
-// selection is which element of a design is selected, by its path, how
-// pressing one selects it or plays its tap, and where each element was
-// laid out.
+// selection is which element of a file's designs is selected, by its
+// key, how pressing one selects it or plays its tap, and where each
+// element was laid out.
 type selection struct {
 	selected func() string
-	choose   func(path string)
-	tap      func(flowfile.Tap)
+	choose   func(key string)
+	// tap plays a tap of the design at index screen.
+	tap func(t flowfile.Tap, screen int)
 	// frames are the elements' frames in their parents', by key, which
-	// laidOut counts the changes of. A key is an element's path, and in a
-	// component the key of the use drawing it, a colon and its path in
-	// the component.
+	// laidOut counts the changes of, and origins where each design is in
+	// the plane. A key is the index of the element's design, a slash and
+	// its path, and in a component the key of the use drawing it, a colon
+	// and its path in the component.
 	frames  map[string]core.Bounds
+	origins []core.Point
 	laidOut *core.Signal[int]
 	play    *player
+	// screen is the index of the design drawn.
+	screen int
 	// parts are the components a use draws. Inside one, owner is the
 	// path of the use, which its elements select, prefix the key of the
 	// use and a colon, and using the components it is in, which it cannot
@@ -42,14 +48,31 @@ type selection struct {
 	tapping *flowfile.Tap
 }
 
-// bounds is the frame of the element at key in the design's.
+// elementKey is the key of the element at path of the design at index
+// screen, and splitKey its parts.
+func elementKey(screen int, path string) string { return screenPrefix(screen) + path }
+
+func splitKey(key string) (screen int, path string, ok bool) {
+	head, path, ok := strings.Cut(key, "/")
+	n, err := strconv.Atoi(head)
+	if !ok || err != nil || n < 0 || path == "" {
+		return 0, "", false
+	}
+	return n, path, true
+}
+
+// screenPrefix starts the keys of the design at index screen.
+func screenPrefix(screen int) string { return strconv.Itoa(screen) + "/" }
+
+// bounds is the frame of the element at key in the plane of the designs.
 func (sel selection) bounds(key string) (core.Bounds, bool) {
-	if key == "" {
+	screen, rest, ok := splitKey(key)
+	if !ok || screen >= len(sel.origins) {
 		return core.Bounds{}, false
 	}
-	var b core.Bounds
-	prefix := ""
-	for _, part := range strings.Split(key, ":") {
+	b := core.Bounds{Origin: sel.origins[screen]}
+	prefix := screenPrefix(screen)
+	for _, part := range strings.Split(rest, ":") {
 		at, err := flowfile.ParsePath(part)
 		if err != nil {
 			return core.Bounds{}, false
@@ -146,7 +169,7 @@ func target(hits []hit) (path string, tap *flowfile.Tap) {
 
 // groupKey is the key of the element the elements at parent are in, by
 // which its panels take turns: the use drawing them at a component's
-// top, "" at the design's.
+// top, the design's prefix at its top.
 func groupKey(prefix string, parent []int) string {
 	if len(parent) == 0 {
 		return strings.TrimSuffix(prefix, ":")
@@ -154,27 +177,28 @@ func groupKey(prefix string, parent []int) string {
 	return prefix + flowfile.FormatPath(parent)
 }
 
-// player plays a design: which of its panels show, and which taps lead
-// to what shows.
+// player plays the designs of a file: which of their panels show, and
+// which taps lead to what shows.
 type player struct {
 	// tabs is the panel shown among the panels of each element, by its
 	// key, while the user has shown another than the first; panels the
-	// panels' names there, in order, as the design was last drawn.
+	// panels' names there, in order, as the designs were last drawn.
 	tabs   *core.Signal[map[string]string]
 	panels map[string][]string
-	// shown is the name of the design shown, which taps opening it
-	// lead to.
-	shown func() string
+	// file is the name of the file shown, which taps opening its designs
+	// name, and ids its designs' IDs, as last drawn.
+	file func() string
+	ids  []string
 }
 
-func newPlayer(cx *core.Scope, shown func() string) *player {
-	return &player{tabs: core.NewSignalFunc(cx, map[string]string(nil), maps.Equal[map[string]string]), shown: shown}
+func newPlayer(cx *core.Scope, file func() string) *player {
+	return &player{tabs: core.NewSignalFunc(cx, map[string]string(nil), maps.Equal[map[string]string]), file: file}
 }
 
-// scan finds the panels of els, at the design's top when prefix is "",
-// and in the components they use.
-func (pl *player) scan(els []flowfile.Element, parts components) {
+// scan finds the panels of the designs, and of the components they use.
+func (pl *player) scan(screens []flowfile.Screen, parts components) {
 	pl.panels = map[string][]string{}
+	pl.ids = nil
 	var walk func(els []flowfile.Element, prefix string, parent []int, using []string)
 	walk = func(els []flowfile.Element, prefix string, parent []int, using []string) {
 		for i, el := range els {
@@ -191,7 +215,10 @@ func (pl *player) scan(els []flowfile.Element, parts components) {
 			walk(el.Children, prefix, path, using)
 		}
 	}
-	walk(els, "", nil, nil)
+	for i, s := range screens {
+		pl.ids = append(pl.ids, s.ID)
+		walk(s.UI, screenPrefix(i), nil, nil)
+	}
 }
 
 // showing says el, in the element at the key group, shows: it is no
@@ -209,15 +236,20 @@ func (pl *player) showing(group string, el flowfile.Element) bool {
 	return shown == name
 }
 
-// leadsTo says tap leads to what shows: it opens the design shown, or
-// shows a tab that shows.
-func (pl *player) leadsTo(t flowfile.Tap) bool {
+// leadsTo says tap, in the design at index screen, leads to what shows:
+// it opens that design, or shows a tab that shows there.
+func (pl *player) leadsTo(t flowfile.Tap, screen int) bool {
 	switch t.Action {
 	case flowfile.TapOpen:
-		return t.Target == pl.shown()
+		file, id := t.Opens()
+		if file != "" && file != pl.file() || screen >= len(pl.ids) {
+			return false
+		}
+		return id == pl.ids[screen] || id == "" && screen == 0
 	case flowfile.TapTab:
 		for g, names := range pl.panels {
-			if slices.Contains(names, t.Target) && pl.showing(g, flowfile.Element{Attrs: map[string]string{"panel": t.Target}}) {
+			if strings.HasPrefix(g, screenPrefix(screen)) && slices.Contains(names, t.Target) &&
+				pl.showing(g, flowfile.Element{Attrs: map[string]string{"panel": t.Target}}) {
 				return true
 			}
 		}
@@ -225,45 +257,47 @@ func (pl *player) leadsTo(t flowfile.Tap) bool {
 	return false
 }
 
-// showTab shows the panels named name in place of their siblings.
-func (pl *player) showTab(name string) {
+// showTab shows the panels named name in the design at index screen in
+// place of their siblings.
+func (pl *player) showTab(name string, screen int) {
 	tabs := maps.Clone(pl.tabs.GetUntracked())
 	if tabs == nil {
 		tabs = map[string]string{}
 	}
 	for g, names := range pl.panels {
-		if slices.Contains(names, name) {
+		if strings.HasPrefix(g, screenPrefix(screen)) && slices.Contains(names, name) {
 			tabs[g] = name
 		}
 	}
 	pl.tabs.Set(tabs)
 }
 
-// screenView draws a design at its size: its elements stack in its
-// frame, which clips what overflows. A component without a height is as
-// high as it needs.
-func screenView(cx *core.Scope, s flowfile.File, sel selection) core.Node {
+// screenView draws the design of f at index i at its size: its elements
+// stack in its frame, which clips what overflows. A component without a
+// height is as high as it needs.
+func screenView(cx *core.Scope, f flowfile.File, i int, sel selection) core.Node {
 	colors := ui.ColorsOf(cx)
-	w, h := s.Size()
+	w, h := f.Size(i)
 	var height core.Length
 	if h != 0 {
 		height = core.Pt(core.Points(h))
 	}
 	radius := core.Points(44)
 	switch {
-	case s.Kind == flowfile.Component:
+	case f.Kind == flowfile.Component:
 		radius = 12
-	case s.Device == "tablet":
+	case f.Screens[i].Device == "tablet":
 		radius = 28
-	case s.Device == "desktop":
+	case f.Screens[i].Device == "desktop":
 		radius = 12
 	}
+	sel.screen, sel.prefix = i, screenPrefix(i)
 	return core.View{Style: core.Style{Width: core.Pt(core.Points(w)), Height: height, CornerRadius: radius, FlexShrink: 0,
 		BorderCurve: core.BorderCurveContinuous, Overflow: core.Hidden, BorderWidth: 1, FontSize: 15},
 		StyleFunc: func() core.Style {
 			return core.Style{Background: colors.Background(), Color: colors.Text(), BorderColor: colors.Border()}
 		},
-		Children: elements(cx, s.UI, nil, sel)}
+		Children: elements(cx, f.Screens[i].UI, nil, sel)}
 }
 
 func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selection) []core.Node {
@@ -298,11 +332,11 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 	var selected func() bool
 	if t, ok := el.Tap(); ok {
 		sel.tapping = &t
-		selected = func() bool { return sel.play.leadsTo(t) }
+		selected = func() bool { return sel.play.leadsTo(t, sel.screen) }
 	}
 	press := func(ev core.PressEvent) {
 		if sel.tapping != nil && !ev.Modifiers.Alt {
-			sel.tap(*sel.tapping)
+			sel.tap(*sel.tapping, sel.screen)
 			return
 		}
 		sel.choose(id)

@@ -145,9 +145,12 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 		if !ok || c.stamp != st {
 			c = scanned{stamp: st}
 			if f, err := readFile(p); err == nil {
-				c.entry.kind, c.entry.device, c.entry.name = f.Kind, f.Device, f.Name
-				if f.Kind == flowfile.Component {
-					c.ui = f.UI
+				c.entry.kind, c.entry.name = f.Kind, f.Title()
+				if len(f.Screens) > 0 {
+					c.entry.device = f.Screens[0].Device
+				}
+				if f.Kind == flowfile.Component && len(f.Screens) > 0 {
+					c.ui = f.Screens[0].UI
 				}
 			}
 		}

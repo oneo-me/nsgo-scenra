@@ -1,9 +1,10 @@
 package scenraview
 
 import (
-	"math"
+	"slices"
 	"time"
 
+	"github.com/nsgo-dev/nsgo/base/camera"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
@@ -12,148 +13,61 @@ import (
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
-// The design canvas's zoom limits and steps, as the flow chart's.
+// designFitMargin keeps a fitted design from the pane's edges.
+const designFitMargin = 32
+
+// captionRoom is the room above each design of a file of several that
+// its caption takes at full size, and captionSize the caption's font
+// size on screen, the same at any zoom.
 const (
-	designMinZoom   = .1
-	designMaxZoom   = 4
-	designZoomStep  = 1.25
-	designFitMargin = 32
-	// designWheelZoom and designPinchZoom are the scroll distances in
-	// points that zoom by ×1.5: a wheel's notches, and a touchpad's scroll
-	// with Control or Command held.
-	designWheelZoom = 120
-	designPinchZoom = 48
+	captionRoom = 36
+	captionSize = 13
 )
 
-// designCanvas is the camera over a design: the design is laid
-// out at its device's size on a plane that the camera moves and scales,
-// fitted and centered until the user pans or zooms it.
-type designCanvas struct {
-	cx         *core.Scope
-	x, y, zoom *core.AnimatedValue
-	cam        struct{ x, y, zoom float64 }
-	// zoomed is where the camera's zoom is going, for what keeps its
-	// width on screen at any zoom.
-	zoomed *core.Signal[float64]
-	// view is where the camera is going, x, y and zoom, for what is drawn
-	// over the design at a point of it.
-	view               *core.Signal[[3]float64]
-	width, height      float64
-	contentW, contentH float64
-	moved              bool
-	// pan is where the camera was when a drag began, and pinchFrom the
-	// pinch's scale at its last change.
-	pan       [2]float64
-	pinchFrom float64
-	run       *core.AnimationRun
-}
-
-func newDesignCanvas(cx *core.Scope) *designCanvas {
-	c := &designCanvas{cx: cx, x: core.NewAnimatedValue(cx, 0), y: core.NewAnimatedValue(cx, 0), zoom: core.NewAnimatedValue(cx, 1),
-		zoomed: core.NewSignal(cx, 1.0), view: core.NewSignal(cx, [3]float64{0, 0, 1})}
-	c.cam.zoom = 1
-	return c
-}
-
-// move sends the camera to x, y and zoom, at once or easing there.
-func (c *designCanvas) move(x, y, zoom float64, animated bool) {
-	c.cam.x, c.cam.y, c.cam.zoom = x, y, zoom
-	c.zoomed.Set(zoom)
-	c.view.Set([3]float64{x, y, zoom})
-	if c.run != nil {
-		c.run.Stop()
+// screenLayout is where each design of f is in the plane, packed
+// f.Spacing() apart under their captions, and the size of the whole, 0
+// for a file of one, which is as large as it lays out.
+func screenLayout(f flowfile.File) ([]core.Point, core.Size) {
+	if !f.Several() {
+		return []core.Point{{}}, core.Size{}
 	}
-	if !animated || core.Untracked(c.cx, c.cx.Env().ReduceMotion) {
-		c.x.Set(x)
-		c.y.Set(y)
-		c.zoom.Set(zoom)
-		return
+	sizes := make([]core.Size, len(f.Screens))
+	for i := range f.Screens {
+		w, h := f.Size(i)
+		sizes[i] = core.Size{Width: core.Points(w), Height: core.Points(h + captionRoom)}
 	}
-	spring := core.SpringConfig{Stiffness: 666, Damping: 71, Mass: 1}
-	c.run = c.cx.StartAnimation(core.Parallel(core.Spring(c.x, x, spring), core.Spring(c.y, y, spring), core.Spring(c.zoom, zoom, spring)), nil)
+	at, total := pack(sizes, core.Points(f.Spacing()))
+	for i := range at {
+		at[i].Y += captionRoom
+	}
+	return at, total
 }
 
-// fit shows the whole design centered, no larger than its size.
-func (c *designCanvas) fit(animated bool) {
-	if c.width == 0 || c.contentW == 0 {
-		return
+// screenBounds is the frame of the design of f at index i in the plane,
+// laid out at origin; a component of no height is as high as it laid
+// out, in measured.
+func screenBounds(f flowfile.File, i int, origin core.Point, measured map[int]core.Size) core.Bounds {
+	w, h := f.Size(i)
+	size := core.Size{Width: core.Points(w), Height: core.Points(h)}
+	if h == 0 {
+		size.Height = measured[i].Height
 	}
-	zoom := math.Max(designMinZoom, math.Min(1, math.Min((c.width-2*designFitMargin)/c.contentW, (c.height-2*designFitMargin)/c.contentH)))
-	c.moved = false
-	c.move((c.width-c.contentW*zoom)/2, (c.height-c.contentH*zoom)/2, zoom, animated)
+	return core.Bounds{Origin: origin, Size: size}
 }
 
-// zoomAt scales the design around a point of the view.
-func (c *designCanvas) zoomAt(x, y, factor float64, animated bool) {
-	zoom := math.Max(designMinZoom, math.Min(designMaxZoom, c.cam.zoom*factor))
-	gx, gy := (x-c.cam.x)/c.cam.zoom, (y-c.cam.y)/c.cam.zoom
-	c.moved = true
-	c.move(x-gx*zoom, y-gy*zoom, zoom, animated)
-}
-
-func (c *designCanvas) zoomBy(factor float64) { c.zoomAt(c.width/2, c.height/2, factor, true) }
-
-// toView is the point of the view over a point of the design, where the
-// camera is going.
-func (c *designCanvas) toView(p core.Point) core.Point {
-	v := c.view.Get()
-	return core.Point{X: core.Points(v[0] + float64(p.X)*v[2]), Y: core.Points(v[1] + float64(p.Y)*v[2])}
-}
-
-// toDesign is the point of the design under a point of the view.
-func (c *designCanvas) toDesign(p core.Point) core.Point {
-	return core.Point{X: core.Points((float64(p.X) - c.cam.x) / c.cam.zoom), Y: core.Points((float64(p.Y) - c.cam.y) / c.cam.zoom)}
-}
-
-// resize keeps a design the user has not moved fitted, and otherwise
-// keeps the view's center where it is.
-func (c *designCanvas) resize(b core.Bounds) {
-	w, h := float64(b.Size.Width), float64(b.Size.Height)
-	if w == c.width && h == c.height {
-		return
-	}
-	dx, dy := (w-c.width)/2, (h-c.height)/2
-	first := c.width == 0
-	c.width, c.height = w, h
-	if first || !c.moved {
-		c.fit(false)
-		return
-	}
-	c.move(c.cam.x+dx, c.cam.y+dy, c.cam.zoom, false)
-}
-
-// measured takes the design's size, fitting it while the user has not
-// moved it.
-func (c *designCanvas) measured(b core.Bounds) {
-	w, h := float64(b.Size.Width), float64(b.Size.Height)
-	if w == c.contentW && h == c.contentH {
-		return
-	}
-	c.contentW, c.contentH = w, h
-	if !c.moved {
-		c.fit(false)
-	}
-}
-
-// wheel pans and zooms as the flow chart does: a touchpad's two fingers
-// pan unless Control or Command is held, which zooms, and a wheel zooms.
-func (c *designCanvas) wheel(e core.WheelEvent) {
-	modified := e.Modifiers.Control || e.Modifiers.Platform
-	switch {
-	case e.Phase == core.GestureEnded || e.Phase == core.GestureCancelled:
-	case e.Touchpad && !modified:
-		c.moved = true
-		c.move(c.cam.x+float64(e.Delta.X), c.cam.y+float64(e.Delta.Y), c.cam.zoom, false)
-	case !e.Touchpad && !modified && e.Delta.Y == 0:
-		c.moved = true
-		c.move(c.cam.x+float64(e.Delta.X), c.cam.y, c.cam.zoom, false)
-	default:
-		distance := float64(designWheelZoom)
-		if e.Touchpad {
-			distance = designPinchZoom
-		}
-		c.zoomAt(float64(e.Position.X), float64(e.Position.Y), math.Exp(float64(e.Delta.Y)*math.Log(1.5)/distance), false)
-	}
+// caption names a design of a file of several over its top left corner,
+// its size on screen the same at any zoom.
+func caption(cx *core.Scope, text string, at core.Point, width int, zoom func() float64) core.Node {
+	colors := ui.ColorsOf(cx)
+	return core.Text{Content: text, MaxLines: 1, PointerEvents: core.PointerEventsNone,
+		StyleFunc: func() core.Style {
+			z := zoom()
+			const height = captionSize * 1.6
+			return core.Style{Position: core.Absolute, Left: core.Pt(at.X), Top: core.Pt(at.Y - 6/core.Points(z) - height),
+				Width: core.Pt(core.Points(float64(width) * z)), Height: core.Pt(height), FontSize: captionSize, LineHeight: height,
+				FontWeight: ui.Medium, Color: colors.Muted(), Transform: core.Transform{Scale: float32(1 / z)},
+				TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pct(100)}}}
+		}}
 }
 
 // lookOf is what a design is drawn from: its text, and the components
@@ -168,8 +82,9 @@ type lookOf struct {
 // shows, or off it before the card goes.
 const peekDelay = 600 * time.Millisecond
 
-// designPane is the design shown on the canvas, with its zoom
-// tools, played as the app would be. A layer over the design takes the
+// designPane is the designs of the file shown on the canvas, packed under
+// their captions when there are several, with its zoom
+// tools, played as the app would be. A layer over the designs takes the
 // pointer and finds the element under it itself, as the camera's
 // transform moves the design where the platforms' hit testing does not
 // follow: an outline marks the element the pointer is over, pressing an
@@ -185,7 +100,11 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
-	c := newDesignCanvas(cx)
+	c := &camera.State{}
+	// measured are the sizes the designs laid out at, by index, and pane
+	// the pane's.
+	measured := map[int]core.Size{}
+	pane := core.NewSignal(cx, core.Size{})
 	// A design is drawn again as it, a component or a picture changes.
 	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{e.cur().doc.Get().Format(), e.parts.Get(), e.assets.Get()} },
 		func(a, b lookOf) bool {
@@ -207,7 +126,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		at   core.Point
 	}
 	clicked := core.NewSignal(cx, click{})
-	// Another design shows fitted, its tabs at their first, and no card.
+	// Another file shows its tabs at their first, and no card.
 	shown := core.NewMemo(cx, e.cur)
 	cx.Effect(func() {
 		shown.Get()
@@ -217,7 +136,25 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			clicked.Set(click{})
 			return true
 		})
-		cx.Post(func() { c.fit(false) })
+	})
+	// It shows fitted, or the design a tap opened in it.
+	cx.Effect(func() {
+		shown.Get()
+		e.focus.Get()
+		cx.Post(func() {
+			f := e.shown().doc.GetUntracked()
+			id := e.focus.GetUntracked().id
+			i, ok := f.Screen(id)
+			if id == "" || !ok || !f.Several() {
+				c.Fit()
+				return
+			}
+			origins, _ := screenLayout(f)
+			b := screenBounds(f, i, origins[i], measured)
+			b.Origin.Y -= captionRoom
+			b.Size.Height += captionRoom
+			c.FitBounds(b)
+		})
 	})
 	// glow is the opacity of the layer marking the elements with a tap.
 	glow := core.NewAnimatedValue(cx, 0)
@@ -246,15 +183,15 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				peek.Set(path)
 			})
 		},
-		tap: func(t flowfile.Tap) {
+		tap: func(t flowfile.Tap, screen int) {
 			peek.Set("")
 			switch t.Action {
 			case flowfile.TapOpen:
-				e.tapOpen(t.Target)
+				e.tapOpen(t, screen)
 			case flowfile.TapClose:
 				e.tapClose()
 			case flowfile.TapTab:
-				play.showTab(t.Target)
+				play.showTab(t.Target, screen)
 			}
 		},
 		frames:  map[string]core.Bounds{},
@@ -289,7 +226,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				if !ok {
 					return core.Style{Display: core.DisplayNone}
 				}
-				w := core.Points(width / c.zoomed.Get())
+				w := core.Points(width / c.Zoom())
 				return core.Style{Position: core.Absolute, Left: core.Pt(b.Origin.X - w), Top: core.Pt(b.Origin.Y - w),
 					Width: core.Pt(b.Size.Width + 2*w), Height: core.Pt(b.Size.Height + 2*w), BorderWidth: w, BorderColor: colors.Accent()}
 			}}
@@ -301,6 +238,14 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		}
 		return ""
 	}, 1, "design-hovered")
+	// allTaps are the keys of the elements of f's designs with a tap.
+	allTaps := func(sel selection, f flowfile.File) []string {
+		var out []string
+		for i, s := range f.Screens {
+			out = append(out, sel.taps(s.UI, screenPrefix(i), nil, nil)...)
+		}
+		return out
+	}
 	// taps mark the elements with a tap that show while glow is up.
 	taps := func(s flowfile.File) core.Node {
 		return core.View{TestID: "design-taps", PointerEvents: core.PointerEventsNone,
@@ -308,35 +253,41 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				Animated: &core.AnimatedStyle{Opacity: glow}},
 			Children: []core.Node{core.Dynamic(func(*core.Scope) core.Node {
 				var out core.Group
-				for _, key := range sel.taps(s.UI, "", nil, nil) {
+				for _, key := range allTaps(sel, s) {
 					out = append(out, core.View{TestID: "design-tap-" + key, StyleFunc: func() core.Style {
 						sel.laidOut.Get()
 						b, ok := sel.bounds(key)
 						if !ok {
 							return core.Style{Display: core.DisplayNone}
 						}
-						w := core.Points(1.5 / c.zoomed.Get())
+						w := core.Points(1.5 / c.Zoom())
 						return core.Style{Position: core.Absolute, Left: core.Pt(b.Origin.X), Top: core.Pt(b.Origin.Y),
 							Width: core.Pt(b.Size.Width), Height: core.Pt(b.Size.Height), BorderWidth: w,
-							CornerRadius: core.Points(4 / c.zoomed.Get()), Background: colors.Accent().Faded(.18), BorderColor: colors.Accent()}
+							CornerRadius: core.Points(4 / c.Zoom()), Background: colors.Accent().Faded(.18), BorderColor: colors.Accent()}
 					}})
 				}
 				return out
 			})}}
 	}
-	// hasTaps says an element of the design has a tap, in any panel.
+	// hasTaps says an element of the designs has a tap, in any panel.
 	hasTaps := func() bool {
-		return len(selection{parts: look.Get().parts}.taps(e.cur().doc.Get().UI, "", nil, nil)) > 0
+		return len(allTaps(selection{parts: look.Get().parts}, e.cur().doc.Get())) > 0
 	}
-	// targetAt is the element of the design under a point of the view and
-	// the tap pressing there plays.
-	targetAt := func(p core.Point) (string, *flowfile.Tap) {
+	// targetAt is the element of the designs at a point of them, the tap
+	// pressing there plays and the index of its design.
+	targetAt := func(at core.Point) (string, *flowfile.Tap, int) {
 		s := e.cur().doc.Get()
-		at := c.toDesign(p)
-		if at.X < 0 || at.Y < 0 || float64(at.X) >= c.contentW || float64(at.Y) >= c.contentH {
-			return "", nil
+		for i := range s.Screens {
+			if i >= len(sel.origins) {
+				break
+			}
+			b := screenBounds(s, i, sel.origins[i], measured)
+			if at.X >= b.Origin.X && at.Y >= b.Origin.Y && at.X < b.Origin.X+b.Size.Width && at.Y < b.Origin.Y+b.Size.Height {
+				path, tap := target(sel.hits(s.Screens[i].UI, screenPrefix(i), nil, sel.origins[i], at, nil))
+				return path, tap, i
+			}
 		}
-		return target(sel.hits(s.UI, "", nil, core.Point{}, at, nil))
+		return "", nil, 0
 	}
 	// A changed design is laid out afresh, the pointer over nothing until
 	// it moves.
@@ -349,31 +300,52 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		sel.parts, sel.assets = look.Get().parts, look.Get().assets
 		s := core.Untracked(cx, func() flowfile.File { return e.cur().doc.Get() })
 		clear(sel.frames)
-		play.scan(s.UI, sel.parts)
-		if len(s.UI) == 0 {
+		play.scan(s.Screens, sel.parts)
+		if !slices.ContainsFunc(s.Screens, func(s flowfile.Screen) bool { return len(s.UI) > 0 }) {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
 				AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Gap: 10}, Children: []core.Node{
 				ui.Icon(lucide.PanelsTopLeft, 28, colors.Muted),
 				core.Text{Content: tr.DesignEmpty(), Style: core.Style{FontSize: 13, LineHeight: 19, TextAlign: core.TextAlignCenter, MaxWidth: core.Pt(320)},
 					StyleFunc: ui.Colored(colors.Muted)}}}
 		}
-		return core.View{TestID: "design", Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0),
-			TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pt(0)}},
-			Animated:        &core.AnimatedStyle{TranslateX: c.x, TranslateY: c.y, Scale: c.zoom}},
-			OnLayout: c.measured,
-			Children: append(append([]core.Node{screenView(cx, s, sel), taps(s)}, remarkPins(cx, s, sel, c.zoomed.Get)...), hover, selected)}
+		origins, total := screenLayout(s)
+		sel.origins = origins
+		clear(measured)
+		// framed records the size a design laid out at.
+		framed := func(i int, view core.Node) core.Node {
+			return core.View{OnLayout: func(b core.Bounds) { measured[i] = b.Size }, Children: []core.Node{view}}
+		}
+		var style core.Style
+		var screens []core.Node
+		if !s.Several() {
+			screens = []core.Node{framed(0, screenView(cx, s, 0, sel))}
+		} else {
+			style.Width, style.Height = core.Pt(total.Width), core.Pt(total.Height)
+			for i, screen := range s.Screens {
+				w, _ := s.Size(i)
+				name := screen.Name
+				if name == "" {
+					name = screen.ID
+				}
+				screens = append(screens, caption(cx, name, origins[i], w, c.Zoom),
+					core.View{TestID: "screen-" + screen.ID, Style: core.Style{Position: core.Absolute, Left: core.Pt(origins[i].X), Top: core.Pt(origins[i].Y)},
+						Children: []core.Node{framed(i, screenView(cx, s, i, sel))}})
+			}
+		}
+		return core.View{TestID: "design", Style: style,
+			Children: append(append(append(screens, taps(s)), remarkPins(cx, s, sel, c.Zoom)...), hover, selected)}
 	})
-	// comments counts the design's comments.
+	// comments counts the designs' comments.
 	comments := func() int { return len(e.cur().doc.Get().Comments()) }
 	// anchor is the point of the view the card opens beside.
 	anchor := func() (core.Point, bool) {
 		path := peek.Get()
 		if k := clicked.Get(); k.path == path {
-			return c.toView(k.at), true
+			return c.ToView(k.at), true
 		}
 		sel.laidOut.Get()
 		b, ok := sel.bounds(path)
-		return c.toView(core.Point{X: b.Origin.X + b.Size.Width, Y: b.Origin.Y}), ok
+		return c.ToView(core.Point{X: b.Origin.X + b.Size.Width, Y: b.Origin.Y}), ok
 	}
 	// place keeps a card of size beside the anchor and inside the view.
 	place := func(size core.Size) (core.Point, bool) {
@@ -382,7 +354,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			return core.Point{}, false
 		}
 		const gap, margin = 12, 8
-		w, h := core.Points(c.width), core.Points(c.height)
+		w, h := pane.Get().Width, pane.Get().Height
 		x, y := p.X+gap, p.Y+gap
 		if x+size.Width > w-margin {
 			x = p.X - gap - size.Width
@@ -401,9 +373,9 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			return fin.Raised().Over(core.Style{Background: colors.Surface(), BorderColor: colors.Border()})
 		},
 		Children: []core.Node{
-			tool(lucide.ZoomOut, tr.ZoomOut(), func() { c.zoomBy(1 / designZoomStep) }, "design-zoom-out"),
-			tool(lucide.ZoomIn, tr.ZoomIn(), func() { c.zoomBy(designZoomStep) }, "design-zoom-in"),
-			tool(lucide.Scan, tr.Fit(), func() { c.fit(true) }, "design-fit"),
+			tool(lucide.ZoomOut, tr.ZoomOut(), c.ZoomOut, "design-zoom-out"),
+			tool(lucide.ZoomIn, tr.ZoomIn(), c.ZoomIn, "design-zoom-in"),
+			tool(lucide.Scan, tr.Fit(), c.Fit, "design-fit"),
 			core.Show{When: func() bool { return hasTaps() }, Then: func(*core.Scope) core.Node {
 				return tool(lucide.MousePointerClick, tr.ShowTaps(), flash, "design-show-taps")
 			}},
@@ -411,67 +383,42 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				return tool(lucide.MessagesSquare, tr.ResolveComments(), func() { ask(tr.ResolveCommentsPrompt(core.Untracked(cx, comments))) }, "resolve-comments")
 			}},
 		}}
-	pointer := core.View{TestID: "design-pointer", NoFocus: true, ImportantForAccessibility: core.ImportantNo,
-		Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
-		StyleFunc: func() core.Style {
-			if tappable.Get() {
-				return core.Style{Cursor: core.CursorPointer}
-			}
-			return core.Style{}
-		},
-		OnPress: func(ev core.PressEvent) {
-			path, tap := targetAt(ev.Position)
-			if tap != nil && !ev.Modifiers.Alt {
-				sel.tap(*tap)
-				return
-			}
-			clicked.Set(click{path, c.toDesign(ev.Position)})
-			sel.choose(path)
-		},
-		OnMouseMove: func(ev core.MouseEvent) {
-			path, tap := "", (*flowfile.Tap)(nil)
-			if ev.PressedButton == core.MouseButtonNone {
-				path, tap = targetAt(ev.Position)
-			}
-			cx.Batch(func() {
-				hovered.Set(path)
-				tappable.Set(tap != nil)
-			})
-		},
-		OnMouseLeave: func(core.MouseEvent) {
-			cx.Batch(func() {
-				hovered.Set("")
-				tappable.Set(false)
-			})
-		},
-		OnWheel:      c.wheel,
-		OnPan: func(ev core.PanEvent) {
-			switch ev.Phase {
-			case core.GestureBegan:
-				c.moved = true
-				c.pan = [2]float64{c.cam.x, c.cam.y}
-			case core.GestureChanged:
-				c.move(c.pan[0]+float64(ev.Translation.X), c.pan[1]+float64(ev.Translation.Y), c.cam.zoom, false)
-			}
-		},
-		OnPinch: func(ev core.GestureEvent) {
-			switch ev.Phase {
-			case core.GestureBegan:
-				c.pinchFrom = 1
-			case core.GestureChanged:
-				if c.pinchFrom > 0 && ev.Value > 0 {
-					c.zoomAt(float64(ev.Position.X), float64(ev.Position.Y), float64(ev.Value)/c.pinchFrom, false)
-					c.pinchFrom = float64(ev.Value)
-				}
-			}
-		},
+	// The camera hands the pointer on at points of the designs: a press
+	// plays a tap, unless Alt is held, or selects, and empty space leaves
+	// a double press to zoom.
+	press := func(at core.Point, ev core.PressEvent) bool {
+		path, tap, screen := targetAt(at)
+		if tap != nil && !ev.Modifiers.Alt {
+			sel.tap(*tap, screen)
+			return true
+		}
+		clicked.Set(click{path, at})
+		sel.choose(path)
+		return path != ""
 	}
-	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
-		OnLayout: c.resize,
-		Children: []core.Node{picture, pointer, toolbar,
+	pointAt := func(at core.Point, over bool) {
+		path, tap := "", (*flowfile.Tap)(nil)
+		if over {
+			path, tap, _ = targetAt(at)
+		}
+		cx.Batch(func() {
+			hovered.Set(path)
+			tappable.Set(tap != nil)
+		})
+	}
+	canvas := camera.View{TestID: "design-camera", State: c, Content: picture, OnPress: press, OnHover: pointAt, FitMargin: designFitMargin,
+		Cursor: func() core.Cursor {
+			if tappable.Get() {
+				return core.CursorPointer
+			}
+			return core.CursorAuto
+		},
+		Children: []core.Node{toolbar,
 			// The user cannot comment while the agent works.
 			core.Show{When: func() bool { return peek.Get() != "" && !e.Working() }, Then: func(cx *core.Scope) core.Node {
 				return remarkCard(cx, e, remarkOptions{path: peek.Get, ask: ask, place: place, over: overCard.Set, held: held.Set})
 			}},
 		}}
+	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
+		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{canvas}}
 }

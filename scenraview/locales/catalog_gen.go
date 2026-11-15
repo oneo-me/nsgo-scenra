@@ -43,6 +43,7 @@ var Parameters = map[string][]string{
 	"OpenFailed":            {"error_"},
 	"SaveFailed":            {"error_"},
 	"ResolveComment":        {"path", "comment"},
+	"ResolveDesignComment":  {"path", "design", "comment"},
 	"ResolveCommentsPrompt": {"count"},
 	"FixFilePrompt":         {"path", "error_"},
 	"NoDesign":              {"name"},
@@ -60,6 +61,7 @@ type Translation struct {
 	OpenFailed            func(error_ string) string
 	SaveFailed            func(error_ string) string
 	ResolveComment        func(path string, comment string) string
+	ResolveDesignComment  func(path string, design string, comment string) string
 	ResolveCommentsPrompt func(count int) string
 	FixFilePrompt         func(path string, error_ string) string
 	NoDesign              func(name string) string
@@ -466,6 +468,9 @@ func Supply(lang string, t Translation) {
 	}
 	if t.ResolveComment != nil {
 		s.ResolveComment = t.ResolveComment
+	}
+	if t.ResolveDesignComment != nil {
+		s.ResolveDesignComment = t.ResolveDesignComment
 	}
 	if t.ResolveCommentsPrompt != nil {
 		s.ResolveCommentsPrompt = t.ResolveCommentsPrompt
@@ -911,6 +916,30 @@ func (msgs Messages) ResolveComment(path string, comment string) string {
 			return "Resolve my comment on element " + msgs.arg(path) + ": " + msgs.arg(comment)
 		case "zh-Hans":
 			return "处理我在元素 " + path + " 上的评论：" + comment
+		}
+	}
+}
+
+// ResolveDesignComment says "Resolve my comment on element {path} of design {design}: {comment}"
+// in the language the app shows under cx.
+func ResolveDesignComment(cx *core.Scope, path string, design string, comment string) string {
+	return For(cx).ResolveDesignComment(path, design, comment)
+}
+
+// ResolveDesignComment is the package's ResolveDesignComment in the language of msgs.
+func (msgs Messages) ResolveDesignComment(path string, design string, comment string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.ResolveDesignComment(path, design, comment))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].ResolveDesignComment; f != nil {
+			return f(path, design, comment)
+		}
+		switch lang {
+		case "", "en":
+			return "Resolve my comment on element " + msgs.arg(path) + " of design " + msgs.arg(design) + ": " + msgs.arg(comment)
+		case "zh-Hans":
+			return "处理我在设计 " + design + " 的元素 " + path + " 上的评论：" + comment
 		}
 	}
 }

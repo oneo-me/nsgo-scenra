@@ -5,7 +5,7 @@ description: Design app screens and draw flow charts in Scenra files (.scenra), 
 
 # Scenra files
 
-Scenra files (`.scenra`) are plain text, and each holds one thing: a design, a draft of how one screen of an app looks, or a flow chart, such as what the app does when the user presses a screen's main button. The user opens a folder in the Scenra editor, which lists the folder's Scenra files as a tree on the left and draws the one open in the middle. A project is a folder of them: give each screen a design file named after it, such as `sign-in.scenra`, and put what happens on that screen in its flow beside it, named the same with `-flow`, such as `sign-in-flow.scenra`; the editor keeps the two together and switches between them. Group screens in folders as the app grows. When the user only wants a flow chart, make only a flow file, still named `<name>-flow.scenra`. Never name a design with `-flow` at the end. Put the pieces several screens share, such as a tab bar, a navigation bar or a card, in components, which live in one folder, `components/`, at the top of the open folder. Put the pictures designs show in one folder, `assets/`, beside it.
+Scenra files (`.scenra`) are plain text, and each holds one kind of thing: designs, drafts of how screens of an app look, or flow charts, such as what the app does when the user presses a screen's main button, never both. The user opens a folder in the Scenra editor, which lists the folder's Scenra files as a tree on the left and draws the one open in the middle, laying out the designs or flows of a file side by side. A project is a folder of them: give each screen a design file named after it, such as `sign-in.scenra`, and put what happens on that screen in its flow beside it, named the same with `-flow`, such as `sign-in-flow.scenra`; the editor keeps the two together and switches between them. Put screens the user sees together, such as sign in, sign up and a reset password screen, or a screen's states, such as empty, loading and full, as several designs of one file, and the flows of one feature as several flows of one file. Group screens in folders as the app grows. When the user only wants a flow chart, make only a flow file, still named `<name>-flow.scenra`. Never name a design with `-flow` at the end. Put the pieces several screens share, such as a tab bar, a navigation bar or a card, in components, which live in one folder, `components/`, at the top of the open folder. Put the pictures designs show in one folder, `assets/`, beside it.
 
 ## Working on files
 
@@ -20,7 +20,9 @@ When a design or flow is about code at hand, read the code first and draw what i
 
 ## Format
 
-A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), and optional `width=` and `height=` in points, 100 to 4000, which replace the device's size where the screen needs another, such as `design device=desktop width=1440 height=900` or a long page; `component`, a piece designs share, with the same `device=`, `width=` and `height=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. Any first line may take `name="…"`, the name the editor shows for the file instead of its file name, such as `design name="Sign in" device=phone`; give one when a readable title in the user's language says more than the file name, which stays short and in English. A file holds one design, component or flow, never two.
+A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), and optional `width=` and `height=` in points, 100 to 4000, which replace the device's size where the screen needs another, such as `design device=desktop width=1440 height=900` or a long page; `component`, a piece designs share, with the same `device=`, `width=` and `height=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. Any of these lines may take `name="…"`, the name the editor shows, such as `design name="Sign in" device=phone`; the first line's names the file in place of its file name. Give one when a readable title in the user's language says more than the file name, which stays short and in English.
+
+A file may hold several designs, or several flows, never both: each starts with its own `design` or `flow` line, a blank line after the one before, and then each needs an ID right after the word, letters, digits, `_`, `-` or `.`, unique in the file, such as `design sign-up name="Sign up"`; the editor shows each under its name, or else its ID. A file holds one component. The editor packs a file's designs or flows in rows with the least margin, `gap=` points apart, 80 unless the file's first line sets another from 1 to 2000, such as `design sign-in gap=120`: widen it for large desktop designs or wide flows, and narrow it for small components or a few short flows.
 
 ```
 # A comment runs to the end of the line; indentation is free.
@@ -41,6 +43,19 @@ end
 ```
 
 ```
+design sign-in name="Sign in" gap=120
+box class="flex-1 gap-4 p-6 pt-16"
+  text "Sign in" class="text-3xl font-bold"
+  text "No account? Sign up" class="text-amber-700" tap="open #sign-up"
+end
+
+design sign-up name="Sign up"
+box class="flex-1 gap-4 p-6 pt-16"
+  text "Create your account" class="text-3xl font-bold"
+end
+```
+
+```
 flow direction=right
 node start "Tap Sign in" kind=start
 node check "Check password" kind=decision note="Lock after 5 tries"
@@ -54,7 +69,7 @@ a -> b -> c
 - A design is one element a line, and a `box` holds the lines up to its `end`.
 - `node <id> "<label>"` is a step of a flow, with optional `note="…"`, `kind=` task (the default), start, end, decision, data or note, and `status=` todo, doing, done, blocked or skipped, when the chart tracks progress; skipped fades the step.
 - `a -> b "label"` connects nodes, `a ..> b` dashed for optional or indirect links, and `a -> b -> c` chains them. An edge may name nodes no line declares; they take their ID as their label.
-- Node IDs are letters, digits, `_`, `-` or `.`, unique in their flow.
+- Node IDs are letters, digits, `_`, `-` or `.`, unique in their flow; each flow of a file has its own nodes, and edges join nodes of their own flow.
 - The file's name is its title: there is no title line.
 
 Use `kind=start` and `kind=end` for entry and exit points and `kind=decision` for branches, with the answers as edge labels.
@@ -82,7 +97,7 @@ An icon takes the name of any Lucide icon (lucide.dev), by its current name or a
 
 Keep every picture a design shows in `assets/` at the top of the open folder, as a PNG, JPEG, GIF or WebP file, and name it by its path there: `image "Latte art seen from above" src="assets/latte.jpg" class="h-40 rounded-2xl"`. When the user gives you a picture, or the code at hand has the app's own, such as its logo or its photos, copy it into `assets/`, in folders such as `assets/products/` as they grow, under a short English name, rather than pointing at it where it is: the editor shows only pictures in `assets/`, so the folder keeps working wherever it moves. Use a URL only for a picture that stays online. Without a picture, leave `src` out: the editor draws a placeholder its text describes, so write the text as what the picture shows. Never write a picture's path you have not made. `get_view` reports the pictures images cannot show.
 
-`get_view` names elements by their paths: an element's index among its siblings at each level from 0, joined by dots, so 1.0 is the first element the second top-level element holds.
+`get_view` names elements by their paths: an element's index among its siblings at each level from 0, joined by dots, so 1.0 is the first element the second top-level element holds of its design, which it names by its ID in a file of several.
 
 ## Components
 
@@ -147,11 +162,11 @@ use menu-item title="Mocha" tag.class="hidden"
 
 The editor plays a design as the app would run: pressing an element with `tap="…"`, or one inside it, does what the tap says, so the user can click through the screens.
 
-- `tap="open <design>"` opens another design, named by its path in the open folder without `.scenra`, such as `tap="open menu"` or `tap="open orders/detail"`.
+- `tap="open <design>"` opens another design, named by its file's path in the open folder without `.scenra`, such as `tap="open menu"` or `tap="open orders/detail"`, which opens the file's first design; add `#` and an ID for another design of a file, such as `tap="open auth#sign-up"`, or write `#` and the ID alone for one of the same file, such as `tap="open #sign-up"`, which the editor moves to.
 - `tap="close"` closes the screen shown, returning to the design that opened it, as a back button, a dialog's Cancel or a sheet's close button.
 - `tap="tab <name>"` shows the elements with `panel=<name>` in place of the panels beside them. The first panel among its siblings shows until a tab shows another, so draw the panels of one place side by side, as the content of a segmented control or of tabs.
 
-A box whose tap leads to what shows, opening the design shown or showing its panel, is selected: style it with `selected:` classes, and what it holds with `group-selected:` classes and `group` on the box.
+A box whose tap leads to what shows, opening the design it is in or showing its panel there, is selected: style it with `selected:` classes, and what it holds with `group-selected:` classes and `group` on the box.
 
 ```
 box class="flex-row gap-2"

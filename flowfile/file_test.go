@@ -21,7 +21,8 @@ func TestParseDesign(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Kind != Design || f.Device != "tablet" || len(f.UI) != 4 || len(f.UI[2].Children) != 2 || f.UI[1].Attr("src") != "https://example.com/cup.png" {
+	ui := f.Screens[0].UI
+	if f.Kind != Design || f.Screens[0].Device != "tablet" || len(ui) != 4 || len(ui[2].Children) != 2 || ui[1].Attr("src") != "https://example.com/cup.png" {
 		t.Fatalf("design: %+v", f)
 	}
 	again, err := Parse(f.Format())
@@ -57,9 +58,18 @@ func TestParseFileErrors(t *testing.T) {
 		"design height=20":                 "height=\"20\" is not a size",
 		"design direction=right":           "a design takes name, device",
 		"flow device=phone":                "a flow takes name and direction",
-		"design\nflow":                     "line 2: a file holds one design, component or flow",
-		"flow\na -> b\ndesign":             "line 3: a file holds one design, component or flow",
-		"design\ncomponent":                "line 2: a file holds one design, component or flow",
+		"design\nflow":                     "line 2: a file holds designs, a component or flows, never two kinds",
+		"flow\na -> b\ndesign":             "line 3: a file holds designs, a component or flows, never two kinds",
+		"design\ncomponent":                "line 2: a file holds designs, a component or flows, never two kinds",
+		"component\ncomponent":             "line 2: a component file holds one component",
+		"component tabs":                   "unexpected \"tabs\"",
+		"design a\ndesign":                 "line 1: a file of several designs gives each an ID",
+		"flow a\nflow a":                   "two flows have the ID \"a\"",
+		"design \"a b\"":                    "unexpected \"a b\"",
+		"design a.b/c":                     "is not an ID",
+		"design\ndesign b gap=10":          "line 2: gap is the file's",
+		"design gap=-4":                    "gap=\"-4\" is not a gap",
+		"design\nbox\ndesign b":            "line 3: box has no end",
 		"component direction=down":         "a component takes name, device",
 		"component\nnode a":                "a component holds no flow",
 		"design\nuse":                      "\"\" names no component",
@@ -80,7 +90,7 @@ func TestDesignSize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if w, h := f.Size(); w != 1024 || h != 1366 || f.Format() != "design device=tablet width=1024 height=1366\n" {
+	if w, h := f.Size(0); w != 1024 || h != 1366 || f.Format() != "design device=tablet width=1024 height=1366\n" {
 		t.Fatalf("%d×%d:\n%s", w, h, f.Format())
 	}
 	if f, _ := Parse("design height=600\n"); !sizeIs(f, 390, 600) {
@@ -103,13 +113,13 @@ func TestFileName(t *testing.T) {
 			t.Errorf("%q: %v\n%s", src, err, f.Format())
 		}
 	}
-	if f, _ := Parse("flow name=\"Checkout\"\n"); f.Name != "Checkout" {
-		t.Fatalf("name %q", f.Name)
+	if f, _ := Parse("flow name=\"Checkout\"\n"); f.Title() != "Checkout" {
+		t.Fatalf("name %q", f.Title())
 	}
 }
 
 func sizeIs(f File, w, h int) bool {
-	gw, gh := f.Size()
+	gw, gh := f.Size(0)
 	return gw == w && gh == h
 }
 
@@ -119,10 +129,10 @@ func TestComponents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Kind != Component || f.Device != "tablet" || f.Format() != strings.Replace(src, "use nav/item", `use "nav/item"`, 1) {
+	if f.Kind != Component || f.Screens[0].Device != "tablet" || f.Format() != strings.Replace(src, "use nav/item", `use "nav/item"`, 1) {
 		t.Fatalf("component %+v:\n%s", f, f.Format())
 	}
-	if got := Uses(f.UI); !slices.Equal(got, []string{"nav/item"}) {
+	if got := Uses(f.Screens[0].UI); !slices.Equal(got, []string{"nav/item"}) {
 		t.Fatalf("uses %v", got)
 	}
 	for p, want := range map[string]string{"components/tab-bar.scenra": "tab-bar", "components/nav/item.scenra": "nav/item", "tab-bar.scenra": "", "components/x.txt": ""} {
@@ -164,21 +174,21 @@ func TestComments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Comment{{"0", "Roomier"}, {"1", "Bigger"}}
+	want := []Comment{{0, "0", "Roomier"}, {0, "1", "Bigger"}}
 	if got := p.Comments(); !slices.Equal(got, want) {
 		t.Fatalf("comments %v", got)
 	}
-	if got := FormatUI(p.UI[:1]); got != "box class=\"p-2\" comment=\"Roomier\"\n  text \"a\"\nend\n" {
+	if got := FormatUI(p.Screens[0].UI[:1]); got != "box class=\"p-2\" comment=\"Roomier\"\n  text \"a\"\nend\n" {
 		t.Fatalf("formatted as\n%s", got)
 	}
-	els, err := SetComment(p.UI, "0.0", "Bolder")
+	els, err := SetComment(p.Screens[0].UI, "0.0", "Bolder")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if els, _ = SetComment(els, "0", ""); FormatUI(els[:1]) != "box class=\"p-2\"\n  text \"a\" comment=\"Bolder\"\nend\n" {
 		t.Fatalf("set as\n%s", FormatUI(els))
 	}
-	if p.UI[0].Attr("comment") != "Roomier" || p.UI[0].Children[0].Attr("comment") != "" {
+	if p.Screens[0].UI[0].Attr("comment") != "Roomier" || p.Screens[0].UI[0].Children[0].Attr("comment") != "" {
 		t.Fatal("setting a comment changed the elements")
 	}
 	if _, err := SetComment(els, "3", "x"); err == nil {
@@ -191,10 +201,10 @@ func TestNotes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := p.Notes(), []Comment{{"0", "Scrolls"}, {"0.0", "Live"}}; !slices.Equal(got, want) {
+	if got, want := p.Notes(), []Comment{{0, "0", "Scrolls"}, {0, "0.0", "Live"}}; !slices.Equal(got, want) {
 		t.Fatalf("notes %v", got)
 	}
-	els, _ := SetNote(p.UI, "0", "")
+	els, _ := SetNote(p.Screens[0].UI, "0", "")
 	if els, _ = SetNote(els, "0.0", "Updates live"); FormatUI(els) != "box comment=\"Roomier\"\n  text \"a\" note=\"Updates live\"\nend\n" {
 		t.Fatalf("set as\n%s", FormatUI(els))
 	}
@@ -202,24 +212,24 @@ func TestNotes(t *testing.T) {
 
 func TestTaps(t *testing.T) {
 	p, err := Parse("design\nbox tap=\"open orders/detail\" class=\"p-2\"\n  text \"x\" tap=close\nend\n" +
-		"box tap=\"tab past\"\nend\nbox panel=past\nend\nbox tap=\"open Sign in\"\nend\n")
+		"box tap=\"tab past\"\nend\nbox panel=past\nend\nbox tap=\"open Sign in\"\nend\nbox tap=\"open auth#sign-up\"\nend\nbox tap=\"open #reset\"\nend\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for path, want := range map[string]Tap{"0": {TapOpen, "orders/detail"}, "0.0": {TapClose, ""}, "1": {TapTab, "past"}, "3": {TapOpen, "Sign in"}} {
-		el, _ := ElementAt(p.UI, path)
+	for path, want := range map[string]Tap{"0": {TapOpen, "orders/detail"}, "0.0": {TapClose, ""}, "1": {TapTab, "past"}, "3": {TapOpen, "Sign in"}, "4": {TapOpen, "auth#sign-up"}, "5": {TapOpen, "#reset"}} {
+		el, _ := ElementAt(p.Screens[0].UI, path)
 		if got, ok := el.Tap(); !ok || got != want {
 			t.Errorf("%s taps %+v", path, got)
 		}
 	}
-	if el, _ := ElementAt(p.UI, "2"); el.Attr("panel") != "past" {
+	if el, _ := ElementAt(p.Screens[0].UI, "2"); el.Attr("panel") != "past" {
 		t.Fatalf("the panel is %q", el.Attr("panel"))
 	}
-	if got := FormatUI(p.UI[:1]); got != "box class=\"p-2\" tap=\"open orders/detail\"\n  text \"x\" tap=\"close\"\nend\n" {
+	if got := FormatUI(p.Screens[0].UI[:1]); got != "box class=\"p-2\" tap=\"open orders/detail\"\n  text \"x\" tap=\"close\"\nend\n" {
 		t.Fatalf("formatted as\n%s", got)
 	}
 	for _, src := range []string{"box tap=jump\nend\n", "box tap=open\nend\n", "box tap=\"open ../x\"\nend\n", "box tap=\"close now\"\nend\n",
-		"box tap=\"tab a b\"\nend\n", "box panel=\"a b\"\nend\n"} {
+		"box tap=\"tab a b\"\nend\n", "box panel=\"a b\"\nend\n", "box tap=\"open #\"\nend\n", "box tap=\"open a#b c\"\nend\n", "box tap=\"open a#b#c\"\nend\n"} {
 		if _, err := ParseUI(src); err == nil {
 			t.Errorf("%q parsed", src)
 		}
@@ -314,5 +324,73 @@ func TestImagesNameThePicturesOfTheAssetsFolder(t *testing.T) {
 	els, _ := ParseUI("image \"a\" src=assets/a.png\nbox\n  use card pic.src=assets/b.png\n  image \"a\" src=assets/a.png\nend\n")
 	if got := Images(els); !slices.Equal(got, []string{"assets/a.png", "assets/b.png"}) {
 		t.Fatalf("images %v", got)
+	}
+}
+
+func TestOpensNamesFileAndDesign(t *testing.T) {
+	for target, want := range map[string][2]string{"menu": {"menu", ""}, "auth#sign-up": {"auth", "sign-up"}, "#reset": {"", "reset"}} {
+		if file, id := (Tap{TapOpen, target}).Opens(); file != want[0] || id != want[1] {
+			t.Errorf("%s opens %q %q", target, file, id)
+		}
+	}
+}
+
+const designs = `design sign-in name="Sign in" gap=120
+text "In" tap="open #sign-up"
+
+design sign-up name="Sign up" device=desktop
+box
+  text "Up" comment="Shorter"
+end
+`
+
+func TestSeveralDesigns(t *testing.T) {
+	f, err := Parse(designs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Screens) != 2 || f.Gap != 120 || f.Spacing() != 120 || f.Title() != "Sign in" || !f.Several() {
+		t.Fatalf("designs: %+v", f)
+	}
+	if i, ok := f.Screen("sign-up"); !ok || i != 1 || f.Screens[1].Device != "desktop" || len(f.Screens[1].UI[0].Children) != 1 {
+		t.Fatalf("sign-up: %d %v %+v", i, ok, f.Screens[1])
+	}
+	if i, ok := f.Screen(""); !ok || i != 0 {
+		t.Fatal("no first design")
+	}
+	if _, ok := f.Screen("menu"); ok {
+		t.Fatal("found a missing design")
+	}
+	if w, h := f.Size(1); w != 1200 || h != 760 {
+		t.Fatalf("sign-up is %d×%d", w, h)
+	}
+	if got := f.Comments(); !slices.Equal(got, []Comment{{1, "0.0", "Shorter"}}) {
+		t.Fatalf("comments %v", got)
+	}
+	if f.Format() != strings.ReplaceAll(designs, `text "Up"`, `text "Up"`) {
+		t.Fatalf("format:\n%s", f.Format())
+	}
+	if (File{}).Spacing() != DefaultGap {
+		t.Fatal("no default gap")
+	}
+}
+
+func TestSeveralFlows(t *testing.T) {
+	src := "flow pay name=\"Pay\" direction=right\n\nnode a \"A\"\n\na -> b\n\nflow refund\n\na -> c\n"
+	f, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Flows) != 2 || f.Flows[0].Direction != Right || f.Flows[1].ID != "refund" || len(f.Flows[1].Nodes) != 2 || f.Flows[1].Nodes[0].Label != "a" {
+		t.Fatalf("flows: %+v", f.Flows)
+	}
+	again, err := Parse(f.Format())
+	if err != nil || again.Format() != f.Format() || !strings.Contains(f.Format(), "a -> b\n\nflow refund\n") {
+		t.Fatalf("format: %v\n%s", err, f.Format())
+	}
+	clone := f.Clone()
+	clone.Flows[0].Nodes[0].Label = "Z"
+	if f.Flows[0].Nodes[0].Label != "A" {
+		t.Fatal("a clone shares its flows")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -168,23 +169,23 @@ func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
 	app.WaitFor("design >> text:Mail", time.Second)
 	// The design fits the pane scaled down, which the layer over it
 	// undoes: the pointer is where the camera drew each element.
-	pane, design := app.Find("id:design-pointer").Frame.Size, app.Find("id:design").Frame.Size
+	pane, design := app.Find("id:design-camera-pointer").Frame.Size, app.Find("id:design").Frame.Size
 	zoom := min(1, (pane.Width-2*designFitMargin)/design.Width, (pane.Height-2*designFitMargin)/design.Height)
 	if zoom >= 1 {
 		t.Fatalf("the design shows unscaled at %v in %v", design, pane)
 	}
 	at := func(path string) core.Point {
-		v := app.Find("id:element-" + path)
+		v := app.Find("id:element-0/" + path)
 		x, y := v.Frame.Size.Width/2, v.Frame.Size.Height/2
 		for ; v.Props.TestID != "design"; v = v.Parent {
 			x, y = x+v.Frame.Origin.X, y+v.Frame.Origin.Y
 		}
 		return core.Point{X: (pane.Width-design.Width*zoom)/2 + x*zoom, Y: (pane.Height-design.Height*zoom)/2 + y*zoom}
 	}
-	app.HoverAt("id:design-pointer", at("0.1.0"))
+	app.HoverAt("id:design-camera-pointer", at("0.1.0"))
 	app.WaitFor("id:design-hovered", time.Second)
-	app.PressAt("id:design-pointer", at("0.1.0"))
-	if got := e.cur().element.GetUntracked(); got != "0.1.0" {
+	app.PressAt("id:design-camera-pointer", at("0.1.0"))
+	if got := e.cur().element.GetUntracked(); got != "0/0.1.0" {
 		t.Fatalf("pressing the icon selected %q", got)
 	}
 	app.WaitFor("id:design-selected", time.Second)
@@ -195,19 +196,19 @@ func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
 		t.Fatalf("the card is at %v, pressed at %v", card.Origin, pressed)
 	}
 	app.Type("id:comment-input", "Bigger")
-	if got := e.cur().element.GetUntracked(); got != "0.1.0" || !app.Exists("id:comment-card") {
+	if got := e.cur().element.GetUntracked(); got != "0/0.1.0" || !app.Exists("id:comment-card") {
 		t.Fatalf("typing in the card selected %q", got)
 	}
-	app.HoverAt("id:design-pointer", at("0.0"))
-	app.PressAt("id:design-pointer", at("0.0"))
-	if got := e.cur().element.GetUntracked(); got != "0.0" {
+	app.HoverAt("id:design-camera-pointer", at("0.0"))
+	app.PressAt("id:design-camera-pointer", at("0.0"))
+	if got := e.cur().element.GetUntracked(); got != "0/0.0" {
 		t.Fatalf("pressing the title selected %q", got)
 	}
 	app.HoverOut()
 	if app.Exists("id:design-hovered") {
 		t.Fatal("the outline stayed after the pointer left")
 	}
-	app.PressAt("id:design-pointer", core.Point{X: 4, Y: 4})
+	app.PressAt("id:design-camera-pointer", core.Point{X: 4, Y: 4})
 	if got := e.cur().element.GetUntracked(); got != "" {
 		t.Fatalf("pressing around the design left %q selected", got)
 	}
@@ -287,7 +288,7 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	app.Post(func() {
 		d := e.shown()
 		f := d.doc.GetUntracked()
-		f.Flow.Direction = flowfile.Right
+		f.Flows[0].Direction = flowfile.Right
 		d.change(f, "")
 	})
 	app.Settle()
@@ -308,10 +309,10 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	app, e := startEditor(t)
 	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
 	app.WaitFor("design >> text:Home tab", 5*time.Second)
-	app.Find("id:element-0.1 >> text:Orders")
+	app.Find("id:element-0/0.1 >> text:Orders")
 	// A component's elements select the use drawing them.
 	app.Press("design >> text:Orders")
-	if got := e.cur().element.GetUntracked(); got != "0.1" {
+	if got := e.cur().element.GetUntracked(); got != "0/0.1" {
 		t.Fatalf("pressing inside the component selected %q", got)
 	}
 	// Editing a component redraws the designs using it.
@@ -325,7 +326,7 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	}
 	app.WaitFor("id:files >> label:loop", time.Second)
 	app.Press("id:files >> label:loop")
-	app.WaitFor("id:element-0", time.Second)
+	app.WaitFor("id:element-0/0", time.Second)
 }
 
 func TestImagesShowThePicturesOfTheAssetsFolder(t *testing.T) {
@@ -417,7 +418,7 @@ func TestShowingAnotherFileSavesTheOneShown(t *testing.T) {
 		app.Post(func() {
 			d := e.shown()
 			f := d.doc.GetUntracked().Clone()
-			f.Flow.Nodes[0].Label = label
+			f.Flows[0].Nodes[0].Label = label
 			d.change(f, "")
 		})
 		app.Settle()
@@ -500,8 +501,10 @@ func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
-		if unknown := unknownClasses(f.UI); len(unknown) > 0 {
-			t.Errorf("%s: classes that draw nothing: %v", path, unknown)
+		for _, s := range f.Screens {
+			if unknown := unknownClasses(s.UI); len(unknown) > 0 {
+				t.Errorf("%s: classes that draw nothing: %v", path, unknown)
+			}
 		}
 		var walk func(els []flowfile.Element)
 		walk = func(els []flowfile.Element) {
@@ -514,7 +517,9 @@ func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 				walk(el.Children)
 			}
 		}
-		walk(f.UI)
+		for _, s := range f.Screens {
+			walk(s.UI)
+		}
 	}
 }
 
@@ -576,17 +581,17 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 			t.Fatalf("marked %v, want %v", got, want)
 		}
 	}
-	marked("0.0.0", "0.0.1", "0.3", "0.4", "0.5:0.0")
+	marked("0/0.0.0", "0/0.0.1", "0/0.3", "0/0.4", "0/0.5:0.0")
 	app.Press("id:design-show-taps")
 	selected := func(id string) bool { return app.Find("id:" + id).Props.Selected }
-	if !selected("element-0.0.0") || selected("element-0.0.1") {
+	if !selected("element-0/0.0.0") || selected("element-0/0.0.1") {
 		t.Fatal("the first tab is not the selected one")
 	}
 	app.Press("design >> text:Past tab")
 	app.WaitFor("design >> text:Yesterday", time.Second)
 	app.WaitForGone("design >> text:Brewing now", time.Second)
-	marked("0.0.0", "0.0.1", "0.2.0", "0.3", "0.4", "0.5:0.0")
-	if !selected("element-0.0.1") || selected("element-0.0.0") {
+	marked("0/0.0.0", "0/0.0.1", "0/0.2.0", "0/0.3", "0/0.4", "0/0.5:0.0")
+	if !selected("element-0/0.0.1") || selected("element-0/0.0.0") {
 		t.Fatal("the tab shown is not the selected one")
 	}
 	if got := e.cur().element.GetUntracked(); got != "" || app.Exists("id:comment-card") {
@@ -605,7 +610,7 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 	if got := shownName(app); got != "home" {
 		t.Fatalf("closing showed %q", got)
 	}
-	if !selected("element-0.5:0.0") {
+	if !selected("element-0/0.5:0.0") {
 		t.Fatal("the tab bar's item for the design shown is not selected")
 	}
 	// Coming back shows the first tab again, and a close with nothing to
@@ -630,10 +635,10 @@ func TestTheCardShowsWhereThePointerRests(t *testing.T) {
 	app, e := startEditor(t)
 	openPath(t, app, e, shop)
 	app.WaitFor("design >> text:Menu", time.Second)
-	pane, design := app.Find("id:design-pointer").Frame.Size, app.Find("id:design").Frame.Size
+	pane, design := app.Find("id:design-camera-pointer").Frame.Size, app.Find("id:design").Frame.Size
 	zoom := min(1, (pane.Width-2*designFitMargin)/design.Width, (pane.Height-2*designFitMargin)/design.Height)
 	at := func(path string) core.Point {
-		v := app.Find("id:element-" + path)
+		v := app.Find("id:element-0/" + path)
 		x, y := v.Frame.Size.Width/2, v.Frame.Size.Height/2
 		for ; v.Props.TestID != "design"; v = v.Parent {
 			x, y = x+v.Frame.Origin.X, y+v.Frame.Origin.Y
@@ -642,7 +647,7 @@ func TestTheCardShowsWhereThePointerRests(t *testing.T) {
 	}
 	// Resting on an element shows its card, even on one whose tap
 	// pressing plays.
-	app.HoverAt("id:design-pointer", at("0.1.0"))
+	app.HoverAt("id:design-camera-pointer", at("0.1.0"))
 	if app.Exists("id:comment-card") {
 		t.Fatal("the card shows before the pointer rests")
 	}
@@ -659,12 +664,12 @@ func TestTheCardShowsWhereThePointerRests(t *testing.T) {
 	app.Advance(time.Second)
 	app.Find("id:comment-card")
 	app.Press("id:comment-save")
-	app.WaitFor("id:note-pin-0.1.0", time.Second)
+	app.WaitFor("id:note-pin-0/0.1.0", time.Second)
 	if got := e.shown().doc.GetUntracked().Format(); !strings.Contains(got, `text "Menu" note="Lists today's drinks"`) {
 		t.Fatalf("the note was not saved:\n%s", got)
 	}
 	// Once saved, the card goes when the pointer leaves.
-	app.HoverAt("id:design-pointer", at("0.0"))
+	app.HoverAt("id:design-camera-pointer", at("0.0"))
 	app.HoverOut()
 	app.Advance(time.Second)
 	app.WaitForGone("id:comment-card", time.Second)
@@ -674,9 +679,100 @@ func TestTheCardShowsWhereThePointerRests(t *testing.T) {
 	if !strings.Contains(view, `shop.scenra, element 0.1.0: "Lists today's drinks"`) {
 		t.Fatalf("the view tells nothing of the note:\n%s", view)
 	}
-	app.HoverAt("id:design-pointer", at("0.1.0"))
+	app.HoverAt("id:design-camera-pointer", at("0.1.0"))
 	app.Advance(time.Second)
 	app.WaitFor("id:comment-card", time.Second)
 	app.Press("id:note-remove")
-	app.WaitForGone("id:note-pin-0.1.0", time.Second)
+	app.WaitForGone("id:note-pin-0/0.1.0", time.Second)
+}
+
+func TestAFileHoldsSeveralDesigns(t *testing.T) {
+	auth := writeFlow(t, "auth.scenra", "design sign-in name=\"Sign in\" gap=40\n"+
+		"box class=\"flex-1 p-4\"\n  text \"Welcome\"\n  text \"Create one\" tap=\"open #sign-up\"\nend\n\n"+
+		"design sign-up name=\"Sign up\"\n"+
+		"box class=\"flex-1 p-4\"\n  text \"Join us\" comment=\"Warmer\"\n  text \"Back\" tap=close\nend\n")
+	app, e := startEditor(t)
+	openPath(t, app, e, auth)
+	app.WaitFor("design >> text:Join us", time.Second)
+	if got := shownName(app); got != "Sign in" {
+		t.Fatalf("the file is called %q", got)
+	}
+	// The designs lay out side by side the file's gap apart, under their
+	// names.
+	in, up := app.Find("id:screen-sign-in").Frame, app.Find("id:screen-sign-up").Frame
+	if up.Origin.X != in.Origin.X+390+40 || up.Origin.Y != in.Origin.Y || in.Origin.Y != captionRoom {
+		t.Fatalf("the designs are at %v and %v", in.Origin, up.Origin)
+	}
+	app.Find("id:design >> text:Sign up")
+	// The harness hit-tests without the canvas's transform, so the second
+	// design's pin counts as clipped: look for it in the tree.
+	if !strings.Contains(app.Dump(), "id=comment-pin-1/0.0") {
+		t.Fatal("the second design's comment has no pin")
+	}
+	// Pressing selects the element of its design.
+	app.Press("design >> text:Join us")
+	if got := e.cur().element.GetUntracked(); got != "1/0.0" {
+		t.Fatalf("pressing selected %q", got)
+	}
+	// A tap opening a design of the file moves to it, and a close moves
+	// back.
+	app.Press("design >> text:Create one")
+	app.Settle()
+	if got := e.focus.GetUntracked().id; got != "sign-up" || shownName(app) != "Sign in" {
+		t.Fatalf("the tap moved to %q", got)
+	}
+	app.Press("design >> text:Back")
+	app.Settle()
+	if got := e.focus.GetUntracked().id; got != "sign-in" || len(e.trail) != 0 {
+		t.Fatalf("closing moved to %q, the trail %v", got, e.trail)
+	}
+	// A comment on the second design is set on it.
+	app.Post(func() { e.shown().setComment("1/0.1", "Arrow") })
+	app.Settle()
+	if c := e.cur().doc.GetUntracked().Comments(); len(c) != 2 || c[1] != (flowfile.Comment{Screen: 1, Path: "0.1", Text: "Arrow"}) {
+		t.Fatalf("comments %v", c)
+	}
+}
+
+func TestAFileHoldsSeveralFlows(t *testing.T) {
+	pay := writeFlow(t, "pay-flow.scenra", "flow pay name=\"Pay\" gap=200\nnode card \"Charge card\"\ncard -> receipt\n\n"+
+		"flow refund name=\"Refund\" direction=right\nnode ask \"Ask why\"\nask -> back\n")
+	app, e := startEditor(t)
+	openPath(t, app, e, pay)
+	app.WaitFor("flow >> label:Ask why", 5*time.Second)
+	app.WaitUntil(5*time.Second, func() bool { return e.chart(0).Ready() && e.chart(1).Ready() })
+	if !strings.Contains(app.Dump(), `"Refund"`) {
+		t.Fatal("the second flow has no caption")
+	}
+	// pos is where the node with key is in the plane of the flows.
+	pos := func(key string) (float32, float32) {
+		flow, id, _ := splitNode(key)
+		x, y, ok := e.chart(flow).Position(id)
+		if !ok {
+			t.Fatalf("%s is not laid out", key)
+		}
+		o := app.FindMounted("id:flow-" + strconv.Itoa(flow)).Frame.Origin
+		return x + float32(o.X), y + float32(o.Y)
+	}
+	// Each flow lays out apart, the way it points.
+	cx, cy := pos("0/card")
+	rx, ry := pos("0/receipt")
+	ax, ay := pos("1/ask")
+	bx, by := pos("1/back")
+	if cx != rx || ry <= cy || ay != by || bx <= ax {
+		t.Fatalf("the flows lay out as %v,%v %v,%v and %v,%v %v,%v", cx, cy, rx, ry, ax, ay, bx, by)
+	}
+	if ax < rx+200 && ay < ry+200 {
+		t.Fatal("the flows are closer than the file's gap")
+	}
+	// Turning the selected node's flow leaves the other.
+	app.Post(func() {
+		e.shown().selected.Set("1/ask")
+		e.ToggleDirection()
+	})
+	app.Settle()
+	f := e.cur().doc.GetUntracked()
+	if f.Flows[0].Direction != "" || f.Flows[1].Direction != flowfile.Down {
+		t.Fatalf("turned %q and %q", f.Flows[0].Direction, f.Flows[1].Direction)
+	}
 }

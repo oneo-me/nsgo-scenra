@@ -1,9 +1,9 @@
 // Package flowfile reads and writes Scenra files: plain text documents
-// that each hold one design of an app's screen, one component designs
-// share or one flow chart, line by line. A folder of them is a project.
+// that each hold designs of an app's screens, one component designs
+// share or flow charts, line by line. A folder of them is a project.
 //
 //	# A comment runs to the end of the line; indentation is free.
-//	design name="Sign in" device=phone  # or tablet, desktop; width=, height= resize it
+//	design sign-in name="Sign in" device=phone gap=120  # or tablet, desktop; width=, height= resize it
 //	box class="flex-1 gap-4 p-6"
 //	  text "Welcome back" class="text-2xl font-bold" comment="Friendlier"
 //	  box class="flex-row items-center gap-2 rounded-xl border border-border px-3 h-11"
@@ -27,12 +27,15 @@
 //	  box panel=phone
 //	    text "We text you a code"
 //	  end
-//	  text "Back" tap=close
+//	  text "No account?" tap="open #sign-up"   # a design of this file
 //	  image "A cup of coffee" class="h-40 rounded-2xl"
 //	  image "Latte art" src="assets/latte.jpg" class="h-40"   # or a URL
 //	  svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
 //	  use tab-bar class="mt-auto"      # components/tab-bar.scenra
 //	end
+//
+//	design sign-up name="Sign up"      # another design of the file
+//	text "Back" tap=close
 //
 //	component device=phone           # in components/tab-bar.scenra
 //	box class="flex-row border-t border-border px-2 pt-2 pb-7"
@@ -41,7 +44,7 @@
 //
 //	use tab-bar home=store home.class="text-amber-600"   # see Instance
 //
-//	flow direction=right             # or down
+//	flow sign-in name="Sign in" direction=right   # or down
 //	node start "Tap Sign in" kind=start
 //	node check "Check password" kind=decision note="Lock after 5 tries"
 //	node home "Show home" kind=end status=done
@@ -50,12 +53,19 @@
 //	check ..> start "invalid"        # a dashed edge
 //	a -> b -> c                      # a chain of edges
 //
-// A file's first line says what it holds, and may give it a name the
-// editor shows instead of its file name. A design is one element a line,
-// and a box holds the lines up to its end. The interface is a few
+//	flow reset name="Reset password"   # another flow of the file
+//	node ask "Ask for the email"
+//
+// A file's first line says what it holds, designs, a component or flows,
+// never two kinds. Each design or flow starts with its line, which may
+// give it an ID, needed once a file holds several, and a name the editor
+// shows; the first's names the file, and the first line may set the gap
+// in points the editor lays the file's designs or flows out apart. A file
+// holds one component. A design is one element a line, and a box holds
+// the lines up to its end. The interface is a few
 // primitives, listed in Elements, each shaped by Tailwind CSS classes, so
 // a design can look like anything rather than like the controls of one
-// toolkit. A design is drawn at its device's size unless its first line
+// toolkit. A design is drawn at its device's size unless its line
 // sets width or height in points. A component is drawn like a design, at
 // its device's or its own width and as high as it needs unless it sets a
 // height, and lives in the components folder at the top of
@@ -70,11 +80,12 @@
 // assistant for, which stays until the assistant resolves it, and a note,
 // which says what the design cannot show, such as when it changes. The
 // editor plays a design: pressing an element with a tap opens another
-// design, closes the one shown, returning to the one that opened it, or
-// shows the panels of a name in place of their siblings. The element
-// whose tap shows the design or the tab shown is selected, which
-// selected: and group-selected: classes style. An edge may
-// name nodes no line declares; they take their ID as their label.
+// design, of its file or another, closes the one shown, returning to the
+// one that opened it, or shows the panels of a name in place of their
+// siblings. The element whose tap opens the design holding it or shows
+// the tab shown is selected, which selected: and group-selected: classes
+// style. An edge may name nodes no line of its flow declares; they take
+// their ID as their label.
 //
 // Format writes a file back in the canonical form, without the #
 // comments.
@@ -117,8 +128,11 @@ type Edge struct {
 	Dashed bool   `json:"dashed,omitempty"`
 }
 
-// Flow is a flow chart: its direction, nodes and edges.
+// Flow is a flow chart of a file: the ID the editor names it by, needed
+// once a file holds several, the name it shows it by, its direction,
+// nodes and edges. Node IDs are unique in their flow.
 type Flow struct {
+	ID, Name  string
 	Direction Direction
 	Nodes     []Node
 	Edges     []Edge

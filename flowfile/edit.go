@@ -208,31 +208,38 @@ func ReplaceElement(els []Element, path string, with []Element) ([]Element, erro
 	return out, nil
 }
 
-// Comment is a user's comment or note on an element of a design.
-type Comment struct{ Path, Text string }
+// Comment is a user's comment or note on an element of a design: the
+// index of the design among the file's, the element's path in it and the
+// text.
+type Comment struct {
+	Screen     int
+	Path, Text string
+}
 
-// Comments are the comments on f's design, in the order their elements
+// Comments are the comments on f's designs, in the order their elements
 // are written.
 func (f File) Comments() []Comment { return f.remarks("comment") }
 
-// Notes are the notes on f's design, in the order their elements are
+// Notes are the notes on f's designs, in the order their elements are
 // written.
 func (f File) Notes() []Comment { return f.remarks("note") }
 
 // remarks are the attributes key of f's elements that are set.
 func (f File) remarks(key string) []Comment {
 	var out []Comment
-	var walk func(els []Element, parent []int)
-	walk = func(els []Element, parent []int) {
-		for i, el := range els {
-			path := append(slices.Clone(parent), i)
-			if text := el.Attr(key); text != "" {
-				out = append(out, Comment{FormatPath(path), text})
+	for s, screen := range f.Screens {
+		var walk func(els []Element, parent []int)
+		walk = func(els []Element, parent []int) {
+			for i, el := range els {
+				path := append(slices.Clone(parent), i)
+				if text := el.Attr(key); text != "" {
+					out = append(out, Comment{s, FormatPath(path), text})
+				}
+				walk(el.Children, path)
 			}
-			walk(el.Children, path)
 		}
+		walk(screen.UI, nil)
 	}
-	walk(f.UI, nil)
 	return out
 }
 

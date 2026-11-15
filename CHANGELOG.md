@@ -15,6 +15,7 @@
 - Show an element's comment card where the pointer rests instead of on press, and add notes beside comments, which the assistant reads and keeps true.
 - Let a file give itself a `name=`, which the assistant may set and the tree, header and window title show instead of its file name.
 - Keep a screen's flow as `<name>-flow.scenra` beside its design `<name>.scenra`, and switch between the two from the header.
+- Let a file hold several designs or several flows, each with an ID and opened by taps such as `open #sign-up`, packed with the least margin `gap=` points apart, which the assistant sets to suit their sizes.
 - Open folders, or Scenra files with their folder, from the Finder on macOS or the command line, save files in place when another file, folder or the window takes their place, and reopen them at the next start.
 - Add macOS, Windows and Linux builds in English and Simplified Chinese, for desktops only.
 - Add opt-out anonymous usage statistics.

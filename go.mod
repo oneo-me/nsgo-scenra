@@ -35,3 +35,5 @@ require (
 tool github.com/nsgo-dev/nsgo/cmd/nsgo
 
 replace github.com/oneo-me/nsgo-agio => ../nsgo-agio
+
+replace github.com/nsgo-dev/nsgo => ../nsgo

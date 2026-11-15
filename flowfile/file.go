@@ -41,36 +41,85 @@ const (
 	Chart     Kind = "flow"
 )
 
-// File is a Scenra file's content: a design of a screen, its Device and
-// UI, a component designs use, its UI drawn at its Device's width, or a
-// flow chart, its Flow. Width and Height, when set, replace the device's.
-// Name, when set, is what the editor calls the file instead of its file
-// name.
+// DefaultGap, MaxGap bound the space in points the editor leaves between
+// a file's designs or flows, which its first line may set with gap=.
+const (
+	DefaultGap = 80
+	MaxGap     = 2000
+)
+
+// File is a Scenra file's content: designs of screens, a component
+// designs use, drawn at its device's width, or flow charts. A file holds
+// one kind, as many designs or flows as it likes but one component, and
+// the editor lays them out side by side, Gap apart unless it is 0.
 type File struct {
-	Kind          Kind
-	Name          string
+	Kind    Kind
+	Gap     int
+	Screens []Screen
+	Flows   []Flow
+}
+
+// Screen is one design of a file, or its component: the ID taps and the
+// editor name it by, needed once a file holds several, the name the
+// editor shows it by, its Device and UI. Width and Height, when set,
+// replace the device's.
+type Screen struct {
+	ID, Name      string
 	Device        string
 	Width, Height int
 	UI            []Element
-	Flow          Flow
 }
 
-// Size is the size in points a design is drawn at: its device's, or the
-// width and height it sets. A component's height is 0 unless set, as it
-// is as high as it needs.
-func (f File) Size() (w, h int) {
-	w, h = DeviceSize(f.Device)
+// Title is the name the first design or flow gives itself, which the
+// editor calls the file by instead of its file name, "" when none.
+func (f File) Title() string {
+	switch {
+	case f.Kind == Chart && len(f.Flows) > 0:
+		return f.Flows[0].Name
+	case f.Kind != Chart && len(f.Screens) > 0:
+		return f.Screens[0].Name
+	}
+	return ""
+}
+
+// Spacing is the space in points between the file's designs or flows.
+func (f File) Spacing() int {
+	if f.Gap == 0 {
+		return DefaultGap
+	}
+	return f.Gap
+}
+
+// Size is the size in points the design at i is drawn at: its device's,
+// or the width and height it sets. A component's height is 0 unless set,
+// as it is as high as it needs.
+func (f File) Size(i int) (w, h int) {
+	s := f.Screens[i]
+	w, h = DeviceSize(s.Device)
 	if f.Kind == Component {
 		h = 0
 	}
-	if f.Width != 0 {
-		w = f.Width
+	if s.Width != 0 {
+		w = s.Width
 	}
-	if f.Height != 0 {
-		h = f.Height
+	if s.Height != 0 {
+		h = s.Height
 	}
 	return w, h
 }
+
+// Screen returns the index of the design with id, the first for "", and
+// false when there is none.
+func (f File) Screen(id string) (int, bool) {
+	if id == "" {
+		return 0, len(f.Screens) > 0
+	}
+	i := slices.IndexFunc(f.Screens, func(s Screen) bool { return s.ID == id })
+	return i, i >= 0
+}
+
+// Several says the file holds more than one design or flow.
+func (f File) Several() bool { return len(f.Screens) > 1 || len(f.Flows) > 1 }
 
 // Element is a piece of a design: a box holding others, a
 // text, an icon, an image or an SVG drawing, its look given by Tailwind
@@ -282,12 +331,23 @@ func ParseUI(src string) ([]Element, error) {
 	return els, nil
 }
 
-// Parse reads a Scenra file, whose first line says whether it holds a
-// design or a flow.
+// Parse reads a Scenra file, whose first line says whether it holds
+// designs, a component or flows: each design or flow starts with its
+// line, as the first does.
 func Parse(src string) (File, error) {
 	var f File
 	var ui uiReader
 	lines := 0
+	// closeScreen takes the elements of the design read so far.
+	closeScreen := func() string {
+		if f.Kind == Chart || len(f.Screens) == 0 {
+			return ""
+		}
+		els, msg := ui.done()
+		f.Screens[len(f.Screens)-1].UI = els
+		ui = uiReader{}
+		return msg
+	}
 	err := eachLine(src, func(toks []token) string {
 		lines++
 		head := toks[0]
@@ -297,11 +357,18 @@ func Parse(src string) (File, error) {
 		}
 		switch {
 		case lines == 1:
-			return f.header(toks)
+			return f.header(toks, true)
+		case word == string(f.Kind) && f.Kind == Component:
+			return "a component file holds one component; put another in a file of its own"
+		case word == string(f.Kind):
+			if msg := closeScreen(); msg != "" {
+				return msg
+			}
+			return f.header(toks, false)
 		case word == string(Design) || word == string(Component) || word == string(Chart):
-			return "a file holds one design, component or flow; put another in a file of its own"
+			return fmt.Sprintf("a file holds designs, a component or flows, never two kinds; put the %s in a file of its own", word)
 		case f.Kind == Chart:
-			return f.Flow.line(toks)
+			return f.Flows[len(f.Flows)-1].line(toks)
 		case word == "node" || len(toks) > 2 && !toks[1].quoted && (toks[1].text == "->" || toks[1].text == "..>"):
 			return fmt.Sprintf("a %s holds no flow; draw a flow in a file of its own", f.Kind)
 		default:
@@ -314,51 +381,97 @@ func Parse(src string) (File, error) {
 	if lines == 0 {
 		return File{}, &Error{1, headerHelp}
 	}
-	els, msg := ui.done()
-	if msg != "" {
+	if msg := closeScreen(); msg != "" {
 		return File{}, &Error{lines, msg}
 	}
-	f.UI = els
-	f.Flow.fillLabels()
+	for i := range f.Flows {
+		f.Flows[i].fillLabels()
+	}
+	if err := f.checkIDs(); err != nil {
+		return File{}, &Error{1, err.Error()}
+	}
 	return f, nil
+}
+
+// checkIDs says what is wrong with the IDs of the file's designs or
+// flows: each needs one once there are several, unique in the file.
+func (f File) checkIDs() error {
+	var ids []string
+	for _, s := range f.Screens {
+		ids = append(ids, s.ID)
+	}
+	for _, d := range f.Flows {
+		ids = append(ids, d.ID)
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		switch {
+		case id == "" && len(ids) > 1:
+			return fmt.Errorf("a file of several %ss gives each an ID, such as %s sign-up", f.Kind, f.Kind)
+		case id != "" && seen[id]:
+			return fmt.Errorf("two %ss have the ID %q; give each its own", f.Kind, id)
+		}
+		seen[id] = true
+	}
+	return nil
 }
 
 const headerHelp = "a file starts with design, component or flow, the one it holds"
 
-// header reads the first line: its name, and design or component with
-// its device and size, or flow with its direction.
-func (f *File) header(toks []token) string {
+// header reads the line starting a design, a component or a flow: its
+// ID, name, and device and size, or direction. The file's first line may
+// set the file's gap too.
+func (f *File) header(toks []token, first bool) string {
 	head := toks[0]
 	if head.quoted || !slices.Contains([]Kind{Design, Component, Chart}, Kind(head.text)) {
 		return headerHelp
 	}
 	f.Kind = Kind(head.text)
-	for _, t := range toks[1:] {
+	var s Screen
+	var d Flow
+	id, name := &s.ID, &s.Name
+	if f.Kind == Chart {
+		id, name = &d.ID, &d.Name
+	}
+	for i, t := range toks[1:] {
 		key, value, isAttr := t.attr()
 		switch {
+		case !isAttr && i == 0 && !t.quoted && f.Kind != Component:
+			if !ValidID(t.text) {
+				return fmt.Sprintf("%q is not an ID of letters, digits, _, - or .", t.text)
+			}
+			*id = t.text
 		case !isAttr:
 			return fmt.Sprintf("unexpected %q; write attributes as key=value", t.text)
 		case key == "name":
-			f.Name = strings.TrimSpace(value)
+			*name = strings.TrimSpace(value)
+		case key == "gap" && !first:
+			return "gap is the file's; set it on the first line"
+		case key == "gap":
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 1 || n > MaxGap {
+				return fmt.Sprintf("gap=%q is not a gap; use whole points from 1 to %d", value, MaxGap)
+			}
+			f.Gap = n
 		case f.Kind != Chart && key == "device":
 			if !slices.Contains(Devices, value) {
 				return fmt.Sprintf("unknown device %q; use one of %s", value, strings.Join(Devices, ", "))
 			}
-			f.Device = value
+			s.Device = value
 		case f.Kind != Chart && (key == "width" || key == "height"):
 			n, err := strconv.Atoi(value)
 			if err != nil || n < MinSize || n > MaxSize {
 				return fmt.Sprintf("%s=%q is not a size; use whole points from %d to %d", key, value, MinSize, MaxSize)
 			}
 			if key == "width" {
-				f.Width = n
+				s.Width = n
 			} else {
-				f.Height = n
+				s.Height = n
 			}
 		case f.Kind == Chart && key == "direction":
 			switch dir := Direction(value); dir {
 			case Down, Right:
-				f.Flow.Direction = dir
+				d.Direction = dir
 			default:
 				return fmt.Sprintf("unknown direction %q; use down or right", value)
 			}
@@ -368,13 +481,24 @@ func (f *File) header(toks []token) string {
 			return fmt.Sprintf("unknown attribute %q; a flow takes name and direction", key)
 		}
 	}
+	if f.Kind == Chart {
+		f.Flows = append(f.Flows, d)
+	} else {
+		f.Screens = append(f.Screens, s)
+	}
 	return ""
 }
 
 // Clone returns a copy of f that shares nothing with it.
 func (f File) Clone() File {
-	f.UI = cloneElements(f.UI)
-	f.Flow = f.Flow.Clone()
+	f.Screens = slices.Clone(f.Screens)
+	for i := range f.Screens {
+		f.Screens[i].UI = cloneElements(f.Screens[i].UI)
+	}
+	f.Flows = slices.Clone(f.Flows)
+	for i := range f.Flows {
+		f.Flows[i] = f.Flows[i].Clone()
+	}
 	return f
 }
 
@@ -387,42 +511,72 @@ func cloneElements(els []Element) []Element {
 	return els
 }
 
-// Format writes f as a Scenra file.
+// Format writes f as a Scenra file, its designs or flows a blank line
+// apart. A file without any writes the line of an empty one.
 func (f File) Format() string {
 	var b strings.Builder
-	if f.Kind == Chart {
-		b.WriteString(string(Chart))
-		f.formatName(&b)
-		if f.Flow.Direction != "" && f.Flow.Direction != Down {
-			fmt.Fprintf(&b, " direction=%s", f.Flow.Direction)
-		}
-		b.WriteByte('\n')
-		f.Flow.body(&b)
-		return b.String()
-	}
 	kind := f.Kind
 	if kind == "" {
 		kind = Design
 	}
-	b.WriteString(string(kind))
-	f.formatName(&b)
-	if f.Device != "" && f.Device != "phone" {
-		fmt.Fprintf(&b, " device=%s", f.Device)
+	gap := func(i int) {
+		if i == 0 && f.Gap > 0 {
+			fmt.Fprintf(&b, " gap=%d", f.Gap)
+		}
 	}
-	if f.Width != 0 {
-		fmt.Fprintf(&b, " width=%d", f.Width)
+	if kind == Chart {
+		flows := f.Flows
+		if len(flows) == 0 {
+			flows = []Flow{{}}
+		}
+		for i, d := range flows {
+			if i > 0 {
+				b.WriteByte('\n')
+			}
+			b.WriteString(string(Chart))
+			writeID(&b, d.ID, d.Name)
+			gap(i)
+			if d.Direction != "" && d.Direction != Down {
+				fmt.Fprintf(&b, " direction=%s", d.Direction)
+			}
+			b.WriteByte('\n')
+			d.body(&b)
+		}
+		return b.String()
 	}
-	if f.Height != 0 {
-		fmt.Fprintf(&b, " height=%d", f.Height)
+	screens := f.Screens
+	if len(screens) == 0 {
+		screens = []Screen{{}}
 	}
-	b.WriteByte('\n')
-	formatUI(&b, f.UI, "")
+	for i, s := range screens {
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(string(kind))
+		writeID(&b, s.ID, s.Name)
+		gap(i)
+		if s.Device != "" && s.Device != "phone" {
+			fmt.Fprintf(&b, " device=%s", s.Device)
+		}
+		if s.Width != 0 {
+			fmt.Fprintf(&b, " width=%d", s.Width)
+		}
+		if s.Height != 0 {
+			fmt.Fprintf(&b, " height=%d", s.Height)
+		}
+		b.WriteByte('\n')
+		formatUI(&b, s.UI, "")
+	}
 	return b.String()
 }
 
-func (f File) formatName(b *strings.Builder) {
-	if f.Name != "" {
-		fmt.Fprintf(b, " name=%s", quote(f.Name))
+// writeID writes the ID and name of a design's or flow's line.
+func writeID(b *strings.Builder, id, name string) {
+	if id != "" {
+		b.WriteString(" " + id)
+	}
+	if name != "" {
+		fmt.Fprintf(b, " name=%s", quote(name))
 	}
 }
 

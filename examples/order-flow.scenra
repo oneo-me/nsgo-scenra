@@ -1,4 +1,4 @@
-flow
+flow order name="Order" gap=120
 
 node start "Order placed" kind=start
 node check "Check stock" kind=decision note="Reserve every item"
@@ -12,3 +12,14 @@ check -> pay "in stock"
 check ..> wait "out of stock"
 wait -> check
 pay -> ship -> done
+
+flow refund name="Refund" direction=right
+
+node ask "Refund requested" kind=start
+node review "Review the reason" kind=decision
+node back "Refund the card" kind=end
+node keep "Explain the policy" kind=end
+
+ask -> review
+review -> back "accepted"
+review ..> keep "declined"

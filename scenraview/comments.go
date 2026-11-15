@@ -17,14 +17,14 @@ const (
 	cardWidth = 320
 )
 
-// remarkPins mark the elements of the design s the user commented on or
+// remarkPins mark the elements of the designs of s the user commented on or
 // noted with a pin on each one's top right corner, a note's left of a
 // comment's, their size on screen the same at any zoom.
 func remarkPins(cx *core.Scope, s flowfile.File, sel selection, zoom func() float64) []core.Node {
 	colors := ui.ColorsOf(cx)
 	commented := map[string]bool{}
 	for _, c := range s.Comments() {
-		commented[c.Path] = true
+		commented[elementKey(c.Screen, c.Path)] = true
 	}
 	pin := func(path, testID string, shift bool, icon func() *core.SVG, background, color func() core.Color) core.Node {
 		return core.View{TestID: testID, PointerEvents: core.PointerEventsNone,
@@ -46,17 +46,20 @@ func remarkPins(cx *core.Scope, s flowfile.File, sel selection, zoom func() floa
 	}
 	var out []core.Node
 	for _, c := range s.Comments() {
-		out = append(out, pin(c.Path, "comment-pin-"+c.Path, false, lucide.MessageSquare, colors.Accent, colors.OnAccent))
+		key := elementKey(c.Screen, c.Path)
+		out = append(out, pin(key, "comment-pin-"+key, false, lucide.MessageSquare, colors.Accent, colors.OnAccent))
 	}
 	for _, n := range s.Notes() {
-		out = append(out, pin(n.Path, "note-pin-"+n.Path, commented[n.Path], lucide.StickyNote, colors.Text, colors.Background))
+		key := elementKey(n.Screen, n.Path)
+		out = append(out, pin(key, "note-pin-"+key, commented[key], lucide.StickyNote, colors.Text, colors.Background))
 	}
 	return out
 }
 
 // remarkOptions configure the card of an element's comment and note.
 type remarkOptions struct {
-	// path is the element of the design shown the card is about.
+	// path is the key of the element of the designs shown the card is
+	// about.
 	path func() string
 	// ask, when set, asks the assistant to resolve the comment.
 	ask func(prompt string)
@@ -77,15 +80,20 @@ func remarkCard(cx *core.Scope, e *Editor, o remarkOptions) core.Node {
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
 	element := func() flowfile.Element {
-		el, _ := flowfile.ElementAt(e.cur().doc.Get().UI, o.path())
+		el, _ := elementOf(e.cur().doc.Get(), o.path())
 		return el
 	}
 	path := func() string { return core.Untracked(cx, o.path) }
 	// tapping is the tap pressing the element plays, its own or that of
 	// the innermost element holding it with one.
 	tapping := func() (flowfile.Tap, bool) {
-		els := e.cur().doc.Get().UI
-		at, err := flowfile.ParsePath(o.path())
+		screen, path, ok := splitKey(o.path())
+		f := e.cur().doc.Get()
+		if !ok || screen >= len(f.Screens) {
+			return flowfile.Tap{}, false
+		}
+		els := f.Screens[screen].UI
+		at, err := flowfile.ParsePath(path)
 		for i := len(at); err == nil && i > 0; i-- {
 			if el, ok := flowfile.ElementAt(els, flowfile.FormatPath(at[:i])); ok {
 				if t, ok := el.Tap(); ok {
@@ -143,7 +151,7 @@ func remarkCard(cx *core.Scope, e *Editor, o remarkOptions) core.Node {
 		},
 		Children: []core.Node{
 			core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6}, Children: []core.Node{
-				core.Text{ContentFunc: func() string { return element().Kind + " " + o.path() }, MaxLines: 1,
+				core.Text{ContentFunc: func() string { return element().Kind + " " + keyLabel(e.cur().doc.Get(), o.path()) }, MaxLines: 1,
 					Style: ui.TypeCaption.Merge(core.Style{FlexShrink: 1}), StyleFunc: ui.Colored(colors.Muted)},
 				ui.Spacer{},
 				core.Show{When: func() bool { _, ok := tapping(); return ok }, Then: func(*core.Scope) core.Node {
@@ -173,11 +181,40 @@ func remarkCard(cx *core.Scope, e *Editor, o remarkOptions) core.Node {
 						Disabled: func() bool { return text() == "" },
 						OnPress: func() {
 							save()
-							o.ask(tr.ResolveComment(path(), core.Untracked(cx, text)))
+							o.ask(resolvePrompt(tr, e.shown().doc.GetUntracked(), path(), core.Untracked(cx, text)))
 						}}
 				}},
 			}},
 		}}
+}
+
+// elementOf is the element of f's designs at key.
+func elementOf(f flowfile.File, key string) (flowfile.Element, bool) {
+	screen, path, ok := splitKey(key)
+	if !ok || screen >= len(f.Screens) {
+		return flowfile.Element{}, false
+	}
+	return flowfile.ElementAt(f.Screens[screen].UI, path)
+}
+
+// keyLabel names the element of f's designs at key as the agent and the
+// card do: its path, after its design's ID in a file of several.
+func keyLabel(f flowfile.File, key string) string {
+	screen, path, ok := splitKey(key)
+	if !ok || !f.Several() || screen >= len(f.Screens) {
+		return path
+	}
+	return f.Screens[screen].ID + " " + path
+}
+
+// resolvePrompt asks the assistant to resolve the comment on the element
+// of f's designs at key.
+func resolvePrompt(tr locales.Messages, f flowfile.File, key, comment string) string {
+	screen, path, _ := splitKey(key)
+	if f.Several() && screen < len(f.Screens) {
+		return tr.ResolveDesignComment(path, f.Screens[screen].ID, comment)
+	}
+	return tr.ResolveComment(path, comment)
 }
 
 // tapLabel says what pressing an element with the tap t does.

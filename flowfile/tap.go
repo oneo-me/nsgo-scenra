@@ -19,8 +19,17 @@ const (
 var Taps = []string{TapOpen, TapClose, TapTab}
 
 // Tap is an element's tap: its action, and the design it opens, by its
-// path in the project's folder without .scenra, or the tab it shows.
+// file's path in the project's folder without .scenra, a # and its ID
+// when the file holds several, or # and the ID alone for a design of the
+// same file, or the tab it shows.
 type Tap struct{ Action, Target string }
+
+// Opens is the file and the ID of the design an open tap opens: "" for
+// the file of the design tapped, and for the file's first design.
+func (t Tap) Opens() (file, id string) {
+	file, id, _ = strings.Cut(t.Target, "#")
+	return file, id
+}
 
 // String writes t as a tap attribute.
 func (t Tap) String() string {
@@ -43,8 +52,9 @@ func ParseTap(s string) (Tap, error) {
 			return Tap{}, errTap
 		}
 	case TapOpen:
-		if !ValidDesignName(t.Target) {
-			return Tap{}, fmt.Errorf("tap %q names no design; open one by its path in the folder without .scenra, such as menu or orders/detail", s)
+		file, id, hash := strings.Cut(t.Target, "#")
+		if file == "" && !hash || file != "" && !ValidDesignName(file) || hash && !ValidID(id) {
+			return Tap{}, fmt.Errorf("tap %q names no design; open one by its path in the folder without .scenra, such as menu or orders/detail, and #<id> for one of several in a file, such as auth#sign-up or #sign-up in the same file", s)
 		}
 	case TapTab:
 		if !ValidID(t.Target) {
@@ -66,7 +76,7 @@ func (el Element) Tap() (Tap, bool) {
 // a path of its folder with slashes, without .scenra, whose parts are
 // names of files.
 func ValidDesignName(name string) bool {
-	if name == "" || strings.ContainsAny(name, `\`) || strings.HasSuffix(name, ".scenra") {
+	if name == "" || strings.ContainsAny(name, `\#`) || strings.HasSuffix(name, ".scenra") {
 		return false
 	}
 	for _, part := range strings.Split(name, "/") {

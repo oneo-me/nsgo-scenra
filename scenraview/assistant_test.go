@@ -2,6 +2,7 @@ package scenraview
 
 import (
 	"context"
+	"github.com/oneo-me/nsgo-scenra/flowfile"
 	"os"
 	"path/filepath"
 	"slices"
@@ -284,11 +285,11 @@ func TestSendingSavesWhatTheUserChanged(t *testing.T) {
 	app, e, d := startAssistant(t)
 	openPath(t, app, e, path)
 	app.WaitFor("design >> text:Welcome", time.Second)
-	app.Press("id:element-0.0")
+	app.Press("id:element-0/0.0")
 	app.WaitFor("id:comment-card", time.Second)
 	app.Type("id:comment-input", "Friendlier")
 	app.Press("id:comment-save")
-	app.WaitFor("id:comment-pin-0.0", time.Second)
+	app.WaitFor("id:comment-pin-0/0.0", time.Second)
 	if data, _ := os.ReadFile(path); strings.Contains(string(data), "Friendlier") {
 		t.Fatal("the comment was saved before a message was sent")
 	}
@@ -367,23 +368,23 @@ func TestCommentsAskTheAssistant(t *testing.T) {
 	app, e, d := startAssistant(t)
 	openPath(t, app, e, path)
 	app.WaitFor("design >> text:Welcome", time.Second)
-	app.Find("id:comment-pin-0.1")
+	app.Find("id:comment-pin-0/0.1")
 	app.Find("id:resolve-comments")
 	if app.Exists("id:comment-card") {
 		t.Fatal("a comment card shows with nothing selected")
 	}
 
 	// Commenting on the selected element saves the comment in the file.
-	app.Press("id:element-0.0")
+	app.Press("id:element-0/0.0")
 	app.WaitFor("id:comment-card", time.Second)
 	app.Type("id:comment-input", "Friendlier")
 	app.Press("id:comment-save")
-	app.WaitFor("id:comment-pin-0.0", time.Second)
+	app.WaitFor("id:comment-pin-0/0.0", time.Second)
 	if got := e.shown().doc.GetUntracked().Format(); !strings.Contains(got, `text "Welcome" comment="Friendlier"`) {
 		t.Fatalf("the comment was not saved:\n%s", got)
 	}
 	app.Press("id:comment-remove")
-	app.WaitForGone("id:comment-pin-0.0", time.Second)
+	app.WaitForGone("id:comment-pin-0/0.0", time.Second)
 	app.Type("id:comment-input", "Friendlier")
 
 	// Asking the assistant sends it the comment, which it resolves.
@@ -397,8 +398,8 @@ func TestCommentsAskTheAssistant(t *testing.T) {
 		t.Fatalf("prompts %q", prompts)
 	}
 	app.WaitFor("design >> text:Hello there", time.Second)
-	app.WaitForGone("id:comment-pin-0.0", time.Second)
-	app.Find("id:comment-pin-0.1")
+	app.WaitForGone("id:comment-pin-0/0.0", time.Second)
+	app.Find("id:comment-pin-0/0.1")
 }
 
 func TestServerTellsOfTheFolder(t *testing.T) {
@@ -453,5 +454,29 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		if failed || !strings.Contains(out, want) {
 			t.Fatalf("the view tells nothing of %q: %s", want, out)
 		}
+	}
+}
+
+func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
+	f, err := flowfile.Parse("design sign-in\ntext \"In\" tap=\"open #reset\" comment=\"Warmer\"\n\ndesign sign-up\ntext \"Up\" tap=\"open home#top\"\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, _ := flowfile.Parse("design top\ntext \"Home\" tap=\"open auth#sign-up\"\n")
+	flows, _ := flowfile.Parse("flow pay\nnode a\n\nflow refund\nnode b\n")
+	out := view("/p", []fileView{{path: "auth.scenra", file: f, shown: &location{element: "1/0"}}, {path: "home.scenra", file: home},
+		{path: "pay-flow.scenra", file: flows}}, nil, nil)
+	for _, want := range []string{"design auth.scenra open, which holds the designs sign-in, sign-up.", "selected element 0 of design sign-up:",
+		`auth.scenra, design sign-in, element 0: "Warmer"`, `auth.scenra: tap "open #reset": auth.scenra has no design reset`} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the view tells nothing of %q:\n%s", want, out)
+		}
+	}
+	if _, taps, _ := strings.Cut(out, "Taps that lead nowhere:"); strings.Contains(taps, "home#top") || strings.Contains(taps, "auth#sign-up") {
+		t.Errorf("taps that lead somewhere are reported:\n%s", out)
+	}
+	out = view("/p", []fileView{{path: "pay-flow.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil)
+	if !strings.Contains(out, `selected node "b" of flow refund`) || !strings.Contains(out, "which holds the flows pay, refund") {
+		t.Errorf("the view of flows:\n%s", out)
 	}
 }

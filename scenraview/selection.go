@@ -9,8 +9,8 @@ import (
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
-// location is what the user selected in a file: a node of a flow, or the
-// path of an element of a design, "" for none.
+// location is what the user selected in a file: a node of a flow, or an
+// element of a design, by their keys, "" for none.
 type location struct{ node, element string }
 
 // fileView is what the server tells of a Scenra file of the open folder:
@@ -47,15 +47,18 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 	case shown.file.Kind == "":
 		fmt.Fprintf(&b, "The user has %s open, which has never parsed, so the editor shows its error instead.\n", shown.path)
 	case shown.file.Kind == flowfile.Chart:
-		fmt.Fprintf(&b, "The user has flow %s open.\n", shown.path)
-		if n := shown.shown.node; n != "" {
-			fmt.Fprintf(&b, "The user has selected node %q of the flow.\n", n)
+		f := shown.file
+		fmt.Fprintf(&b, "The user has flow %s open%s.\n", shown.path, holding(f))
+		if flow, id, ok := splitNode(shown.shown.node); ok && flow < len(f.Flows) {
+			fmt.Fprintf(&b, "The user has selected node %q of %s.\n", id, which(f, f.Flows[flow].ID))
 		}
 	default:
-		kind := shown.file.Kind
-		fmt.Fprintf(&b, "The user has %s %s open.\n", kind, shown.path)
-		if el, ok := flowfile.ElementAt(shown.file.UI, shown.shown.element); ok {
-			fmt.Fprintf(&b, "The user has selected element %s of the %s:\n\n```\n%s```\n", shown.shown.element, kind, flowfile.FormatUI([]flowfile.Element{el}))
+		f, kind := shown.file, shown.file.Kind
+		fmt.Fprintf(&b, "The user has %s %s open%s.\n", kind, shown.path, holding(f))
+		if el, ok := elementOf(f, shown.shown.element); ok {
+			screen, path, _ := splitKey(shown.shown.element)
+			fmt.Fprintf(&b, "The user has selected element %s of %s:\n\n```\n%s```\n", path, which(f, f.Screens[screen].ID),
+				flowfile.FormatUI([]flowfile.Element{el}))
 		}
 	}
 	if len(parts) > 0 {
@@ -74,29 +77,44 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 			}
 		}
 	}
+	// remark tells of a comment or note.
+	remark := func(f fileView, c flowfile.Comment) string {
+		if f.file.Several() {
+			return fmt.Sprintf("%s, design %s, element %s: %q", f.path, f.file.Screens[c.Screen].ID, c.Path, c.Text)
+		}
+		return fmt.Sprintf("%s, element %s: %q", f.path, c.Path, c.Text)
+	}
 	section("The user's open comments:", func(f fileView) []string {
 		var out []string
 		for _, c := range f.file.Comments() {
-			out = append(out, fmt.Sprintf("%s, element %s: %q", f.path, c.Path, c.Text))
+			out = append(out, remark(f, c))
 		}
 		return out
 	})
 	section("The notes on elements, which say what the designs cannot show, such as what an element does or when it changes; keep them true:", func(f fileView) []string {
 		var out []string
 		for _, n := range f.file.Notes() {
-			out = append(out, fmt.Sprintf("%s, element %s: %q", f.path, n.Path, n.Text))
+			out = append(out, remark(f, n))
 		}
 		return out
 	})
+	// designs are what taps open: a file of designs by its name, and each
+	// of its designs with an ID by the name, # and the ID.
 	var designs []string
 	for _, f := range files {
 		if f.file.Kind != flowfile.Chart {
-			designs = append(designs, strings.TrimSuffix(f.path, ".scenra"))
+			name := strings.TrimSuffix(f.path, ".scenra")
+			designs = append(designs, name)
+			for _, s := range f.file.Screens {
+				if s.ID != "" {
+					designs = append(designs, name+"#"+s.ID)
+				}
+			}
 		}
 	}
 	section("Taps that lead nowhere:", func(f fileView) []string {
 		var out []string
-		for _, p := range tapProblems(f.file, designs, parts) {
+		for _, p := range tapProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), designs, parts) {
 			out = append(out, f.path+": "+p)
 		}
 		return out
@@ -110,8 +128,10 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 	section("Components that are missing or used in a loop, and what uses change in them that is not there:", func(f fileView) []string {
 		self, _ := flowfile.ComponentName(f.path)
 		var out []string
-		for _, p := range componentProblems(f.file.UI, self, parts) {
-			out = append(out, f.path+": "+p)
+		for _, s := range f.file.Screens {
+			for _, p := range componentProblems(s.UI, self, parts) {
+				out = append(out, f.path+": "+p)
+			}
 		}
 		if f.file.Kind == flowfile.Component && self == "" {
 			out = append(out, fmt.Sprintf("%s: a component outside %s/, which nothing can use", f.path, flowfile.ComponentsDir))
@@ -120,13 +140,23 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 	})
 	section("Pictures that images cannot show:", func(f fileView) []string {
 		var out []string
-		for _, p := range imageProblems(f.file.UI, pics) {
-			out = append(out, f.path+": "+p)
+		for _, s := range f.file.Screens {
+			for _, p := range imageProblems(s.UI, pics) {
+				out = append(out, f.path+": "+p)
+			}
 		}
 		return out
 	})
 	section("Classes that draw nothing:", func(f fileView) []string {
-		if classes := unknownClasses(f.file.UI); len(classes) > 0 {
+		var classes []string
+		for _, s := range f.file.Screens {
+			for _, c := range unknownClasses(s.UI) {
+				if !slices.Contains(classes, c) {
+					classes = append(classes, c)
+				}
+			}
+		}
+		if len(classes) > 0 {
 			return []string{f.path + ": " + strings.Join(classes, ", ")}
 		}
 		return nil
@@ -152,37 +182,73 @@ func imageProblems(els []flowfile.Element, pics assets) []string {
 	return out
 }
 
-// tapProblems are the taps of f's elements, and those its uses give the
-// elements of their components, that lead nowhere: those
-// opening none of designs, and in a design those showing a panel neither
-// it nor the components it uses has. A component's tabs may show the
-// panels of the designs using it.
-func tapProblems(f flowfile.File, designs []string, parts components) []string {
-	var out []string
-	panels := map[string]bool{}
-	drawn(f.UI, parts, func(el flowfile.Element) {
-		if name := el.Attr("panel"); name != "" {
-			panels[name] = true
-		}
-	})
-	check := func(key string, t flowfile.Tap) {
-		switch {
-		case t.Action == flowfile.TapOpen && !slices.Contains(designs, t.Target):
-			out = append(out, fmt.Sprintf("%s %q: there is no %s", key, t.String(), flowfile.DesignPath(t.Target)))
-		case t.Action == flowfile.TapTab && f.Kind == flowfile.Design && !panels[t.Target]:
-			out = append(out, fmt.Sprintf("%s %q: no element has panel=%s", key, t.String(), t.Target))
-		}
+// holding lists the IDs of the designs or flows of a file of several.
+func holding(f flowfile.File) string {
+	if !f.Several() {
+		return ""
 	}
-	walk(f.UI, func(el flowfile.Element) {
-		if t, ok := el.Tap(); ok {
-			check("tap", t)
-		}
-		for _, o := range el.Overrides() {
-			if t, err := flowfile.ParseTap(o.Value); o.Attr == "tap" && err == nil {
-				check(o.Key(), t)
+	var ids []string
+	for _, s := range f.Screens {
+		ids = append(ids, s.ID)
+	}
+	for _, d := range f.Flows {
+		ids = append(ids, d.ID)
+	}
+	return fmt.Sprintf(", which holds the %ss %s", f.Kind, strings.Join(ids, ", "))
+}
+
+// which names the design or flow with id of f: by its ID in a file of
+// several.
+func which(f flowfile.File, id string) string {
+	if f.Several() {
+		return fmt.Sprintf("%s %s", f.Kind, id)
+	}
+	return "the " + string(f.Kind)
+}
+
+// tapProblems are the taps of the elements of f, named self, and those
+// its uses give the elements of their components, that lead nowhere:
+// those opening none of designs, and in a design those showing a panel
+// neither it nor the components it uses has. A component's tabs may show
+// the panels of the designs using it.
+func tapProblems(f flowfile.File, self string, designs []string, parts components) []string {
+	var out []string
+	for _, s := range f.Screens {
+		panels := map[string]bool{}
+		drawn(s.UI, parts, func(el flowfile.Element) {
+			if name := el.Attr("panel"); name != "" {
+				panels[name] = true
+			}
+		})
+		check := func(key string, t flowfile.Tap) {
+			file, id := t.Opens()
+			if file == "" {
+				file = self
+			}
+			to := file
+			if id != "" {
+				to += "#" + id
+			}
+			switch {
+			case t.Action == flowfile.TapOpen && !slices.Contains(designs, file):
+				out = append(out, fmt.Sprintf("%s %q: there is no %s", key, t.String(), flowfile.DesignPath(file)))
+			case t.Action == flowfile.TapOpen && !slices.Contains(designs, to):
+				out = append(out, fmt.Sprintf("%s %q: %s has no design %s", key, t.String(), flowfile.DesignPath(file), id))
+			case t.Action == flowfile.TapTab && f.Kind == flowfile.Design && !panels[t.Target]:
+				out = append(out, fmt.Sprintf("%s %q: no element has panel=%s", key, t.String(), t.Target))
 			}
 		}
-	})
+		walk(s.UI, func(el flowfile.Element) {
+			if t, ok := el.Tap(); ok {
+				check("tap", t)
+			}
+			for _, o := range el.Overrides() {
+				if t, err := flowfile.ParseTap(o.Value); o.Attr == "tap" && err == nil {
+					check(o.Key(), t)
+				}
+			}
+		})
+	}
 	return out
 }
 
