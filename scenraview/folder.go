@@ -43,12 +43,13 @@ func pairOf(path string) (design, flow string) {
 const scanLimit = 20000
 
 // entry is a Scenra file found in the open folder: its path relative to
-// the folder, with slashes, and what it holds, no kind when it does not
-// parse.
+// the folder, with slashes, what it holds, no kind when it does not
+// parse, and the name it gives itself.
 type entry struct {
 	path   string
 	kind   flowfile.Kind
 	device string
+	name   string
 }
 
 // scanned is what a scan read of a file, kept while the file stays the
@@ -100,7 +101,7 @@ func scan(root string, cache map[string]scanned) ([]entry, components, map[strin
 		if !ok || c.stamp != st {
 			c = scanned{stamp: st}
 			if f, err := readFile(p); err == nil {
-				c.entry.kind, c.entry.device = f.Kind, f.Device
+				c.entry.kind, c.entry.device, c.entry.name = f.Kind, f.Device, f.Name
 				if f.Kind == flowfile.Component {
 					c.ui = f.UI
 				}
@@ -219,6 +220,15 @@ func treeOf(files []entry) fileTree {
 // file's without its extension.
 func keyName(key string) string {
 	return strings.TrimSuffix(path.Base(strings.TrimSuffix(key, "/")), ".scenra")
+}
+
+// rowName is the name a tree's row shows for key: the one its file gives
+// itself, or keyName's.
+func (t fileTree) rowName(key string) string {
+	if f, ok := t.files[key]; ok && f.name != "" {
+		return f.name
+	}
+	return keyName(key)
 }
 
 // folderOf is the folder key the file or folder key is in or is.

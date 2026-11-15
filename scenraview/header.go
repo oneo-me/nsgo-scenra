@@ -28,7 +28,7 @@ func chrome(cx *core.Scope, titleBar bool) (core.Edges, core.WindowDrag) {
 	return desktop.TitleBar(cx), core.WindowDragOn
 }
 
-// header is the bar over the document shown: its name, a dot while it
+// header is the bar over the document shown: its title, a dot while it
 // has unsaved changes, and, when a design and its flow are both in the
 // folder, a switch between them.
 func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
@@ -70,7 +70,7 @@ func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 				Background: ui.Chrome(cx), Borders: core.Edges{Bottom: 1}, BorderColors: core.EdgeColors{Bottom: colors.Line()}}
 		},
 		Children: []core.Node{
-			core.Text{ContentFunc: func() string { return keyName(e.cur().name()) }, MaxLines: 1, TestID: "file-name",
+			core.Text{ContentFunc: e.Title, MaxLines: 1, TestID: "file-name",
 				Style:     ui.TypeBody.Merge(core.Style{FontWeight: ui.Medium, FlexShrink: 1, MinWidth: core.Pt(0)}),
 				StyleFunc: ui.Colored(colors.Text)},
 			core.Show{When: func() bool { return e.cur().dirty.Get() }, Then: func(*core.Scope) core.Node {

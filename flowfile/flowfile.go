@@ -3,7 +3,7 @@
 // share or one flow chart, line by line. A folder of them is a project.
 //
 //	# A comment runs to the end of the line; indentation is free.
-//	design device=phone              # or tablet, desktop; width=, height= resize it
+//	design name="Sign in" device=phone  # or tablet, desktop; width=, height= resize it
 //	box class="flex-1 gap-4 p-6"
 //	  text "Welcome back" class="text-2xl font-bold" comment="Friendlier"
 //	  box class="flex-row items-center gap-2 rounded-xl border border-border px-3 h-11"
@@ -47,7 +47,8 @@
 //	check ..> start "invalid"        # a dashed edge
 //	a -> b -> c                      # a chain of edges
 //
-// A file's first line says what it holds. A design is one element a line,
+// A file's first line says what it holds, and may give it a name the
+// editor shows instead of its file name. A design is one element a line,
 // and a box holds the lines up to its end. The interface is a few
 // primitives, listed in Elements, each shaped by Tailwind CSS classes, so
 // a design can look like anything rather than like the controls of one

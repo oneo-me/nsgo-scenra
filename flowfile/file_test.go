@@ -55,12 +55,12 @@ func TestParseFileErrors(t *testing.T) {
 		"design device=watch":              "unknown device",
 		"design width=wide":                "width=\"wide\" is not a size",
 		"design height=20":                 "height=\"20\" is not a size",
-		"design direction=right":           "a design takes device",
-		"flow device=phone":                "a flow takes direction",
+		"design direction=right":           "a design takes name, device",
+		"flow device=phone":                "a flow takes name and direction",
 		"design\nflow":                     "line 2: a file holds one design, component or flow",
 		"flow\na -> b\ndesign":             "line 3: a file holds one design, component or flow",
 		"design\ncomponent":                "line 2: a file holds one design, component or flow",
-		"component direction=down":         "a component takes device",
+		"component direction=down":         "a component takes name, device",
 		"component\nnode a":                "a component holds no flow",
 		"design\nuse":                      "\"\" names no component",
 		"design\nuse \"a b\"":              "names no component",
@@ -88,6 +88,23 @@ func TestDesignSize(t *testing.T) {
 	}
 	if f, _ := Parse("component width=320\n"); !sizeIs(f, 320, 0) {
 		t.Fatalf("a component 320 wide: %+v", f)
+	}
+}
+
+func TestFileName(t *testing.T) {
+	for src, want := range map[string]string{
+		"design device=tablet name=\"Sign in\"\n":  "design name=\"Sign in\" device=tablet\n",
+		"component name=Tabs\n":                    "component name=\"Tabs\"\n",
+		"flow direction=right name=\"Checkout\"\n": "flow name=\"Checkout\" direction=right\n",
+		"design name=\" \"\n":                      "design\n",
+	} {
+		f, err := Parse(src)
+		if err != nil || f.Format() != want {
+			t.Errorf("%q: %v\n%s", src, err, f.Format())
+		}
+	}
+	if f, _ := Parse("flow name=\"Checkout\"\n"); f.Name != "Checkout" {
+		t.Fatalf("name %q", f.Name)
 	}
 }
 

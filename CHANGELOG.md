@@ -11,6 +11,7 @@
 - Keep each folder's conversations with the assistant, resumed when the folder opens again and switched or deleted from a menu atop the conversation.
 - Play designs as the app would, opening screens, closing them and switching tabs with `tap` and `panel`, marking the tab shown with `selected:` classes.
 - Show an element's comment card where the pointer rests instead of on press, and add notes beside comments, which the assistant reads and keeps true.
+- Let a file give itself a `name=`, which the assistant may set and the tree, header and window title show instead of its file name.
 - Keep a screen's flow as `<name>-flow.scenra` beside its design `<name>.scenra`, and switch between the two from the header.
 - Open folders, or Scenra files with their folder, from the Finder on macOS or the command line, save files in place when another file, folder or the window takes their place, and reopen them at the next start.
 - Add macOS, Windows and Linux builds in English and Simplified Chinese, for desktops only.

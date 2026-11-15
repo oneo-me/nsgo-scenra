@@ -80,6 +80,7 @@ func TestShowsTheFolderAsATree(t *testing.T) {
 		"plan.scenra":             "flow\nnode a \"Research\" note=\"Read the docs\"\na -> b\n",
 		"screens/home.scenra":     "design\ntext \"Welcome\"\n",
 		"screens/broken.scenra":   "box\n",
+		"screens/cart.scenra":     "design name=\"Shopping cart\"\ntext \"Cart\"\n",
 		".hidden/secret.scenra":   "flow\n",
 		"node_modules/pkg.scenra": "flow\n",
 		"notes.txt":               "design\n",
@@ -92,10 +93,10 @@ func TestShowsTheFolderAsATree(t *testing.T) {
 	if got := app.Find("id:folder-name").Text; got != filepath.Base(dir) {
 		t.Fatalf("the folder is named %q", got)
 	}
-	for _, name := range []string{"screens", "home", "broken"} {
+	for _, name := range []string{"screens", "home", "broken", "Shopping cart"} {
 		app.Find("id:files >> label:" + name)
 	}
-	for _, name := range []string{"secret", "pkg", "notes", "empty"} {
+	for _, name := range []string{"secret", "pkg", "notes", "empty", "cart"} {
 		if app.Exists("id:files >> label:" + name) {
 			t.Errorf("the tree shows %s", name)
 		}
@@ -109,6 +110,14 @@ func TestShowsTheFolderAsATree(t *testing.T) {
 	if got := shownName(app); got != "home" {
 		t.Fatalf("the header names %q", got)
 	}
+	// A file that names itself shows by that name.
+	app.Press("id:files >> label:Shopping cart")
+	app.WaitFor("design >> text:Cart", time.Second)
+	if got := shownName(app); got != "Shopping cart" {
+		t.Fatalf("the header names %q", got)
+	}
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome", time.Second)
 	// A file another program makes shows in the tree.
 	os.WriteFile(filepath.Join(dir, "screens", "later.scenra"), []byte("flow\n"), 0o644)
 	app.WaitFor("id:files >> label:later", 5*time.Second)

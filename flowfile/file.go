@@ -44,8 +44,11 @@ const (
 // File is a Scenra file's content: a design of a screen, its Device and
 // UI, a component designs use, its UI drawn at its Device's width, or a
 // flow chart, its Flow. Width and Height, when set, replace the device's.
+// Name, when set, is what the editor calls the file instead of its file
+// name.
 type File struct {
 	Kind          Kind
+	Name          string
 	Device        string
 	Width, Height int
 	UI            []Element
@@ -313,8 +316,8 @@ func Parse(src string) (File, error) {
 
 const headerHelp = "a file starts with design, component or flow, the one it holds"
 
-// header reads the first line: design or component with its device and
-// size, or flow with its direction.
+// header reads the first line: its name, and design or component with
+// its device and size, or flow with its direction.
 func (f *File) header(toks []token) string {
 	head := toks[0]
 	if head.quoted || !slices.Contains([]Kind{Design, Component, Chart}, Kind(head.text)) {
@@ -326,6 +329,8 @@ func (f *File) header(toks []token) string {
 		switch {
 		case !isAttr:
 			return fmt.Sprintf("unexpected %q; write attributes as key=value", t.text)
+		case key == "name":
+			f.Name = strings.TrimSpace(value)
 		case f.Kind != Chart && key == "device":
 			if !slices.Contains(Devices, value) {
 				return fmt.Sprintf("unknown device %q; use one of %s", value, strings.Join(Devices, ", "))
@@ -349,9 +354,9 @@ func (f *File) header(toks []token) string {
 				return fmt.Sprintf("unknown direction %q; use down or right", value)
 			}
 		case f.Kind != Chart:
-			return fmt.Sprintf("unknown attribute %q; a %s takes device, width and height", key, f.Kind)
+			return fmt.Sprintf("unknown attribute %q; a %s takes name, device, width and height", key, f.Kind)
 		default:
-			return fmt.Sprintf("unknown attribute %q; a flow takes direction", key)
+			return fmt.Sprintf("unknown attribute %q; a flow takes name and direction", key)
 		}
 	}
 	return ""
@@ -378,6 +383,7 @@ func (f File) Format() string {
 	var b strings.Builder
 	if f.Kind == Chart {
 		b.WriteString(string(Chart))
+		f.formatName(&b)
 		if f.Flow.Direction != "" && f.Flow.Direction != Down {
 			fmt.Fprintf(&b, " direction=%s", f.Flow.Direction)
 		}
@@ -390,6 +396,7 @@ func (f File) Format() string {
 		kind = Design
 	}
 	b.WriteString(string(kind))
+	f.formatName(&b)
 	if f.Device != "" && f.Device != "phone" {
 		fmt.Fprintf(&b, " device=%s", f.Device)
 	}
@@ -402,6 +409,12 @@ func (f File) Format() string {
 	b.WriteByte('\n')
 	formatUI(&b, f.UI, "")
 	return b.String()
+}
+
+func (f File) formatName(b *strings.Builder) {
+	if f.Name != "" {
+		fmt.Fprintf(b, " name=%s", quote(f.Name))
+	}
 }
 
 // FormatUI writes elements as the lines of a design.

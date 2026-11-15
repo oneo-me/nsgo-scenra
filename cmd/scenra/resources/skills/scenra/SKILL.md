@@ -20,7 +20,7 @@ When a design or flow is about code at hand, read the code first and draw what i
 
 ## Format
 
-A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), and optional `width=` and `height=` in points, 100 to 4000, which replace the device's size where the screen needs another, such as `design device=desktop width=1440 height=900` or a long page; `component`, a piece designs share, with the same `device=`, `width=` and `height=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. A file holds one design, component or flow, never two.
+A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), and optional `width=` and `height=` in points, 100 to 4000, which replace the device's size where the screen needs another, such as `design device=desktop width=1440 height=900` or a long page; `component`, a piece designs share, with the same `device=`, `width=` and `height=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. Any first line may take `name="…"`, the name the editor shows for the file instead of its file name, such as `design name="Sign in" device=phone`; give one when a readable title in the user's language says more than the file name, which stays short and in English. A file holds one design, component or flow, never two.
 
 ```
 # A comment runs to the end of the line; indentation is free.

@@ -625,6 +625,15 @@ func (e *Editor) Empty() bool { return e.empty() }
 // Name is the file name of the document shown, "" while none is.
 func (e *Editor) Name() string { return e.cur().name() }
 
+// Title is the name the document shown gives itself, or else its file
+// name without the extension, "" while none is open.
+func (e *Editor) Title() string {
+	if name := e.cur().doc.Get().Name; name != "" {
+		return name
+	}
+	return keyName(e.cur().name())
+}
+
 // Edited says the document shown changed since it was last saved, which
 // showing another file or folder, sending a message or Save saves.
 func (e *Editor) Edited() bool { return e.cur().dirty.Get() }

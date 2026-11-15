@@ -101,7 +101,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			}
 			collapsed.Set(next)
 		},
-		RowLabel: func(key any) string { return keyName(key.(string)) },
+		RowLabel: func(key any) string { return tree.Get().rowName(key.(string)) },
 		Row: func(cx *core.Scope, item ui.TreeItem) core.Node {
 			key := func() string { return item.Key().(string) }
 			icon := func() *core.SVG {
@@ -116,7 +116,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, MinWidth: core.Pt(0)},
 				Children: []core.Node{
 					ui.IconOf(icon, 14, colors.Muted),
-					core.Text{ContentFunc: func() string { return keyName(key()) }, MaxLines: 1,
+					core.Text{ContentFunc: func() string { return tree.Get().rowName(key()) }, MaxLines: 1,
 						Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}), StyleFunc: ui.Colored(colors.Text)},
 				}}
 		},

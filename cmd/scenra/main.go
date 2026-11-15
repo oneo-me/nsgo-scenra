@@ -80,7 +80,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 	if titleBar {
 		desktop.SetTitleBar(cx, desktop.TitleBarHidden, scenraview.HeaderHeight)
 		cx.Effect(func() {
-			title := e.Name()
+			title := e.Title()
 			switch {
 			case e.Empty() && e.Folder() != "":
 				title = filepath.Base(e.Folder())
