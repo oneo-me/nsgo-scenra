@@ -46,7 +46,7 @@ func TestParseFileErrors(t *testing.T) {
 		"design\nwidget":                   "line 2: unknown element",
 		"design\nbox\ntext \"x\"":          "line 3: box has no end",
 		"design\nend":                      "end closes no",
-		"design\ntext \"x\" src=y":         "text takes no attribute \"src\"; use class",
+		"design\ntext \"x\" src=y":         "text takes no attribute \"src\"; use name, class",
 		"design\ntext x y":                 "quote text with spaces",
 		"design\nicon nope":                "unknown icon \"nope\"",
 		"design\nicon cofee-cup":           "such as cup-soda",
@@ -242,6 +242,60 @@ func TestIconsTakeLucideNamesAndAliases(t *testing.T) {
 	for _, name := range CommonIcons {
 		if _, ok := IconName(name); !ok {
 			t.Errorf("no common icon %s", name)
+		}
+	}
+}
+
+func TestOverrides(t *testing.T) {
+	card, err := ParseUI("box name=card class=\"p-4\"\n  icon coffee name=icon class=\"size-5\"\n  text \"Title\" name=title class=\"font-bold\"\n  use badge name=badge\nend\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	badge, _ := ParseUI("text \"New\" name=label class=\"text-xs\"\n")
+	parts := map[string][]Element{"card": card, "badge": badge, "pill": badge}
+	find := func(name string) ([]Element, bool) { p, ok := parts[name]; return p, ok }
+	use, err := ParseUI("use card title=\"Latte\" title.class=\"text-rose-600\" icon=home badge/label=Hot badge/label.class=\"font-bold\" card.tap=\"open menu\" comment=\"x\"\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := FormatUI(use); got != "use \"card\" badge/label=\"Hot\" badge/label.class=\"font-bold\" card.tap=\"open menu\" icon=\"home\" title=\"Latte\" title.class=\"text-rose-600\" comment=\"x\"\n" {
+		t.Fatalf("formatted as\n%s", got)
+	}
+	inst := Instance(use[0], card)
+	if got := FormatUI(inst); got != "box name=\"card\" class=\"p-4\" tap=\"open menu\"\n  icon \"house\" name=\"icon\" class=\"size-5\"\n  text \"Latte\" name=\"title\" class=\"font-bold text-rose-600\"\n"+
+		"  use \"badge\" name=\"badge\" label=\"Hot\" label.class=\"font-bold\"\nend\n" {
+		t.Fatalf("drawn as\n%s", got)
+	}
+	if FormatUI(card) != "box name=\"card\" class=\"p-4\"\n  icon \"coffee\" name=\"icon\" class=\"size-5\"\n  text \"Title\" name=\"title\" class=\"font-bold\"\n  use \"badge\" name=\"badge\"\nend\n" {
+		t.Fatal("drawing a use changed its component")
+	}
+	if got := FormatUI(Instance(inst[0].Children[2], badge)); got != "text \"Hot\" name=\"label\" class=\"text-xs font-bold\"\n" {
+		t.Fatalf("the badge drawn as\n%s", got)
+	}
+	if p := OverrideProblems(use[0], find); len(p) != 0 {
+		t.Fatalf("problems %v", p)
+	}
+	bad, _ := ParseUI("use card nope=x title.src=y card=z icon=nope badge=gone title/label=x\nuse card badge/size=x\n")
+	got := strings.Join(slices.Concat(OverrideProblems(bad[0], find), OverrideProblems(bad[1], find)), "\n")
+	for _, want := range []string{"nope=\"x\" names nothing", "title.src=\"y\" sets the src of title, a text", "card=\"z\" sets the text of card, a box",
+		"icon=\"nope\" unknown icon", "badge=\"gone\" swaps badge for components/gone.scenra", "title/label=\"x\" goes inside title, a text",
+		"badge/size=\"x\" names nothing: no element of components/badge.scenra"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("no problem %q in\n%s", want, got)
+		}
+	}
+	for src, want := range map[string]string{
+		"use card ti:tle=x":       "use takes no attribute \"ti:tle\"",
+		"use card title.note=x":   "use cannot change \"note\" of title",
+		"use card title.a.b=x":    "use cannot change \"a.b\"",
+		"use card title.tap=jump": "tap takes",
+		"use card src=x":          "use takes no attribute \"src\"",
+		"text \"x\" name=class":   "name \"class\" is not a name",
+		"text \"x\" name=\"a.b\"": "is not a name",
+		"text \"x\" title=y":      "text takes no attribute \"title\"",
+	} {
+		if _, err := ParseUI(src); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: %v, want %q", src, err, want)
 		}
 	}
 }

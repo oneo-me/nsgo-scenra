@@ -110,15 +110,16 @@ var Elements = []ElementSpec{
 	{Kind: "use", Doc: "the component its text names, a file of the components folder, drawn as a box with its classes holding the component's elements"},
 }
 
-// commonAttrs are the attributes every element takes: the classes that
-// shape it, what pressing it does and the tab panel it is, a user's
+// commonAttrs are the attributes every element takes: the name a use of
+// the component it is in changes it by, the classes that shape it, what pressing it does and the tab panel it is, a user's
 // comment on it, which asks the assistant for a change until the
 // assistant resolves it, and a note, which says what the design cannot
 // show and stays.
-var commonAttrs = []string{"class", "tap", "panel", "comment", "note"}
+var commonAttrs = []string{"name", "class", "tap", "panel", "comment", "note"}
 
 // attrOrder is the order Format writes attributes in.
-var attrOrder = []string{"src", "class", "tap", "panel", "comment", "note"}
+// What a use changes in its component goes before the comment.
+var attrOrder = []string{"name", "src", "class", "tap", "panel", "comment", "note"}
 
 // Spec returns the spec of the element kind.
 func Spec(kind string) (ElementSpec, bool) {
@@ -175,6 +176,11 @@ func (r *uiReader) line(toks []token) string {
 			el.Text = t.text
 		case !isAttr:
 			return fmt.Sprintf("unexpected %q; quote text with spaces, and write attributes as key=value", t.text)
+		case spec.Kind == "use" && !slices.Contains(commonAttrs, key):
+			if _, msg := parseOverride(key, value); msg != "" {
+				return msg
+			}
+			el.setAttr(key, "", value)
 		case !slices.Contains(commonAttrs, key) && !slices.Contains(spec.Attrs, key):
 			return fmt.Sprintf("%s takes no attribute %q; use %s", spec.Kind, key, strings.Join(slices.Concat(spec.Attrs, commonAttrs), ", "))
 		default:
@@ -198,9 +204,12 @@ func (r *uiReader) line(toks []token) string {
 	return ""
 }
 
-// checkElement says what is wrong with an element's text, its tap or its
-// panel.
+// checkElement says what is wrong with an element's text, its name, its
+// tap or its panel.
 func checkElement(el Element) string {
+	if name, ok := el.Attrs["name"]; ok && !ValidName(name) {
+		return fmt.Sprintf("name %q is not a name of letters, digits, _ or -, nor an attribute such as class", name)
+	}
 	if tap, ok := el.Attrs["tap"]; ok {
 		if _, err := ParseTap(tap); err != nil {
 			return err.Error()
@@ -431,6 +440,11 @@ func formatUI(b *strings.Builder, els []Element, indent string) {
 			b.WriteString(" " + quote(el.Text))
 		}
 		for _, key := range attrOrder {
+			if key == "comment" {
+				for _, o := range overrideKeys(el.Attrs) {
+					fmt.Fprintf(b, " %s=%s", o, quote(el.Attrs[o]))
+				}
+			}
 			if value, ok := el.Attrs[key]; ok {
 				fmt.Fprintf(b, " %s=%s", key, quote(value))
 			}

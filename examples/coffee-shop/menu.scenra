@@ -42,26 +42,8 @@ box class="flex-1 bg-zinc-50"
     end
     text "Today" class="text-xs font-semibold uppercase tracking-wider text-zinc-500"
     box class="rounded-2xl bg-white px-4 shadow-sm"
-      box class="flex-row items-center gap-3 border-b border-zinc-100 py-3"
-        box class="size-10 items-center justify-center rounded-xl bg-amber-100"
-          icon coffee class="size-5 text-amber-700"
-        end
-        box class="flex-1"
-          text "Latte" class="font-medium text-zinc-900"
-          text "Espresso and steamed milk" class="text-sm text-zinc-500"
-        end
-        text "$4.20" class="font-semibold text-zinc-900"
-      end
-      box class="flex-row items-center gap-3 py-3"
-        box class="size-10 items-center justify-center rounded-xl bg-sky-100"
-          icon zap class="size-5 text-sky-700"
-        end
-        box class="flex-1"
-          text "Cold brew" class="font-medium text-zinc-900"
-          text "Steeped for 18 hours" class="text-sm text-zinc-500"
-        end
-        text "$4.00" class="font-semibold text-zinc-900"
-      end
+      use menu-item class="border-b border-zinc-100"
+      use menu-item title="Cold brew" detail="Steeped for 18 hours" price="$4.00" icon=zap icon.class="text-sky-700" badge.class="bg-sky-100"
     end
   end
   use tab-bar

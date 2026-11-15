@@ -8,6 +8,7 @@
 - Add folder workspaces whose plain-text `.scenra` files show as a tree and one at a time beside a full-height assistant, with a coffee shop example.
 - Let designs and components set their own `width=` and `height=`, which the assistant may change, instead of only their device's size.
 - Add components, shared pieces of designs kept in the folder's `components/` and drawn with `use`, which the assistant makes and the editor redraws as they change.
+- Let a use change the texts, icons, classes, pictures, taps and nested components of the elements its component names, as Figma's instances and Sketch's symbols do.
 - Keep each folder's conversations with the assistant, resumed when the folder opens again and switched or deleted from a menu atop the conversation.
 - Play designs as the app would, opening screens, closing them and switching tabs with `tap` and `panel`, marking the tab shown with `selected:` classes, and flash what can be tapped as a design opens or reloads, and from the toolbar.
 - Show an element's comment card where the pointer rests instead of on press, and add notes beside comments, which the assistant reads and keeps true.

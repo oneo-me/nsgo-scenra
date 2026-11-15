@@ -107,7 +107,7 @@ func view(dir string, files []fileView, parts components) string {
 		}
 		return []string{f.path + ": " + f.broken}
 	})
-	section("Components that are missing or used in a loop:", func(f fileView) []string {
+	section("Components that are missing or used in a loop, and what uses change in them that is not there:", func(f fileView) []string {
 		self, _ := flowfile.ComponentName(f.path)
 		var out []string
 		for _, p := range componentProblems(f.file.UI, self, parts) {
@@ -127,7 +127,8 @@ func view(dir string, files []fileView, parts components) string {
 	return b.String()
 }
 
-// tapProblems are the taps of f's elements that lead nowhere: those
+// tapProblems are the taps of f's elements, and those its uses give the
+// elements of their components, that lead nowhere: those
 // opening none of designs, and in a design those showing a panel neither
 // it nor the components it uses has. A component's tabs may show the
 // panels of the designs using it.
@@ -139,14 +140,22 @@ func tapProblems(f flowfile.File, designs []string, parts components) []string {
 			panels[name] = true
 		}
 	})
-	walk(f.UI, func(el flowfile.Element) {
-		t, ok := el.Tap()
+	check := func(key string, t flowfile.Tap) {
 		switch {
-		case !ok:
 		case t.Action == flowfile.TapOpen && !slices.Contains(designs, t.Target):
-			out = append(out, fmt.Sprintf("tap %q: there is no %s", t.String(), flowfile.DesignPath(t.Target)))
+			out = append(out, fmt.Sprintf("%s %q: there is no %s", key, t.String(), flowfile.DesignPath(t.Target)))
 		case t.Action == flowfile.TapTab && f.Kind == flowfile.Design && !panels[t.Target]:
-			out = append(out, fmt.Sprintf("tap %q: no element has panel=%s", t.String(), t.Target))
+			out = append(out, fmt.Sprintf("%s %q: no element has panel=%s", key, t.String(), t.Target))
+		}
+	}
+	walk(f.UI, func(el flowfile.Element) {
+		if t, ok := el.Tap(); ok {
+			check("tap", t)
+		}
+		for _, o := range el.Overrides() {
+			if t, err := flowfile.ParseTap(o.Value); o.Attr == "tap" && err == nil {
+				check(o.Key(), t)
+			}
 		}
 	})
 	return out

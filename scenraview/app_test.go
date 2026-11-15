@@ -328,6 +328,38 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	app.WaitFor("id:element-0", time.Second)
 }
 
+func TestAUseChangesTheNamedElementsOfItsComponent(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"menu.scenra": "design\nbox class=\"flex-1\"\n" +
+			"  use item title=Latte price=\"$4.20\" price.class=\"text-rose-600\" row.tap=\"open detail\"\n" +
+			"  use item title=\"Cold brew\" badge/label=Hot nope=x\n" +
+			"end\n",
+		"detail.scenra":           "design\ntext \"Detail\" tap=close\n",
+		"components/item.scenra":  "component\nbox name=row class=\"flex-row\"\n  text Title name=title\n  text \"$0\" name=price\n  use badge name=badge\nend\n",
+		"components/badge.scenra": "component\ntext New name=label\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "menu.scenra"))
+	app.WaitFor("id:element-0.0 >> text:Latte", 5*time.Second)
+	app.Find("id:element-0.0 >> text:$4.20")
+	app.Find("id:element-0.0 >> text:New")
+	app.Find("id:element-0.1 >> text:Cold brew")
+	app.Find("id:element-0.1 >> text:$0")
+	app.Find("id:element-0.1 >> text:Hot")
+	// A tap a use gives its component plays.
+	app.Press("design >> text:Latte")
+	app.WaitFor("design >> text:Detail", time.Second)
+	app.Press("design >> text:Detail")
+	app.WaitFor("design >> text:Cold brew", time.Second)
+	// What a use changes that is not there, the agent hears of.
+	view := ""
+	app.Post(func() { view = e.viewOf() })
+	app.Settle()
+	if !strings.Contains(view, `menu.scenra: use "item": nope="x" names nothing: no element of components/item.scenra has name=nope`) {
+		t.Fatalf("the view tells nothing of the override of no element:\n%s", view)
+	}
+}
+
 func TestADesignIsDrawnAtTheSizeItSets(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{"wide.scenra": "design width=1440 height=900\ntext \"Wide\"\n"})
 	app, e := startEditor(t)

@@ -89,7 +89,7 @@ func (sel selection) hits(els []flowfile.Element, prefix string, parent []int, o
 		var inner []hit
 		if el := els[i]; el.Kind == "use" {
 			if part, ok := sel.parts[el.Text]; ok && !slices.Contains(using, el.Text) {
-				inner = sel.hits(part, key+":", nil, at, p, append(slices.Clone(using), el.Text))
+				inner = sel.hits(flowfile.Instance(el, part), key+":", nil, at, p, append(slices.Clone(using), el.Text))
 			}
 		} else {
 			inner = sel.hits(el.Children, prefix, path, at, p, using)
@@ -119,7 +119,7 @@ func (sel selection) taps(els []flowfile.Element, prefix string, parent []int, u
 		}
 		if el.Kind == "use" {
 			if part, ok := sel.parts[el.Text]; ok && !slices.Contains(using, el.Text) {
-				out = append(out, sel.taps(part, key+":", nil, append(slices.Clone(using), el.Text))...)
+				out = append(out, sel.taps(flowfile.Instance(el, part), key+":", nil, append(slices.Clone(using), el.Text))...)
 			}
 		} else {
 			out = append(out, sel.taps(el.Children, prefix, path, using)...)
@@ -184,7 +184,7 @@ func (pl *player) scan(els []flowfile.Element, parts components) {
 				}
 			}
 			if part, ok := parts[el.Text]; el.Kind == "use" && ok && !slices.Contains(using, el.Text) {
-				walk(part, prefix+flowfile.FormatPath(path)+":", nil, append(slices.Clone(using), el.Text))
+				walk(flowfile.Instance(el, part), prefix+flowfile.FormatPath(path)+":", nil, append(slices.Clone(using), el.Text))
 			}
 			walk(el.Children, prefix, path, using)
 		}
@@ -278,8 +278,9 @@ func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selectio
 // assistive technology. A panel shows while its tab does, and a box
 // whose tap leads to what shows is selected. An image without a
 // picture, an SVG NSGo cannot read, or a use of a component that is
-// missing or in which it is, draws a placeholder. The elements of a
-// component select the use.
+// missing or in which it is, draws a placeholder. A use draws its
+// component with what it changes, and the elements of a component
+// select the use.
 func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) core.Node {
 	class := el.Attr("class")
 	key := sel.prefix + flowfile.FormatPath(path)
@@ -348,14 +349,15 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		inner.prefix = key + ":"
 		inner.using = append(slices.Clone(sel.using), el.Text)
 		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
-			Children: elements(cx, els, nil, inner)}
+			Children: elements(cx, flowfile.Instance(el, els), nil, inner)}
 	}
 	return core.Group{}
 }
 
 // componentProblems are what is wrong with the components els use: those
-// missing from the folder, and those used inside themselves. self is the
-// name of the component els are, "" for a design.
+// missing from the folder, those used inside themselves, and what uses
+// change in them that is not there. self is the name of the component
+// els are, "" for a design.
 func componentProblems(els []flowfile.Element, self string, parts components) []string {
 	var out []string
 	var visit func(name string, using []string) bool
@@ -381,6 +383,14 @@ func componentProblems(els []flowfile.Element, self string, parts components) []
 			out = append(out, fmt.Sprintf("use %q: components use each other in a loop", name))
 		}
 	}
+	walk(els, func(el flowfile.Element) {
+		if el.Kind == "use" {
+			out = append(out, flowfile.OverrideProblems(el, func(name string) ([]flowfile.Element, bool) {
+				part, ok := parts[name]
+				return part, ok
+			})...)
+		}
+	})
 	return out
 }
 

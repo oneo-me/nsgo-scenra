@@ -35,8 +35,10 @@
 //
 //	component device=phone           # in components/tab-bar.scenra
 //	box class="flex-row border-t border-border px-2 pt-2 pb-7"
-//	  icon house class="size-6"
+//	  icon house class="size-6" name=home   # a use changes it by name
 //	end
+//
+//	use tab-bar home=store home.class="text-amber-600"   # see Instance
 //
 //	flow direction=right             # or down
 //	node start "Tap Sign in" kind=start
@@ -57,7 +59,9 @@
 // its device's or its own width and as high as it needs unless it sets a
 // height, and lives in the components folder at the top of
 // the project, so any design or component uses it by its path there; a
-// use is one element, a box holding the component, whatever it holds.
+// use is one element, a box holding the component, whatever it holds,
+// and may change the texts, classes, pictures and taps of the elements
+// the component names, as Figma's instances and Sketch's symbols do.
 // Any element may carry a comment, a change the user asks the
 // assistant for, which stays until the assistant resolves it, and a note,
 // which says what the design cannot show, such as when it changes. The

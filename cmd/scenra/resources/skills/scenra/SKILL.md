@@ -107,8 +107,37 @@ end
 - A use is one element: a box with its classes holding the component's elements, so place and size it with classes as any box. It holds nothing itself and takes no end.
 - Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
 - Components may use other components, never themselves, directly or through others.
-- Write a component as a whole, the same on every screen. A tab bar marks the screen shown by itself when its items open the screens, as Interactions shows; give what else differs to the designs, or make one component for each version.
-- `get_view` lists the components there are and reports uses of missing ones and loops.
+- Write a component as a whole, the same on every screen. A tab bar marks the screen shown by itself when its items open the screens, as Interactions shows.
+- `get_view` lists the components there are and reports uses of missing ones, loops and changes that reach nothing.
+
+### Changing a component where it is used
+
+As in Figma's instances or Sketch's symbols, a use changes the values of its component's elements that have a `name=`, of letters, digits, `_` and `-`, so one component draws every row of a list or every variant of a card:
+
+```
+# components/menu-item.scenra
+component
+box name=row class="flex-row items-center gap-3 py-3"
+  box name=badge class="size-10 items-center justify-center rounded-xl bg-amber-100"
+    icon coffee name=icon class="size-5 text-amber-700"
+  end
+  text "Latte" name=title class="flex-1 font-medium"
+  text "$4.20" name=price class="font-semibold"
+  use tag name=tag
+end
+```
+
+```
+use menu-item
+use menu-item title="Cold brew" price="$4.00" icon=zap icon.class="text-sky-700" badge.class="bg-sky-100" row.tap="open cold-brew"
+use menu-item title="Matcha" tag/label="New"
+use menu-item title="Mocha" tag.class="hidden"
+```
+
+- `<name>="…"` replaces the text of the elements of that name: a text's words, an icon's name, an image's description, an SVG document, or the component a `use` draws, swapping it for another. A box has no text.
+- `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.src="…"` replaces an image's picture and `<name>.tap="…"` an element's tap.
+- `<a>/<b>="…"` changes the elements named b of the component the use named a draws, and so on down.
+- Every element of a name changes, so give one name to several elements that show one value. Name the elements that vary between uses, and keep the component's own values realistic: they show where a use changes nothing.
 
 ## Interactions
 
