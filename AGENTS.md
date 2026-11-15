@@ -6,8 +6,8 @@ A desktop app and flow designer built on [NSGo](https://github.com/nsgo-dev/nsgo
 
 - Follow NSGo's conventions: user-visible words go through `scenraview/locales/`, or `cmd/scenra/locales/` for the app's own, in both languages, never string literals.
 - Keep `scenraview` usable by other apps: what is Scenra's alone, such as its menu, settings and statistics, stays in `cmd/scenra`.
-- Tests run against a fake model over `httptest`; never call a real provider from tests.
-- Never let usage statistics carry document content, messages, paths or keys, or report from `nsgo dev` builds and tests.
+- Tests run against a scripted Agio driver; never start a real agent CLI from tests.
+- Never let usage statistics carry document content, messages or paths, or report from `nsgo dev` builds and tests.
 
 ## Verification
 

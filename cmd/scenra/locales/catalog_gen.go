@@ -18,11 +18,12 @@ func init() {
 	i18n.SetApp(Catalog)
 }
 
-// Messages say the messages in one language; with mark, the source's
-// with their arguments marked, which a pseudo locale transforms.
+// Messages say the messages in one language, their times in the hour
+// cycle hc the user set; with mark, the source's with their arguments
+// marked, which a pseudo locale transforms.
 type Messages struct {
-	lang string
-	mark bool
+	lang, hc string
+	mark     bool
 }
 
 // In returns the messages in the catalog's language that suits locale
@@ -30,8 +31,13 @@ type Messages struct {
 func In(locale string) Messages { return Messages{lang: Catalog.Match(locale)} }
 
 // For returns the messages in the language the app shows under cx
-// (i18n.Language); a binding that says them follows it as it changes.
-func For(cx *core.Scope) Messages { return In(i18n.Language(cx)) }
+// (i18n.Language), their times as the user reads them; a binding that
+// says them follows both as they change.
+func For(cx *core.Scope) Messages {
+	msgs := In(i18n.Language(cx))
+	msgs.hc = cx.Env().LocaleSettings().HourCycle
+	return msgs
+}
 
 // Parameters names the parameters of each message that has some, by
 // its method, for the TSX declarations of the messages
@@ -57,14 +63,6 @@ const (
 	textUndoChange
 	textRedoChange
 	textSettingsTitle
-	textProviderSection
-	textProviderDescription
-	textBaseURL
-	textBaseURLHint
-	textApiKey
-	textApiKeyHint
-	textModel
-	textModelHint
 	textDone
 	textStatsSection
 	textStatsSend
@@ -82,14 +80,6 @@ var keyOfText = [numTexts]string{
 	"undoChange",
 	"redoChange",
 	"settingsTitle",
-	"providerSection",
-	"providerDescription",
-	"baseURL",
-	"baseURLHint",
-	"apiKey",
-	"apiKeyHint",
-	"model",
-	"modelHint",
 	"done",
 	"statsSection",
 	"statsSend",
@@ -105,14 +95,6 @@ var textsEn = i18n.NewTexts(""+
 	"Undo Change"+
 	"Redo Change"+
 	"Settings"+
-	"Provider"+
-	"Any API compatible with OpenAI's chat completions, such as OpenAI, DeepSeek, OpenRouter, Ollama or LM Studio."+
-	"Base URL"+
-	"The API's root, ending before /chat/completions"+
-	"API key"+
-	"Stored on this device. Leave it empty for local servers."+
-	"Model"+
-	"The model's ID, which must support tool calls"+
 	"Done"+
 	"Statistics"+
 	"Send usage statistics"+
@@ -125,14 +107,6 @@ var textsEn = i18n.NewTexts(""+
 		11,
 		11,
 		8,
-		8,
-		109,
-		8,
-		47,
-		7,
-		56,
-		5,
-		45,
 		4,
 		10,
 		21,
@@ -148,14 +122,6 @@ var textsZhHans = i18n.NewTexts(""+
 	"撤销更改"+
 	"重做更改"+
 	"设置"+
-	"提供商"+
-	"任何兼容 OpenAI Chat Completions 的 API，例如 OpenAI、DeepSeek、OpenRouter、Ollama 或 LM Studio。"+
-	"接口地址"+
-	"API 的根地址，即 /chat/completions 之前的部分"+
-	"API 密钥"+
-	"保存在本机。本地服务可留空。"+
-	"模型"+
-	"模型 ID，需支持工具调用"+
 	"完成"+
 	"统计"+
 	"发送使用统计"+
@@ -168,14 +134,6 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		12,
 		6,
-		9,
-		110,
-		12,
-		56,
-		10,
-		42,
-		6,
-		33,
 		6,
 		6,
 		18,
@@ -288,62 +246,6 @@ func SettingsTitle(cx *core.Scope) string { return For(cx).SettingsTitle() }
 
 // SettingsTitle is the package's SettingsTitle in the language of msgs.
 func (msgs Messages) SettingsTitle() string { return msgs.text(textSettingsTitle) }
-
-// ProviderSection says "Provider"
-// in the language the app shows under cx.
-func ProviderSection(cx *core.Scope) string { return For(cx).ProviderSection() }
-
-// ProviderSection is the package's ProviderSection in the language of msgs.
-func (msgs Messages) ProviderSection() string { return msgs.text(textProviderSection) }
-
-// ProviderDescription says "Any API compatible with OpenAI's chat completions, such as OpenAI, DeepSeek, OpenRouter, Ollama or LM Studio."
-// in the language the app shows under cx.
-func ProviderDescription(cx *core.Scope) string { return For(cx).ProviderDescription() }
-
-// ProviderDescription is the package's ProviderDescription in the language of msgs.
-func (msgs Messages) ProviderDescription() string { return msgs.text(textProviderDescription) }
-
-// BaseURL says "Base URL"
-// in the language the app shows under cx.
-func BaseURL(cx *core.Scope) string { return For(cx).BaseURL() }
-
-// BaseURL is the package's BaseURL in the language of msgs.
-func (msgs Messages) BaseURL() string { return msgs.text(textBaseURL) }
-
-// BaseURLHint says "The API's root, ending before /chat/completions"
-// in the language the app shows under cx.
-func BaseURLHint(cx *core.Scope) string { return For(cx).BaseURLHint() }
-
-// BaseURLHint is the package's BaseURLHint in the language of msgs.
-func (msgs Messages) BaseURLHint() string { return msgs.text(textBaseURLHint) }
-
-// ApiKey says "API key"
-// in the language the app shows under cx.
-func ApiKey(cx *core.Scope) string { return For(cx).ApiKey() }
-
-// ApiKey is the package's ApiKey in the language of msgs.
-func (msgs Messages) ApiKey() string { return msgs.text(textApiKey) }
-
-// ApiKeyHint says "Stored on this device. Leave it empty for local servers."
-// in the language the app shows under cx.
-func ApiKeyHint(cx *core.Scope) string { return For(cx).ApiKeyHint() }
-
-// ApiKeyHint is the package's ApiKeyHint in the language of msgs.
-func (msgs Messages) ApiKeyHint() string { return msgs.text(textApiKeyHint) }
-
-// Model says "Model"
-// in the language the app shows under cx.
-func Model(cx *core.Scope) string { return For(cx).Model() }
-
-// Model is the package's Model in the language of msgs.
-func (msgs Messages) Model() string { return msgs.text(textModel) }
-
-// ModelHint says "The model's ID, which must support tool calls"
-// in the language the app shows under cx.
-func ModelHint(cx *core.Scope) string { return For(cx).ModelHint() }
-
-// ModelHint is the package's ModelHint in the language of msgs.
-func (msgs Messages) ModelHint() string { return msgs.text(textModelHint) }
 
 // Done says "Done"
 // in the language the app shows under cx.

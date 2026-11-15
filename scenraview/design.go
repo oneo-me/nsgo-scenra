@@ -162,8 +162,8 @@ func (c *designCanvas) wheel(e core.WheelEvent) {
 // the pointer is over, pressing selects it, and pressing around it clears
 // the selection. Pins mark the elements the user commented on, a card
 // beside where the pointer selected an element, or else beside the
-// element, edits its comment, and ask sends the assistant a prompt about
-// them.
+// element, edits its comment, and ask, when set, sends the assistant a
+// prompt about them.
 func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -294,7 +294,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			tool(lucide.ZoomOut, tr.ZoomOut(), func() { c.zoomBy(1 / designZoomStep) }, "design-zoom-out"),
 			tool(lucide.ZoomIn, tr.ZoomIn(), func() { c.zoomBy(designZoomStep) }, "design-zoom-in"),
 			tool(lucide.Scan, tr.Fit(), func() { c.fit(true) }, "design-fit"),
-			core.Show{When: func() bool { return comments() > 0 }, Then: func(*core.Scope) core.Node {
+			core.Show{When: func() bool { return ask != nil && comments() > 0 && !e.Working() }, Then: func(*core.Scope) core.Node {
 				return tool(lucide.MessagesSquare, tr.ResolveComments(), func() { ask(tr.ResolveCommentsPrompt(core.Untracked(cx, comments))) }, "resolve-comments")
 			}},
 		}}
@@ -338,6 +338,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
 		OnLayout: c.resize,
 		Children: []core.Node{picture, pointer, toolbar,
-			core.Show{When: func() bool { return e.cur().element.Get() != "" }, Then: func(cx *core.Scope) core.Node { return commentCard(cx, e, ask, place) }},
+			// The user cannot comment while the agent works.
+			core.Show{When: func() bool { return e.cur().element.Get() != "" && !e.Working() }, Then: func(cx *core.Scope) core.Node { return commentCard(cx, e, ask, place) }},
 		}}
 }

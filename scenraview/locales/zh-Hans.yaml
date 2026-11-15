@@ -22,47 +22,14 @@ changesLost: 如果不保存，你的更改将会丢失。
 dontSave: 不保存
 assistant: 助手
 newChat: 新对话
-message: 消息
-placeholder: 描述你想设计的应用或流程…
-send: 发送
-stop: 停止
-jumpToLatest: 跳到最新消息
 emptyTitle: 一起来设计应用
 emptyDetail: 描述一个应用或流程，助手会询问所需的细节，并在左侧画出它的界面和流程。
-noProvider: 配置一个 OpenAI 兼容的提供商后即可开始对话。
-openSettings: 打开设置
-worked: "用时 {seconds, number} 秒"
-working: "已用时 {seconds, number} 秒"
-ranTools: "使用了 {count, number} 个工具"
-thinking: 思考
-stopped: 已停止
-failed: 出错了。
-retry: 重试
-toolAddNodes: 添加节点
-toolUpdateNode: 修改节点
-toolRemoveNodes: 删除节点
-toolAddEdges: 连线
-toolRemoveEdges: 删除连线
-toolSetLayout: 布局
-toolReplaceFlow: 重绘图表
-toolListDir: 列出文件夹
-toolReadFile: 读取文件
-toolGlob: 查找文件
-toolGrep: 搜索文件
 cancel: 取消
 statusTodo: 待办
 statusDoing: 进行中
 statusDone: 已完成
 statusBlocked: 受阻
 statusSkipped: 已跳过
-toolGetProject: 读取项目
-toolAddScreen: 添加界面
-toolSetUI: 绘制界面
-toolRemoveScreen: 删除界面
-toolAddFlow: 添加流程
-toolRemoveFlow: 删除流程
-toolReplaceProject: 重绘项目
-toolShow: 定位
 screens: 界面
 screenCount: "{count, number} 个界面"
 screensEmpty: 助手设计的界面会出现在这里。
@@ -79,5 +46,3 @@ askAssistant: 问助手
 resolveComment: "处理我在元素 {path} 上的评论：{comment}"
 resolveComments: 让助手处理评论
 resolveCommentsPrompt: "处理我在这个界面上的 {count, number} 条评论。"
-toolSetElement: 修改元素
-toolResolveComment: 处理评论

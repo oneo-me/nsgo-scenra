@@ -11,8 +11,9 @@ import (
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/ui"
 	uiflow "github.com/nsgo-dev/nsgo/ui/flow"
+	agio "github.com/oneo-me/nsgo-agio"
+	"github.com/oneo-me/nsgo-agio/chatview"
 
-	"github.com/oneo-me/nsgo-scenra/agent"
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
@@ -22,11 +23,13 @@ const historyLimit = 200
 
 // Options configure an Editor.
 type Options struct {
-	// Provider is the model the assistant asks, which it reads when a
-	// message is sent and the assistant's header follows.
-	Provider func() agent.Provider
-	// OpenSettings shows where the app sets the provider, which a message
-	// sent without a ready one opens.
+	// Agents, when set, runs the assistant: a conversation about each
+	// document with a file, working in the folder holding it, whose agent
+	// edits the file as the app's skill teaches and asks the app's Server
+	// what the user sees. Without it the editor has no assistant.
+	Agents *chatview.Model
+	// OpenSettings, when set, shows where the app sets up the agents,
+	// which the assistant's header offers.
 	OpenSettings func()
 	// Toaster shows what failed to open or save, and what was saved; one
 	// of the editor's own when nil, which Toaster returns for the app to
@@ -40,7 +43,8 @@ type Options struct {
 }
 
 // document is a flow document open in a tab: its content and file, its
-// history, where the user looks in it and the conversation about it.
+// history, where the user looks in it and the ID of the conversation
+// about it, "" until it has one; creating says one is being made.
 type document struct {
 	e *Editor
 	// id keys the document's tab.
@@ -60,8 +64,14 @@ type document struct {
 	undos, redos *core.Signal[[]flowfile.Project]
 	// group is the key of the last change, whose undo later changes with
 	// the same key join.
-	group string
-	chat  *conversation
+	group    string
+	agent    *core.Signal[string]
+	creating bool
+	// stamp is the version of the file the document was last read from
+	// or written to, and broken why the file's latest version does not
+	// parse, "" when it does.
+	stamp  stamp
+	broken string
 }
 
 // Editor is a set of Scenra files open for editing, a tab each, and the
@@ -83,12 +93,6 @@ type Editor struct {
 
 // New is an editor with no file open, or with those opts.Remember kept.
 func New(cx *core.Scope, opts Options) *Editor {
-	if opts.Provider == nil {
-		opts.Provider = func() agent.Provider { return agent.Provider{} }
-	}
-	if opts.OpenSettings == nil {
-		opts.OpenSettings = func() {}
-	}
 	toasts := opts.Toaster
 	if toasts == nil {
 		toasts = ui.NewToaster(cx)
@@ -97,6 +101,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 		active: core.NewSignal[*document](cx, nil), camera: &uiflow.State{}, toasts: toasts}
 	e.blank = e.newDocument(flowfile.Project{}, "")
 	e.a = newAssistant(cx, e)
+	e.watch()
 	// Another flow shows fitted, once the batch that opened it is over.
 	cx.Effect(func() {
 		e.cur().flow.Get()
@@ -175,8 +180,9 @@ func (e *Editor) newDocument(p flowfile.Project, path string) *document {
 		screen: core.NewSignal(cx, ""), flow: core.NewSignal(cx, ""), selected: core.NewSignal(cx, ""), element: core.NewSignal(cx, ""),
 		design: core.NewSignal(cx, false),
 		undos:  core.NewSignalFunc(cx, []flowfile.Project(nil), stacks), redos: core.NewSignalFunc(cx, []flowfile.Project(nil), stacks),
-		chat: newConversation(cx)}
-	d.show(agent.Location{})
+		agent: core.NewSignal(cx, "")}
+	d.show(location{})
+	d.mark()
 	return d
 }
 
@@ -228,6 +234,7 @@ func (e *Editor) newFile(then func(d *document)) {
 			e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.SaveFailed(err.Error())})
 		case saved && path != "":
 			d.path.Set(path)
+			d.mark()
 			e.cx.Batch(func() {
 				e.tabs.Set(append(slices.Clone(e.tabs.GetUntracked()), d))
 				e.activate(d)
@@ -246,7 +253,7 @@ func (e *Editor) NewFile() { e.newFile(nil) }
 // leaving an empty document when it was the last.
 func (e *Editor) closeTab(d *document) {
 	e.keepChanges(d, func() {
-		d.chat.stop()
+		e.a.remove(d)
 		tabs := slices.Clone(e.tabs.GetUntracked())
 		i := slices.Index(tabs, d)
 		if i < 0 {
@@ -308,60 +315,60 @@ func (d *document) flowDoc(id string) flowfile.Doc {
 }
 
 // at is where the user is looking.
-func (d *document) at() agent.Location {
-	return agent.Location{Screen: d.screen.GetUntracked(), Flow: d.flow.GetUntracked(), Node: d.selected.GetUntracked(),
-		Design: d.design.GetUntracked(), Element: d.element.GetUntracked()}
+func (d *document) at() location {
+	return location{screen: d.screen.GetUntracked(), flow: d.flow.GetUntracked(), node: d.selected.GetUntracked(),
+		design: d.design.GetUntracked(), element: d.element.GetUntracked()}
 }
 
 // show opens the screen of l on its design or its flow, and selects the
 // node, falling back to the first screen when it is gone. A screen
 // opened without a flow shows its design, or its first flow while it has
 // no design.
-func (d *document) show(l agent.Location) {
+func (d *document) show(l location) {
 	p := d.doc.GetUntracked()
-	si := p.ScreenIndex(l.Screen)
-	fi, _ := p.FlowIndex(l.Flow)
+	si := p.ScreenIndex(l.screen)
+	fi, _ := p.FlowIndex(l.flow)
 	chosen := fi >= 0 && (si < 0 || fi == si)
 	if chosen {
 		si = fi
 	} else {
-		l.Flow = ""
+		l.flow = ""
 	}
 	if si < 0 && len(p.Screens) > 0 {
 		si = 0
 	}
 	if si < 0 {
-		l = agent.Location{}
+		l = location{}
 	} else {
 		s := p.Screens[si]
-		l.Screen = s.ID
-		l.Design = l.Design || !chosen && len(s.UI) > 0
-		if l.Flow == "" && len(s.Flows) > 0 {
-			l.Flow = s.Flows[0].ID
+		l.screen = s.ID
+		l.design = l.design || !chosen && len(s.UI) > 0
+		if l.flow == "" && len(s.Flows) > 0 {
+			l.flow = s.Flows[0].ID
 		}
-		l.Design = l.Design || l.Flow == ""
+		l.design = l.design || l.flow == ""
 	}
-	if l.Node != "" {
-		if _, ok := d.flowDoc(l.Flow).Node(l.Node); !ok {
-			l.Node = ""
+	if l.node != "" {
+		if _, ok := d.flowDoc(l.flow).Node(l.node); !ok {
+			l.node = ""
 		}
 	}
-	if l.Element != "" {
-		if i := p.ScreenIndex(l.Screen); i < 0 || !l.Design {
-			l.Element = ""
-		} else if _, ok := flowfile.ElementAt(p.Screens[i].UI, l.Element); !ok {
-			l.Element = ""
+	if l.element != "" {
+		if i := p.ScreenIndex(l.screen); i < 0 || !l.design {
+			l.element = ""
+		} else if _, ok := flowfile.ElementAt(p.Screens[i].UI, l.element); !ok {
+			l.element = ""
 		}
 	}
 	d.e.cx.Batch(func() {
-		d.screen.Set(l.Screen)
-		d.flow.Set(l.Flow)
-		d.design.Set(l.Design)
-		d.selected.Set(l.Node)
-		d.element.Set(l.Element)
+		d.screen.Set(l.screen)
+		d.flow.Set(l.flow)
+		d.design.Set(l.design)
+		d.selected.Set(l.node)
+		d.element.Set(l.element)
 	})
-	if l.Node != "" && d.e.shown() == d {
-		d.e.cx.Post(func() { d.e.camera.Reveal(l.Node) })
+	if l.node != "" && d.e.shown() == d {
+		d.e.cx.Post(func() { d.e.camera.Reveal(l.node) })
 	}
 }
 
@@ -390,6 +397,9 @@ func (d *document) change(p flowfile.Project, group string) {
 // setComment sets the comment on the element at path of the open
 // screen, or removes it when text is "", as a change undo reverts.
 func (d *document) setComment(path, text string) {
+	if d.e.locked(d) {
+		return
+	}
 	p := d.doc.GetUntracked()
 	i := p.ScreenIndex(d.screen.GetUntracked())
 	if i < 0 {
@@ -410,7 +420,7 @@ func (d *document) redo() { d.step(d.redos, d.undos) }
 // step moves the document from one history stack to the other.
 func (d *document) step(from, to *core.Signal[[]flowfile.Project]) {
 	list := from.GetUntracked()
-	if len(list) == 0 {
+	if len(list) == 0 || d.e.locked(d) {
 		return
 	}
 	d.group = ""
@@ -555,6 +565,7 @@ func (e *Editor) saveThen(d *document, done func()) {
 		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: tr.SaveFailed(err.Error())})
 		return
 	}
+	d.mark()
 	d.dirty.Set(false)
 	e.toasts.Show(ui.ToastContent{Type: ui.ToastSuccess, Title: tr.Saved()})
 	if done != nil {
@@ -589,9 +600,14 @@ func (e *Editor) saveAsThen(d *document, done func()) {
 			fail(err)
 		case saved:
 			e.cx.Batch(func() {
-				if path != "" {
+				if path != "" && path != d.path.GetUntracked() {
 					d.path.Set(path)
+					// A conversation not begun yet starts about the new file.
+					if id := d.agent.GetUntracked(); e.a.m != nil && id != "" && len(core.Untracked(e.cx, func() *agio.Conversation { return e.a.m.Conversation(id) }).Turns) == 0 {
+						e.a.remove(d)
+					}
 				}
+				d.mark()
 				d.dirty.Set(false)
 			})
 			e.toasts.Show(ui.ToastContent{Type: ui.ToastSuccess, Title: tr.Saved()})
@@ -643,9 +659,9 @@ func (e *Editor) Unsaved() bool {
 func (e *Editor) Project() flowfile.Project { return e.cur().doc.Get() }
 
 // CanUndo and CanRedo say the document shown has a change to undo or to
-// redo.
-func (e *Editor) CanUndo() bool { return len(e.cur().undos.Get()) > 0 }
-func (e *Editor) CanRedo() bool { return len(e.cur().redos.Get()) > 0 }
+// redo, which it does not while the agent works on it.
+func (e *Editor) CanUndo() bool { return len(e.cur().undos.Get()) > 0 && !e.Working() }
+func (e *Editor) CanRedo() bool { return len(e.cur().redos.Get()) > 0 && !e.Working() }
 
 // FlowOpen says a flow is open in the document shown, and LeftToRight
 // that it points right.

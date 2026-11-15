@@ -22,47 +22,14 @@ changesLost: Your changes will be lost if you don't save them.
 dontSave: Don't Save
 assistant: Assistant
 newChat: New Chat
-message: Message
-placeholder: Describe the app or process you want to design…
-send: Send
-stop: Stop
-jumpToLatest: Jump to the latest message
 emptyTitle: Let's design an app together
 emptyDetail: Describe an app or a process, and the assistant asks what it needs and draws its screens and flows on the left.
-noProvider: Set up an OpenAI-compatible provider to start chatting.
-openSettings: Open Settings
-worked: "Worked for {seconds, number}s"
-working: "Working for {seconds, number}s"
-ranTools: "{count, plural, one {Used # tool} other {Used # tools}}"
-thinking: Thinking
-stopped: Stopped
-failed: Something went wrong.
-retry: Retry
-toolAddNodes: Add nodes
-toolUpdateNode: Update node
-toolRemoveNodes: Remove nodes
-toolAddEdges: Connect
-toolRemoveEdges: Disconnect
-toolSetLayout: Layout
-toolReplaceFlow: Redraw the chart
-toolListDir: List folder
-toolReadFile: Read file
-toolGlob: Find files
-toolGrep: Search files
 cancel: Cancel
 statusTodo: To do
 statusDoing: In progress
 statusDone: Done
 statusBlocked: Blocked
 statusSkipped: Skipped
-toolGetProject: Read the project
-toolAddScreen: Add screen
-toolSetUI: Draw interface
-toolRemoveScreen: Remove screen
-toolAddFlow: Add flow
-toolRemoveFlow: Remove flow
-toolReplaceProject: Redraw the project
-toolShow: Show
 screens: Screens
 screenCount: "{count, plural, one {# screen} other {# screens}}"
 screensEmpty: The screens the assistant designs appear here.
@@ -79,5 +46,3 @@ askAssistant: Ask Assistant
 resolveComment: "Resolve my comment on element {path}: {comment}"
 resolveComments: Ask the Assistant to Resolve Comments
 resolveCommentsPrompt: "{count, plural, one {Resolve my comment on this screen.} other {Resolve my # comments on this screen.}}"
-toolSetElement: Change element
-toolResolveComment: Resolve comment

@@ -1,8 +1,11 @@
 module github.com/oneo-me/nsgo-scenra
 
-go 1.26.0
+go 1.27.3
 
-require github.com/nsgo-dev/nsgo v0.0.0-20261112142707-fad7c44c132b
+require (
+	github.com/nsgo-dev/nsgo v0.0.0-20261113150221-03c2543204c5
+	github.com/oneo-me/nsgo-agio v0.1.1-0.20261114090922-7e86be1602d9
+)
 
 require (
 	github.com/andybalholm/brotli v1.2.6 // indirect
@@ -22,3 +25,5 @@ require (
 )
 
 tool github.com/nsgo-dev/nsgo/cmd/nsgo
+
+replace github.com/oneo-me/nsgo-agio => ../nsgo-agio

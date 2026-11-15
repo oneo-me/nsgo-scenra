@@ -8,7 +8,6 @@ import (
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 
-	"github.com/oneo-me/nsgo-scenra/agent"
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
@@ -86,9 +85,9 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 	choose := func(id string) {
 		d := e.shown()
 		if screen, ok := strings.CutPrefix(id, designEntry); ok {
-			d.show(agent.Location{Screen: screen, Design: true})
+			d.show(location{screen: screen, design: true})
 		} else {
-			d.show(agent.Location{Flow: strings.TrimPrefix(id, flowEntry)})
+			d.show(location{flow: strings.TrimPrefix(id, flowEntry)})
 		}
 	}
 	return core.View{Style: core.Style{Width: core.Pt(sidebarWidth), FlexShrink: 0, Padding: core.Symmetric(8, 0), Borders: core.Edges{Right: 1}},
@@ -101,7 +100,6 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 // workspacePane is the entry the sidebar opened: a screen's design, or a
 // flow chart; or, while no file is open, a way to make or open one.
 func workspacePane(cx *core.Scope, e *Editor) core.Node {
-	a := e.a
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	message := func(icon func() *core.SVG, text string, actions ...core.Node) core.Node {
@@ -119,7 +117,7 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 		flowPane(cx, e),
 		core.Show{When: func() bool { return e.cur().design.Get() }, Then: func(cx *core.Scope) core.Node {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
-				Children: []core.Node{designPane(cx, e, func(prompt string) { a.ask(prompt, func() {}) })}}
+				Children: []core.Node{designPane(cx, e, e.a.ask())}}
 		}},
 	}}
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{

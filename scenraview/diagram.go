@@ -136,9 +136,13 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{view}}
 }
 
-// ToggleDirection turns the open flow between down and right.
+// ToggleDirection turns the open flow between down and right, unless the
+// agent works on it.
 func (e *Editor) ToggleDirection() {
 	d := e.shown()
+	if e.locked(d) {
+		return
+	}
 	p := d.doc.GetUntracked().Clone()
 	i, j := p.FlowIndex(d.flow.GetUntracked())
 	if i < 0 {

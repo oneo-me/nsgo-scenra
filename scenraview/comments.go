@@ -41,7 +41,7 @@ func commentPins(cx *core.Scope, s flowfile.Screen, sel selection, zoom func() f
 }
 
 // commentCard edits the comment on the selected element of the design
-// shown, and asks the assistant to resolve it, saving it first. place
+// shown, and with ask asks the assistant to resolve it, saving it first. place
 // says where a card of a size goes in the design pane. The card moves
 // by its position, not a transform, as platforms hit-test views without
 // their transforms.
@@ -100,12 +100,14 @@ func commentCard(cx *core.Scope, e *Editor, ask func(prompt string), place func(
 				ui.Spacer{},
 				ui.Button{Text: tr.SaveComment(), Variant: ui.ButtonOutline, Size: ui.SizeSmall, TestID: "comment-save",
 					Disabled: func() bool { return text() == comment.Get() }, OnPress: save},
-				ui.Button{Text: tr.AskAssistant(), Icon: lucide.Sparkles, Variant: ui.ButtonPrimary, Size: ui.SizeSmall, TestID: "comment-ask",
-					Disabled: func() bool { return text() == "" },
-					OnPress: func() {
-						save()
-						ask(tr.ResolveComment(e.shown().element.GetUntracked(), core.Untracked(cx, text)))
-					}},
+				core.Show{When: func() bool { return ask != nil }, Then: func(*core.Scope) core.Node {
+					return ui.Button{Text: tr.AskAssistant(), Icon: lucide.Sparkles, Variant: ui.ButtonPrimary, Size: ui.SizeSmall, TestID: "comment-ask",
+						Disabled: func() bool { return text() == "" },
+						OnPress: func() {
+							save()
+							ask(tr.ResolveComment(e.shown().element.GetUntracked(), core.Untracked(cx, text)))
+						}}
+				}},
 			}},
 		}}
 }

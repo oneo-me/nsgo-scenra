@@ -33,10 +33,9 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 - Scenra files open in tabs across the window's top; the left lists each screen's design and flow charts, the open one is in the middle, and the conversation runs the window's height on the right.
 - Files remember where they were opened from or saved to, so ⌘S saves them in place, and reopen at the next start.
 - Phone, tablet and desktop designs are drawn from boxes, texts, icons, images and SVG shaped by Tailwind CSS classes, so a draft can look like anything; zoom, pan and select its elements as in the flow charts.
-- The assistant asks what it needs, then lays out interfaces and adds, links and rearranges nodes with tools.
-- The assistant works on what you select, resolves the comments you leave on design elements, can read your other open files, and reads the folder a file is saved in to chart how the code there works.
-- Each assistant change undoes as one step.
-- Works with any OpenAI-compatible provider that supports tool calls, local servers included.
+- The assistant is a coding agent you have installed, such as Claude Code, Codex, pi or CodeBuddy Code: it asks what it needs, then writes the file as the Scenra skill teaches, and the file redraws as it writes.
+- The assistant works on what you select, resolves the comments you leave on design elements, and works in the folder a file is saved in, so it can chart how the code there works.
+- Sending a message saves your changes; while the assistant works the file stays as it leaves it, and each of its turns undoes as one step.
 - Designs are plain-text `.scenra` files you can read, diff and edit by hand.
 - Runs on macOS, Windows and Linux, in English and Simplified Chinese.
 
@@ -53,9 +52,9 @@ On macOS, `.scenra` files open with the app from the Finder; on Windows and Linu
 
 ## Getting started
 
-1. Open **Settings** (⌘,) and enter a provider's base URL, such as `https://api.openai.com/v1`, an API key and a model that supports tool calls.
+1. Install and sign in to a coding agent such as [Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex); **Settings** (⌘,) shows the agents Scenra found and turns them or their models on or off.
 2. Describe an app or a process in the assistant, such as "Design the sign-in screen of a coffee shop app" or "Chart how we handle an order".
-3. To chart an existing project, save the Scenra file in the project's folder: the assistant reads that folder.
+3. To chart an existing project, save the Scenra file in the project's folder: the assistant works there.
 4. Answer its questions and watch it draw the screens and flows; pick a screen's design or flow on the left.
 5. A new file is saved where you choose first, and ⌘S saves it from then on; or open `examples/shop.scenra` or `examples/order.scenra` to start from an example.
 
@@ -63,11 +62,11 @@ The [`flowfile` package comment](flowfile/) describes the file format.
 
 ## Usage statistics
 
-Release builds send anonymous usage statistics to Umami: how often and how long the app is used, under a random install ID. No chart, message, file path or API key is sent. Turn them off under **Settings** → **Statistics**. Builds of `nsgo dev` and tests send nothing.
+Release builds send anonymous usage statistics to Umami: how often and how long the app is used, under a random install ID. No chart, message or file path is sent. Turn them off under **Settings** → **Statistics**. Builds of `nsgo dev` and tests send nothing.
 
 ## Use in your app
 
-`scenraview` gives other NSGo apps Scenra's editor for `.scenra` files: an `Editor` of open files and views of it, the `Window` as Scenra shows it, or a `TabBar`, `Sidebar`, `Workspace` and `Assistant` to lay out themselves.
+`scenraview` gives other NSGo apps Scenra's editor for `.scenra` files: an `Editor` of open files and views of it, the `Window` as Scenra shows it, or a `TabBar`, `Sidebar`, `Workspace` and `Assistant` to lay out themselves. The assistant runs the agents of an [Agio](https://github.com/oneo-me/nsgo-agio) backend; give them the skill in `cmd/scenra/resources/skills/scenra` and the `Server` that tells them what the user sees.
 
 ```sh
 go get github.com/oneo-me/nsgo-scenra
@@ -75,7 +74,7 @@ go get github.com/oneo-me/nsgo-scenra
 
 ```go
 nsgo.Run(func(cx *core.Scope) core.Node {
-	e := scenraview.New(cx, scenraview.Options{Provider: myProvider})
+	e := scenraview.New(cx, scenraview.Options{})
 	e.OpenPath("app.scenra")
 	return core.View{Style: core.Style{Direction: core.Row, FlexGrow: 1}, Children: []core.Node{
 		scenraview.Sidebar{Editor: e}, scenraview.Workspace{Editor: e},
@@ -83,7 +82,7 @@ nsgo.Run(func(cx *core.Scope) core.Node {
 })
 ```
 
-`flowfile` reads and writes the format without NSGo, and `agent` is the assistant's model client and tools.
+`flowfile` reads and writes the format without NSGo.
 
 ## Development
 
@@ -91,7 +90,7 @@ From the repository root:
 
 ```sh
 go tool nsgo check          # vet, catalogs and generated files
-go tool nsgo test           # tests, headless against a fake model
+go tool nsgo test           # tests, headless against a scripted agent
 ```
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md) for the design and [AGENTS.md](AGENTS.md) for the rules contributors follow.

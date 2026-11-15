@@ -5,14 +5,6 @@ viewMenu: 显示
 undoChange: 撤销更改
 redoChange: 重做更改
 settingsTitle: 设置
-providerSection: 提供商
-providerDescription: 任何兼容 OpenAI Chat Completions 的 API，例如 OpenAI、DeepSeek、OpenRouter、Ollama 或 LM Studio。
-baseURL: 接口地址
-baseURLHint: API 的根地址，即 /chat/completions 之前的部分
-apiKey: API 密钥
-apiKeyHint: 保存在本机。本地服务可留空。
-model: 模型
-modelHint: 模型 ID，需支持工具调用
 done: 完成
 statsSection: 统计
 statsSend: 发送使用统计

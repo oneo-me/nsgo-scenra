@@ -1,15 +1,10 @@
 package scenraview
 
 import (
-	"fmt"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -18,117 +13,23 @@ import (
 
 	"github.com/nsgo-dev/nsgo/ui"
 
-	"github.com/oneo-me/nsgo-scenra/agent"
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
 // TestMain gives the platform the main thread under nsgo test -target.
 func TestMain(m *testing.M) { nsgotest.Main(m) }
 
-// The storage keys of the test app's provider and of the files it keeps
-// open.
+// The storage keys of the files the test app keeps open.
 const (
-	keyBaseURL    = "provider.baseURL"
-	keyModel      = "provider.model"
 	keyOpenFiles  = "editor.openFiles"
 	keyActiveFile = "editor.activeFile"
 )
-
-// shown is the test app's editor, and askedSettings counts the times it
-// asked for a provider.
-var (
-	shown         *Editor
-	askedSettings int
-)
-
-// testRoot is an app of the Window, its provider named by the storage.
-func testRoot(cx *core.Scope) core.Node {
-	st := cx.Storage()
-	e := New(cx, Options{
-		Provider: func() agent.Provider {
-			url, _ := st.GetItem(keyBaseURL)
-			model, _ := st.GetItem(keyModel)
-			return agent.Provider{BaseURL: url, Model: model}
-		},
-		OpenSettings: func() { askedSettings++ },
-		Remember:     "editor",
-	})
-	shown = e
-	return core.View{Style: ui.FillRest, Children: []core.Node{Window{Editor: e}, ui.Toasts{Toaster: e.Toaster()}}}
-}
-
-// model answers each request with the next reply, as server-sent events.
-func model(t *testing.T, replies ...string) string {
-	var mu sync.Mutex
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		defer mu.Unlock()
-		if len(replies) == 0 {
-			http.Error(w, `{"error":{"message":"no more replies"}}`, http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprint(w, replies[0])
-		replies = replies[1:]
-	}))
-	t.Cleanup(srv.Close)
-	return srv.URL
-}
-
-func deltas(ds ...string) string {
-	var b strings.Builder
-	for _, d := range ds {
-		fmt.Fprintf(&b, "data: {\"choices\":[{\"delta\":%s}]}\n\n", d)
-	}
-	return b.String() + "data: [DONE]\n\n"
-}
 
 // newFileAt answers the next save dialogs with path, in a new folder.
 func newFileAt(t *testing.T, app *nsgotest.App, name string) string {
 	path := filepath.Join(t.TempDir(), name)
 	app.SaveFile = func(core.SaveRequest) string { return path }
 	return path
-}
-
-func TestAssistantDrawsOnTheChart(t *testing.T) {
-	url := model(t,
-		deltas(`{"tool_calls":[{"index":0,"id":"c1","function":{"name":"add_nodes","arguments":"{\"nodes\":[{\"id\":\"order\",\"label\":\"Order placed\",\"kind\":\"start\"},{\"id\":\"ship\",\"label\":\"Ship order\"}]}"}},{"index":1,"id":"c2","function":{"name":"add_edges","arguments":"{\"edges\":[{\"from\":\"order\",\"to\":\"ship\"}]}"}}]}`),
-		deltas(`{"content":"I drew **two steps**."}`),
-	)
-	app, e := startEditor(t, nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "test-model"}))
-	app.Find("text:Make a Scenra file, or open one, to design an app or chart a flow.")
-	// A message with no file open makes one first.
-	newFileAt(t, app, "orders.scenra")
-	app.Type("label:Message", "Chart an order flow")
-	app.Press("label:Send")
-	app.WaitFor("flow >> label:Ship order", 5*time.Second)
-	app.WaitFor("text:two steps", 5*time.Second)
-	app.Find("text:Chart an order flow")
-	if got := tabNames(app); !slices.Equal(got, []string{"orders.scenra"}) {
-		t.Fatalf("tabs %v", got)
-	}
-
-	// The change undoes as one step per tool call.
-	app.Post(e.Undo)
-	app.WaitForGone("flow >> label:Order placed", time.Second)
-	app.Find("text:Ask the assistant to design an app or draw a flow.")
-}
-
-func TestAssistantShowsFailuresAndAsksForAProvider(t *testing.T) {
-	app, _ := startEditor(t)
-	app.Find("text:Set up an OpenAI-compatible provider to start chatting.")
-	asked := askedSettings
-	app.Type("label:Message", "Hello")
-	app.Press("label:Send")
-	if askedSettings != asked+1 {
-		t.Fatal("sending without a provider did not ask for one")
-	}
-	app.Storage().SetItem(keyModel, "test-model")
-	app.Storage().SetItem(keyBaseURL, model(t))
-	newFileAt(t, app, "hello.scenra")
-	app.Press("label:Send")
-	app.WaitFor("text:no more replies (HTTP 500)", 5*time.Second)
-	app.Find("id:retry")
 }
 
 // writeFlow writes a flow file named name in a new folder.
@@ -140,12 +41,10 @@ func writeFlow(t *testing.T, name, text string) string {
 	return path
 }
 
-// startEditor starts the app and returns its editor.
+// startEditor starts an app of the Window, whose assistant's agent is
+// driver, and returns its editor.
 func startEditor(t *testing.T, opts ...nsgotest.Option) (*nsgotest.App, *Editor) {
-	var e *Editor
-	app := nsgotest.Start(t, testRoot, append([]nsgotest.Option{nsgotest.Size(1280, 800)}, opts...)...)
-	app.Post(func() { e = shown })
-	app.Settle()
+	app, e, _ := startAssistant(t, opts...)
 	return app, e
 }
 
@@ -383,146 +282,6 @@ func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
 	app.Settle()
 	if len(app.Alerts()) != 0 {
 		t.Fatalf("a clean document asked: %+v", app.Alerts())
-	}
-}
-
-// recorder is a fake model that answers with replies in turn and keeps
-// the requests' bodies.
-func recorder(t *testing.T, replies ...string) (url string, bodies func() []string) {
-	var mu sync.Mutex
-	var got []string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		mu.Lock()
-		defer mu.Unlock()
-		data, _ := io.ReadAll(r.Body)
-		got = append(got, string(data))
-		w.Header().Set("Content-Type", "text/event-stream")
-		fmt.Fprint(w, replies[0])
-		replies = replies[1:]
-	}))
-	t.Cleanup(srv.Close)
-	return srv.URL, func() []string { mu.Lock(); defer mu.Unlock(); return slices.Clone(got) }
-}
-
-func TestAssistantKnowsTheFilesAndReadsTheFolder(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte("package scenraview\n\nfunc checkout() {}\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(dir, "app.scenra")
-	if err := os.WriteFile(path, []byte("title \"App\"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	other := writeFlow(t, "other.scenra", "screen pay \"Pay\"\n")
-	url, bodies := recorder(t,
-		deltas(`{"tool_calls":[{"index":0,"id":"c1","function":{"name":"read_file","arguments":"{\"path\":\"main.go\"}"}},`+
-			`{"index":1,"id":"c2","function":{"name":"get_project","arguments":"{\"file\":\"`+other+`\"}"}}]}`),
-		deltas(`{"content":"It has a checkout step."}`),
-	)
-	app, e := startEditor(t, nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "test-model"}))
-	app.Post(func() {
-		e.OpenPath(other)
-		e.OpenPath(path)
-	})
-	app.Settle()
-	app.Type("label:Message", "Chart the checkout")
-	app.Press("label:Send")
-	app.WaitFor("text:It has a checkout step.", 5*time.Second)
-	got := bodies()
-	if !strings.Contains(got[0], `"name":"grep"`) || !strings.Contains(got[0], "in the folder") || !strings.Contains(got[0], "other.scenra") {
-		t.Fatalf("the first request tells of no folder or other file:\n%s", got[0])
-	}
-	if !strings.Contains(got[1], `func checkout() {}`) || !strings.Contains(got[1], `screen pay`) {
-		t.Fatalf("the file and the other project did not reach the model:\n%s", got[1])
-	}
-}
-
-func TestAssistantDesignsScreensWithFlows(t *testing.T) {
-	ui := `box class=\\\"flex-1 gap-4 p-6 bg-nope\\\"\\ntext \\\"Continue\\\" class=\\\"font-bold\\\"\\nicon mail class=\\\"size-5\\\"\\nend`
-	url, bodies := recorder(t,
-		deltas(`{"tool_calls":[`+
-			`{"index":0,"id":"c1","function":{"name":"add_screen","arguments":"{\"id\":\"signin\",\"title\":\"Sign in\",\"ui\":\"`+ui+`\"}"}},`+
-			`{"index":1,"id":"c2","function":{"name":"add_flow","arguments":"{\"id\":\"login\",\"title\":\"Log in\"}"}},`+
-			`{"index":2,"id":"c3","function":{"name":"add_nodes","arguments":"{\"nodes\":[{\"id\":\"tap\",\"label\":\"Tap Continue\",\"kind\":\"start\"}]}"}},`+
-			`{"index":3,"id":"c4","function":{"name":"add_flow","arguments":"{\"id\":\"reset\",\"title\":\"Reset password\"}"}},`+
-			`{"index":4,"id":"c5","function":{"name":"add_nodes","arguments":"{\"nodes\":[{\"id\":\"mail\",\"label\":\"Send reset mail\"}]}"}}]}`),
-		deltas(`{"content":"I drew the sign-in screen."}`),
-		deltas(`{"content":"Made it bold."}`),
-	)
-	app, _ := startEditor(t, nsgotest.Size(1440, 900), nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "test-model"}))
-	newFileAt(t, app, "signin.scenra")
-	app.Type("label:Message", "Design a sign-in screen")
-	app.Press("label:Send")
-	app.WaitFor("text:I drew the sign-in screen.", 5*time.Second)
-	app.Find("id:screen-signin")
-	// The last flow drawn is open; the sidebar opens the other and the
-	// design.
-	app.Find("flow >> label:Send reset mail")
-	app.Press("id:flow-login")
-	app.WaitFor("flow >> label:Tap Continue", time.Second)
-	app.Press("id:design-signin")
-	app.WaitFor("design >> text:Continue", time.Second)
-	app.Find("id:design-fit")
-	// A class that draws nothing goes back to the model.
-	if got := bodies()[1]; !strings.Contains(got, "draw nothing: bg-nope") {
-		t.Fatalf("the model was not told of the unknown class:\n%s", got)
-	}
-	// Pressing an element selects it, which the model hears of.
-	app.Press("id:element-0.0")
-	app.Type("label:Message", "Make it bold")
-	app.Press("label:Send")
-	app.WaitFor("text:Made it bold.", 5*time.Second)
-	if got := bodies()[2]; !strings.Contains(got, "selected element 0.0") {
-		t.Fatalf("the model was not told of the selection:\n%s", got)
-	}
-}
-
-func TestCommentsAskTheAssistant(t *testing.T) {
-	url, bodies := recorder(t,
-		deltas(`{"tool_calls":[{"index":0,"id":"c1","function":{"name":"set_element","arguments":"{\"path\":\"0.0\",\"ui\":\"text \\\"Hello there\\\" class=\\\"font-bold\\\"\"}"}},`+
-			`{"index":1,"id":"c2","function":{"name":"resolve_comment","arguments":"{\"path\":\"0.0\"}"}}]}`),
-		deltas(`{"content":"Made it friendlier."}`),
-	)
-	path := writeFlow(t, "shop.scenra", "screen home \"Home\"\n  box class=\"flex-1 gap-4 p-6\"\n    text \"Welcome\"\n    text \"Mail\" comment=\"Smaller\"\n  end\n")
-	app, e := startEditor(t, nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "test-model"}))
-	app.Post(func() {
-		if err := e.OpenPath(path); err != nil {
-			t.Error(err)
-		}
-	})
-	app.WaitFor("design >> text:Welcome", time.Second)
-	app.Find("id:comment-pin-0.1")
-	app.Find("id:resolve-comments")
-	if app.Exists("id:comment-card") {
-		t.Fatal("a comment card shows with nothing selected")
-	}
-
-	// Commenting on the selected element saves the comment in the file.
-	app.Press("id:element-0.0")
-	app.WaitFor("id:comment-card", time.Second)
-	app.Type("id:comment-input", "Friendlier")
-	app.Press("id:comment-save")
-	app.WaitFor("id:comment-pin-0.0", time.Second)
-	if got := e.shown().doc.GetUntracked().Format(); !strings.Contains(got, `text "Welcome" comment="Friendlier"`) {
-		t.Fatalf("the comment was not saved:\n%s", got)
-	}
-	app.Press("id:comment-remove")
-	app.WaitForGone("id:comment-pin-0.0", time.Second)
-	app.Type("id:comment-input", "Friendlier")
-
-	// Asking the assistant sends it the comment, which it resolves.
-	app.Press("id:comment-ask")
-	app.WaitFor("text:Made it friendlier.", 5*time.Second)
-	if got := bodies()[0]; !strings.Contains(got, "Resolve my comment on element 0.0: Friendlier") || !strings.Contains(got, `element 0.0: \"Friendlier\"`) {
-		t.Fatalf("the model was not told of the comment:\n%s", got)
-	}
-	got := e.shown().doc.GetUntracked().Format()
-	if !strings.Contains(got, `text "Hello there" class="font-bold"`+"\n") || !strings.Contains(got, `comment="Smaller"`) {
-		t.Fatalf("the comment was not resolved, or the other one went:\n%s", got)
-	}
-	app.WaitForGone("id:comment-pin-0.0", time.Second)
-	if app.Exists("id:comment-remove") {
-		t.Fatal("the card still shows the resolved comment")
 	}
 }
 

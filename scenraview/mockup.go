@@ -2,7 +2,6 @@ package scenraview
 
 import (
 	"slices"
-	"strings"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
@@ -142,27 +141,6 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		return core.SVGView{SVG: doc, Class: class, OnPress: press, OnLayout: layout, TestID: testID}
 	}
 	return core.Group{}
-}
-
-// classWarning tells the model of the classes of after's interfaces
-// that draw nothing, as NSGo knows no such utility, leaving out those
-// before had already.
-func classWarning(before, after flowfile.Project) string {
-	seen := map[string]bool{}
-	for _, c := range unknownClasses(before) {
-		seen[c] = true
-	}
-	var fresh []string
-	for _, c := range unknownClasses(after) {
-		if !seen[c] {
-			seen[c] = true
-			fresh = append(fresh, c)
-		}
-	}
-	if len(fresh) == 0 {
-		return ""
-	}
-	return "\nwarning: these classes are no Tailwind CSS utility and draw nothing: " + strings.Join(fresh, " ")
 }
 
 // unknownClasses are the classes of p's interfaces that draw nothing.

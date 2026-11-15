@@ -4,24 +4,17 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/nsgo-dev/nsgo/nsgotest"
 )
 
 func TestLongConversationKeepsTheComposer(t *testing.T) {
 	long := strings.Repeat("A long line of the reply. ", 20)
-	var replies []string
-	for range 6 {
-		replies = append(replies, deltas(`{"content":"`+strings.Repeat(long+`\n\n`, 6)+`"}`))
-	}
-	url := model(t, replies...)
-	app := nsgotest.Start(t, testRoot, nsgotest.Size(1280, 800),
-		nsgotest.Storage(map[string]string{keyBaseURL: url, keyModel: "m"}))
+	app, _, d := startAssistant(t)
 	newFileAt(t, app, "long.scenra")
+	app.Press("id:chat-new-file")
 	for i := range 6 {
-		app.Type("label:Message", "Question")
-		app.Press("label:Send")
-		app.WaitUntil(5*time.Second, func() bool { return len(app.Query("text:Question")) == i+1 && app.Exists("label:Send") })
+		d.script(reply{text: strings.Repeat(long+"\n\n", 6)})
+		send(app, "Question")
+		app.WaitUntil(5*time.Second, func() bool { return len(app.Query("text:Question")) == i+1 && app.Exists("role:button Send") })
 		app.Settle()
 	}
 	// The transcript scrolls and the composer stays in the window.

@@ -1,23 +1,28 @@
 // Command scenra is a desktop app designer with an AI assistant: flow
 // files open in tabs, each listing its screens' designs and flow charts on
-// the left, and on the right a conversation with an OpenAI-compatible
-// model that draws them with tools. It is scenraview's Window with the
-// app's menu, settings and usage statistics.
+// the left, and on the right a conversation with a coding agent, such as
+// Claude Code or Codex, run through Agio, which edits the file as the
+// scenra skill among the app's resources teaches. It is scenraview's
+// Window with the app's menu, settings and usage statistics.
 package main
 
 import (
+	"os"
+
 	"github.com/nsgo-dev/nsgo"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/desktop"
 	"github.com/nsgo-dev/nsgo/ui"
+	"github.com/oneo-me/nsgo-agio/agent"
+	"github.com/oneo-me/nsgo-agio/host"
 
-	"github.com/oneo-me/nsgo-scenra/agent"
 	"github.com/oneo-me/nsgo-scenra/cmd/scenra/locales"
 	"github.com/oneo-me/nsgo-scenra/scenraview"
 	words "github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
 func main() {
+	agent.Client = agent.ClientInfo{Name: "scenra", Title: "Scenra", Version: "1"}
 	nsgo.Run(Root, nsgo.WindowSize(1440, 900), nsgo.WindowConstraints(core.WindowConstraints{MinWidth: 1000, MinHeight: 480}))
 }
 
@@ -27,17 +32,27 @@ var shown *scenraview.Editor
 // Root is the app's window: the open documents' tabs in its title bar
 // over the entries of the one shown, the entry open and the assistant.
 func Root(cx *core.Scope) core.Node {
+	home, _ := os.UserHomeDir()
+	return root(cx, host.Options{Dir: home})
+}
+
+// root is Root with the agents agents runs.
+func root(cx *core.Scope, agents host.Options) core.Node {
 	colors := ui.ColorsOf(cx)
 	toasts := ui.NewToaster(cx)
 	settingsOpen := core.NewSignal(cx, false)
 	stats := newUsage(cx)
+	m, srv := startAgents(cx, agents)
 	e := scenraview.New(cx, scenraview.Options{
-		Provider:     func() agent.Provider { return provider(cx) },
+		Agents:       m,
 		OpenSettings: func() { settingsOpen.Set(true) },
 		Toaster:      toasts,
 		Remember:     "editor",
 		OnSend:       stats.sent,
 	})
+	if srv != nil {
+		srv.Attach(e)
+	}
 	shown = e
 	stats.start(e)
 	// Flow files opened from the Finder, or named on the command line.
@@ -81,7 +96,7 @@ func Root(cx *core.Scope) core.Node {
 
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
 		scenraview.Window{Editor: e, TitleBar: titleBar},
-		settingsDialog(cx, settingsOpen),
+		settingsDialog(cx, settingsOpen, m),
 		ui.Toasts{Toaster: toasts, Placement: ui.ToastBottomStart},
 	}}
 }

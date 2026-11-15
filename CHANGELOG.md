@@ -2,10 +2,9 @@
 
 ## [Unreleased]
 
-- Add Scenra, a flow chart editor with an AI assistant that draws the chart through tool calls.
+- Add Scenra, a flow chart editor whose assistant is a coding agent, such as Claude Code or Codex, run through Agio and taught the format by a bundled skill.
 - Add app screens with phone, tablet or desktop designs drawn from Tailwind-shaped primitives, listed beside their flow charts.
-- Add support for any OpenAI-compatible provider with tool calls, local servers included.
-- Add an assistant that works on the selection, resolves and removes the comments users leave on design elements, reads the other open files and reads the file's folder to chart its code.
+- Add an assistant that hears of the selection over MCP, resolves the comments users leave on design elements and works in the file's folder to chart its code, saving the user's changes as a message is sent and locking the file while it works.
 - Add plain-text `.scenra` files with a multi-screen example, opened in tabs beside a full-height assistant.
 - Open Scenra files from the Finder on macOS or the command line, save them in place, and reopen them at the next start.
 - Ask to save unsaved changes before a tab or the window drops them.

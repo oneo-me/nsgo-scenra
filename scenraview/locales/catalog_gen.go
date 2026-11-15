@@ -14,11 +14,12 @@ const Source = "en"
 // Catalog holds the messages' languages: en, the source, zh-Hans, and those other packages supply.
 var Catalog = i18n.NewCatalog("en", "zh-Hans")
 
-// Messages say the messages in one language; with mark, the source's
-// with their arguments marked, which a pseudo locale transforms.
+// Messages say the messages in one language, their times in the hour
+// cycle hc the user set; with mark, the source's with their arguments
+// marked, which a pseudo locale transforms.
 type Messages struct {
-	lang string
-	mark bool
+	lang, hc string
+	mark     bool
 }
 
 // In returns the messages in the catalog's language that suits locale
@@ -26,8 +27,13 @@ type Messages struct {
 func In(locale string) Messages { return Messages{lang: Catalog.Match(locale)} }
 
 // For returns the messages in the language the app shows under cx
-// (i18n.Language); a binding that says them follows it as it changes.
-func For(cx *core.Scope) Messages { return In(i18n.Language(cx)) }
+// (i18n.Language), their times as the user reads them; a binding that
+// says them follows both as they change.
+func For(cx *core.Scope) Messages {
+	msgs := In(i18n.Language(cx))
+	msgs.hc = cx.Env().LocaleSettings().HourCycle
+	return msgs
+}
 
 // Parameters names the parameters of each message that has some, by
 // its method, for the TSX declarations of the messages
@@ -37,9 +43,6 @@ var Parameters = map[string][]string{
 	"OpenFailed":            {"error_"},
 	"SaveFailed":            {"error_"},
 	"SaveChanges":           {"name"},
-	"Worked":                {"seconds"},
-	"Working":               {"seconds"},
-	"RanTools":              {"count"},
 	"ScreenCount":           {"count"},
 	"FlowCount":             {"count"},
 	"ResolveComment":        {"path", "comment"},
@@ -56,9 +59,6 @@ type Translation struct {
 	OpenFailed            func(error_ string) string
 	SaveFailed            func(error_ string) string
 	SaveChanges           func(name string) string
-	Worked                func(seconds int) string
-	Working               func(seconds int) string
-	RanTools              func(count int) string
 	ScreenCount           func(count int) string
 	FlowCount             func(count int) string
 	ResolveComment        func(path string, comment string) string
@@ -89,44 +89,14 @@ const (
 	textDontSave
 	textAssistant
 	textNewChat
-	textMessage
-	textPlaceholder
-	textSend
-	textStop
-	textJumpToLatest
 	textEmptyTitle
 	textEmptyDetail
-	textNoProvider
-	textOpenSettings
-	textThinking
-	textStopped
-	textFailed
-	textRetry
-	textToolAddNodes
-	textToolUpdateNode
-	textToolRemoveNodes
-	textToolAddEdges
-	textToolRemoveEdges
-	textToolSetLayout
-	textToolReplaceFlow
-	textToolListDir
-	textToolReadFile
-	textToolGlob
-	textToolGrep
 	textCancel
 	textStatusTodo
 	textStatusDoing
 	textStatusDone
 	textStatusBlocked
 	textStatusSkipped
-	textToolGetProject
-	textToolAddScreen
-	textToolSetUI
-	textToolRemoveScreen
-	textToolAddFlow
-	textToolRemoveFlow
-	textToolReplaceProject
-	textToolShow
 	textScreens
 	textScreensEmpty
 	textFlows
@@ -139,8 +109,6 @@ const (
 	textRemoveComment
 	textAskAssistant
 	textResolveComments
-	textToolSetElement
-	textToolResolveComment
 	numTexts
 )
 
@@ -167,44 +135,14 @@ var keyOfText = [numTexts]string{
 	"dontSave",
 	"assistant",
 	"newChat",
-	"message",
-	"placeholder",
-	"send",
-	"stop",
-	"jumpToLatest",
 	"emptyTitle",
 	"emptyDetail",
-	"noProvider",
-	"openSettings",
-	"thinking",
-	"stopped",
-	"failed",
-	"retry",
-	"toolAddNodes",
-	"toolUpdateNode",
-	"toolRemoveNodes",
-	"toolAddEdges",
-	"toolRemoveEdges",
-	"toolSetLayout",
-	"toolReplaceFlow",
-	"toolListDir",
-	"toolReadFile",
-	"toolGlob",
-	"toolGrep",
 	"cancel",
 	"statusTodo",
 	"statusDoing",
 	"statusDone",
 	"statusBlocked",
 	"statusSkipped",
-	"toolGetProject",
-	"toolAddScreen",
-	"toolSetUI",
-	"toolRemoveScreen",
-	"toolAddFlow",
-	"toolRemoveFlow",
-	"toolReplaceProject",
-	"toolShow",
 	"screens",
 	"screensEmpty",
 	"flows",
@@ -217,8 +155,6 @@ var keyOfText = [numTexts]string{
 	"removeComment",
 	"askAssistant",
 	"resolveComments",
-	"toolSetElement",
-	"toolResolveComment",
 }
 
 // textsEn are the messages without arguments in en.
@@ -243,44 +179,14 @@ var textsEn = i18n.NewTexts(""+
 	"Don't Save"+
 	"Assistant"+
 	"New Chat"+
-	"Message"+
-	"Describe the app or process you want to design…"+
-	"Send"+
-	"Stop"+
-	"Jump to the latest message"+
 	"Let's design an app together"+
 	"Describe an app or a process, and the assistant asks what it needs and draws its screens and flows on the left."+
-	"Set up an OpenAI-compatible provider to start chatting."+
-	"Open Settings"+
-	"Thinking"+
-	"Stopped"+
-	"Something went wrong."+
-	"Retry"+
-	"Add nodes"+
-	"Update node"+
-	"Remove nodes"+
-	"Connect"+
-	"Disconnect"+
-	"Layout"+
-	"Redraw the chart"+
-	"List folder"+
-	"Read file"+
-	"Find files"+
-	"Search files"+
 	"Cancel"+
 	"To do"+
 	"In progress"+
 	"Done"+
 	"Blocked"+
 	"Skipped"+
-	"Read the project"+
-	"Add screen"+
-	"Draw interface"+
-	"Remove screen"+
-	"Add flow"+
-	"Remove flow"+
-	"Redraw the project"+
-	"Show"+
 	"Screens"+
 	"The screens the assistant designs appear here."+
 	"Flows"+
@@ -292,9 +198,7 @@ var textsEn = i18n.NewTexts(""+
 	"Save"+
 	"Remove Comment"+
 	"Ask Assistant"+
-	"Ask the Assistant to Resolve Comments"+
-	"Change element"+
-	"Resolve comment",
+	"Ask the Assistant to Resolve Comments",
 	[]uint16{
 		8,
 		6,
@@ -316,44 +220,14 @@ var textsEn = i18n.NewTexts(""+
 		10,
 		9,
 		8,
-		7,
-		49,
-		4,
-		4,
-		26,
 		28,
 		111,
-		55,
-		13,
-		8,
-		7,
-		21,
-		5,
-		9,
-		11,
-		12,
-		7,
-		10,
-		6,
-		16,
-		11,
-		9,
-		10,
-		12,
 		6,
 		5,
 		11,
 		4,
 		7,
 		7,
-		16,
-		10,
-		14,
-		13,
-		8,
-		11,
-		18,
-		4,
 		7,
 		46,
 		5,
@@ -366,8 +240,6 @@ var textsEn = i18n.NewTexts(""+
 		14,
 		13,
 		37,
-		14,
-		15,
 	})
 
 // textsZhHans are the messages without arguments in zh-Hans.
@@ -392,44 +264,14 @@ var textsZhHans = i18n.NewTexts(""+
 	"不保存"+
 	"助手"+
 	"新对话"+
-	"消息"+
-	"描述你想设计的应用或流程…"+
-	"发送"+
-	"停止"+
-	"跳到最新消息"+
 	"一起来设计应用"+
 	"描述一个应用或流程，助手会询问所需的细节，并在左侧画出它的界面和流程。"+
-	"配置一个 OpenAI 兼容的提供商后即可开始对话。"+
-	"打开设置"+
-	"思考"+
-	"已停止"+
-	"出错了。"+
-	"重试"+
-	"添加节点"+
-	"修改节点"+
-	"删除节点"+
-	"连线"+
-	"删除连线"+
-	"布局"+
-	"重绘图表"+
-	"列出文件夹"+
-	"读取文件"+
-	"查找文件"+
-	"搜索文件"+
 	"取消"+
 	"待办"+
 	"进行中"+
 	"已完成"+
 	"受阻"+
 	"已跳过"+
-	"读取项目"+
-	"添加界面"+
-	"绘制界面"+
-	"删除界面"+
-	"添加流程"+
-	"删除流程"+
-	"重绘项目"+
-	"定位"+
 	"界面"+
 	"助手设计的界面会出现在这里。"+
 	"流程"+
@@ -441,9 +283,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"保存"+
 	"删除评论"+
 	"问助手"+
-	"让助手处理评论"+
-	"修改元素"+
-	"处理评论",
+	"让助手处理评论",
 	[]uint16{
 		9,
 		9,
@@ -465,44 +305,14 @@ var textsZhHans = i18n.NewTexts(""+
 		9,
 		6,
 		9,
-		6,
-		39,
-		6,
-		6,
-		18,
 		21,
 		105,
-		62,
-		12,
-		6,
-		9,
-		12,
-		6,
-		12,
-		12,
-		12,
-		6,
-		12,
-		6,
-		12,
-		15,
-		12,
-		12,
-		12,
 		6,
 		6,
 		9,
 		9,
 		6,
 		9,
-		12,
-		12,
-		12,
-		12,
-		12,
-		12,
-		12,
-		6,
 		6,
 		42,
 		6,
@@ -515,8 +325,6 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		9,
 		21,
-		12,
-		12,
 	})
 
 // texts returns the messages without arguments in lang, nil for a
@@ -584,15 +392,6 @@ func Supply(lang string, t Translation) {
 	}
 	if t.SaveChanges != nil {
 		s.SaveChanges = t.SaveChanges
-	}
-	if t.Worked != nil {
-		s.Worked = t.Worked
-	}
-	if t.Working != nil {
-		s.Working = t.Working
-	}
-	if t.RanTools != nil {
-		s.RanTools = t.RanTools
 	}
 	if t.ScreenCount != nil {
 		s.ScreenCount = t.ScreenCount
@@ -869,41 +668,6 @@ func NewChat(cx *core.Scope) string { return For(cx).NewChat() }
 // NewChat is the package's NewChat in the language of msgs.
 func (msgs Messages) NewChat() string { return msgs.text(textNewChat) }
 
-// Message says "Message"
-// in the language the app shows under cx.
-func Message(cx *core.Scope) string { return For(cx).Message() }
-
-// Message is the package's Message in the language of msgs.
-func (msgs Messages) Message() string { return msgs.text(textMessage) }
-
-// Placeholder says "Describe the app or process you want to design…"
-// in the language the app shows under cx.
-func Placeholder(cx *core.Scope) string { return For(cx).Placeholder() }
-
-// Placeholder is the package's Placeholder in the language of msgs.
-func (msgs Messages) Placeholder() string { return msgs.text(textPlaceholder) }
-
-// Send says "Send"
-// in the language the app shows under cx.
-func Send(cx *core.Scope) string { return For(cx).Send() }
-
-// Send is the package's Send in the language of msgs.
-func (msgs Messages) Send() string { return msgs.text(textSend) }
-
-// Stop says "Stop"
-// in the language the app shows under cx.
-func Stop(cx *core.Scope) string { return For(cx).Stop() }
-
-// Stop is the package's Stop in the language of msgs.
-func (msgs Messages) Stop() string { return msgs.text(textStop) }
-
-// JumpToLatest says "Jump to the latest message"
-// in the language the app shows under cx.
-func JumpToLatest(cx *core.Scope) string { return For(cx).JumpToLatest() }
-
-// JumpToLatest is the package's JumpToLatest in the language of msgs.
-func (msgs Messages) JumpToLatest() string { return msgs.text(textJumpToLatest) }
-
 // EmptyTitle says "Let's design an app together"
 // in the language the app shows under cx.
 func EmptyTitle(cx *core.Scope) string { return For(cx).EmptyTitle() }
@@ -917,202 +681,6 @@ func EmptyDetail(cx *core.Scope) string { return For(cx).EmptyDetail() }
 
 // EmptyDetail is the package's EmptyDetail in the language of msgs.
 func (msgs Messages) EmptyDetail() string { return msgs.text(textEmptyDetail) }
-
-// NoProvider says "Set up an OpenAI-compatible provider to start chatting."
-// in the language the app shows under cx.
-func NoProvider(cx *core.Scope) string { return For(cx).NoProvider() }
-
-// NoProvider is the package's NoProvider in the language of msgs.
-func (msgs Messages) NoProvider() string { return msgs.text(textNoProvider) }
-
-// OpenSettings says "Open Settings"
-// in the language the app shows under cx.
-func OpenSettings(cx *core.Scope) string { return For(cx).OpenSettings() }
-
-// OpenSettings is the package's OpenSettings in the language of msgs.
-func (msgs Messages) OpenSettings() string { return msgs.text(textOpenSettings) }
-
-// Worked says "Worked for {seconds, number}s"
-// in the language the app shows under cx.
-func Worked(cx *core.Scope, seconds int) string { return For(cx).Worked(seconds) }
-
-// Worked is the package's Worked in the language of msgs.
-func (msgs Messages) Worked(seconds int) string {
-	if i18n.IsPseudo(msgs.lang) {
-		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.Worked(seconds))
-	}
-	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
-		if f := supplied[lang].Worked; f != nil {
-			return f(seconds)
-		}
-		switch lang {
-		case "", "en":
-			return "Worked for " + msgs.arg(i18n.FormatNumber("en", float64(seconds))) + "s"
-		case "zh-Hans":
-			return "用时 " + i18n.FormatNumber("zh-Hans", float64(seconds)) + " 秒"
-		}
-	}
-}
-
-// Working says "Working for {seconds, number}s"
-// in the language the app shows under cx.
-func Working(cx *core.Scope, seconds int) string { return For(cx).Working(seconds) }
-
-// Working is the package's Working in the language of msgs.
-func (msgs Messages) Working(seconds int) string {
-	if i18n.IsPseudo(msgs.lang) {
-		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.Working(seconds))
-	}
-	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
-		if f := supplied[lang].Working; f != nil {
-			return f(seconds)
-		}
-		switch lang {
-		case "", "en":
-			return "Working for " + msgs.arg(i18n.FormatNumber("en", float64(seconds))) + "s"
-		case "zh-Hans":
-			return "已用时 " + i18n.FormatNumber("zh-Hans", float64(seconds)) + " 秒"
-		}
-	}
-}
-
-// RanTools says "{count, plural, one {Used # tool} other {Used # tools}}"
-// in the language the app shows under cx.
-func RanTools(cx *core.Scope, count int) string { return For(cx).RanTools(count) }
-
-// RanTools is the package's RanTools in the language of msgs.
-func (msgs Messages) RanTools(count int) string {
-	if i18n.IsPseudo(msgs.lang) {
-		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.RanTools(count))
-	}
-	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
-		if f := supplied[lang].RanTools; f != nil {
-			return f(count)
-		}
-		switch lang {
-		case "", "en":
-			var b strings.Builder
-			switch i18n.Cardinal("en", float64(count)) {
-			case i18n.One:
-				b.WriteString("Used ")
-				b.WriteString(msgs.arg(i18n.FormatNumber("en", float64(count))))
-				b.WriteString(" tool")
-			default:
-				b.WriteString("Used ")
-				b.WriteString(msgs.arg(i18n.FormatNumber("en", float64(count))))
-				b.WriteString(" tools")
-			}
-			return b.String()
-		case "zh-Hans":
-			return "使用了 " + i18n.FormatNumber("zh-Hans", float64(count)) + " 个工具"
-		}
-	}
-}
-
-// Thinking says "Thinking"
-// in the language the app shows under cx.
-func Thinking(cx *core.Scope) string { return For(cx).Thinking() }
-
-// Thinking is the package's Thinking in the language of msgs.
-func (msgs Messages) Thinking() string { return msgs.text(textThinking) }
-
-// Stopped says "Stopped"
-// in the language the app shows under cx.
-func Stopped(cx *core.Scope) string { return For(cx).Stopped() }
-
-// Stopped is the package's Stopped in the language of msgs.
-func (msgs Messages) Stopped() string { return msgs.text(textStopped) }
-
-// Failed says "Something went wrong."
-// in the language the app shows under cx.
-func Failed(cx *core.Scope) string { return For(cx).Failed() }
-
-// Failed is the package's Failed in the language of msgs.
-func (msgs Messages) Failed() string { return msgs.text(textFailed) }
-
-// Retry says "Retry"
-// in the language the app shows under cx.
-func Retry(cx *core.Scope) string { return For(cx).Retry() }
-
-// Retry is the package's Retry in the language of msgs.
-func (msgs Messages) Retry() string { return msgs.text(textRetry) }
-
-// ToolAddNodes says "Add nodes"
-// in the language the app shows under cx.
-func ToolAddNodes(cx *core.Scope) string { return For(cx).ToolAddNodes() }
-
-// ToolAddNodes is the package's ToolAddNodes in the language of msgs.
-func (msgs Messages) ToolAddNodes() string { return msgs.text(textToolAddNodes) }
-
-// ToolUpdateNode says "Update node"
-// in the language the app shows under cx.
-func ToolUpdateNode(cx *core.Scope) string { return For(cx).ToolUpdateNode() }
-
-// ToolUpdateNode is the package's ToolUpdateNode in the language of msgs.
-func (msgs Messages) ToolUpdateNode() string { return msgs.text(textToolUpdateNode) }
-
-// ToolRemoveNodes says "Remove nodes"
-// in the language the app shows under cx.
-func ToolRemoveNodes(cx *core.Scope) string { return For(cx).ToolRemoveNodes() }
-
-// ToolRemoveNodes is the package's ToolRemoveNodes in the language of msgs.
-func (msgs Messages) ToolRemoveNodes() string { return msgs.text(textToolRemoveNodes) }
-
-// ToolAddEdges says "Connect"
-// in the language the app shows under cx.
-func ToolAddEdges(cx *core.Scope) string { return For(cx).ToolAddEdges() }
-
-// ToolAddEdges is the package's ToolAddEdges in the language of msgs.
-func (msgs Messages) ToolAddEdges() string { return msgs.text(textToolAddEdges) }
-
-// ToolRemoveEdges says "Disconnect"
-// in the language the app shows under cx.
-func ToolRemoveEdges(cx *core.Scope) string { return For(cx).ToolRemoveEdges() }
-
-// ToolRemoveEdges is the package's ToolRemoveEdges in the language of msgs.
-func (msgs Messages) ToolRemoveEdges() string { return msgs.text(textToolRemoveEdges) }
-
-// ToolSetLayout says "Layout"
-// in the language the app shows under cx.
-func ToolSetLayout(cx *core.Scope) string { return For(cx).ToolSetLayout() }
-
-// ToolSetLayout is the package's ToolSetLayout in the language of msgs.
-func (msgs Messages) ToolSetLayout() string { return msgs.text(textToolSetLayout) }
-
-// ToolReplaceFlow says "Redraw the chart"
-// in the language the app shows under cx.
-func ToolReplaceFlow(cx *core.Scope) string { return For(cx).ToolReplaceFlow() }
-
-// ToolReplaceFlow is the package's ToolReplaceFlow in the language of msgs.
-func (msgs Messages) ToolReplaceFlow() string { return msgs.text(textToolReplaceFlow) }
-
-// ToolListDir says "List folder"
-// in the language the app shows under cx.
-func ToolListDir(cx *core.Scope) string { return For(cx).ToolListDir() }
-
-// ToolListDir is the package's ToolListDir in the language of msgs.
-func (msgs Messages) ToolListDir() string { return msgs.text(textToolListDir) }
-
-// ToolReadFile says "Read file"
-// in the language the app shows under cx.
-func ToolReadFile(cx *core.Scope) string { return For(cx).ToolReadFile() }
-
-// ToolReadFile is the package's ToolReadFile in the language of msgs.
-func (msgs Messages) ToolReadFile() string { return msgs.text(textToolReadFile) }
-
-// ToolGlob says "Find files"
-// in the language the app shows under cx.
-func ToolGlob(cx *core.Scope) string { return For(cx).ToolGlob() }
-
-// ToolGlob is the package's ToolGlob in the language of msgs.
-func (msgs Messages) ToolGlob() string { return msgs.text(textToolGlob) }
-
-// ToolGrep says "Search files"
-// in the language the app shows under cx.
-func ToolGrep(cx *core.Scope) string { return For(cx).ToolGrep() }
-
-// ToolGrep is the package's ToolGrep in the language of msgs.
-func (msgs Messages) ToolGrep() string { return msgs.text(textToolGrep) }
 
 // Cancel says "Cancel"
 // in the language the app shows under cx.
@@ -1155,62 +723,6 @@ func StatusSkipped(cx *core.Scope) string { return For(cx).StatusSkipped() }
 
 // StatusSkipped is the package's StatusSkipped in the language of msgs.
 func (msgs Messages) StatusSkipped() string { return msgs.text(textStatusSkipped) }
-
-// ToolGetProject says "Read the project"
-// in the language the app shows under cx.
-func ToolGetProject(cx *core.Scope) string { return For(cx).ToolGetProject() }
-
-// ToolGetProject is the package's ToolGetProject in the language of msgs.
-func (msgs Messages) ToolGetProject() string { return msgs.text(textToolGetProject) }
-
-// ToolAddScreen says "Add screen"
-// in the language the app shows under cx.
-func ToolAddScreen(cx *core.Scope) string { return For(cx).ToolAddScreen() }
-
-// ToolAddScreen is the package's ToolAddScreen in the language of msgs.
-func (msgs Messages) ToolAddScreen() string { return msgs.text(textToolAddScreen) }
-
-// ToolSetUI says "Draw interface"
-// in the language the app shows under cx.
-func ToolSetUI(cx *core.Scope) string { return For(cx).ToolSetUI() }
-
-// ToolSetUI is the package's ToolSetUI in the language of msgs.
-func (msgs Messages) ToolSetUI() string { return msgs.text(textToolSetUI) }
-
-// ToolRemoveScreen says "Remove screen"
-// in the language the app shows under cx.
-func ToolRemoveScreen(cx *core.Scope) string { return For(cx).ToolRemoveScreen() }
-
-// ToolRemoveScreen is the package's ToolRemoveScreen in the language of msgs.
-func (msgs Messages) ToolRemoveScreen() string { return msgs.text(textToolRemoveScreen) }
-
-// ToolAddFlow says "Add flow"
-// in the language the app shows under cx.
-func ToolAddFlow(cx *core.Scope) string { return For(cx).ToolAddFlow() }
-
-// ToolAddFlow is the package's ToolAddFlow in the language of msgs.
-func (msgs Messages) ToolAddFlow() string { return msgs.text(textToolAddFlow) }
-
-// ToolRemoveFlow says "Remove flow"
-// in the language the app shows under cx.
-func ToolRemoveFlow(cx *core.Scope) string { return For(cx).ToolRemoveFlow() }
-
-// ToolRemoveFlow is the package's ToolRemoveFlow in the language of msgs.
-func (msgs Messages) ToolRemoveFlow() string { return msgs.text(textToolRemoveFlow) }
-
-// ToolReplaceProject says "Redraw the project"
-// in the language the app shows under cx.
-func ToolReplaceProject(cx *core.Scope) string { return For(cx).ToolReplaceProject() }
-
-// ToolReplaceProject is the package's ToolReplaceProject in the language of msgs.
-func (msgs Messages) ToolReplaceProject() string { return msgs.text(textToolReplaceProject) }
-
-// ToolShow says "Show"
-// in the language the app shows under cx.
-func ToolShow(cx *core.Scope) string { return For(cx).ToolShow() }
-
-// ToolShow is the package's ToolShow in the language of msgs.
-func (msgs Messages) ToolShow() string { return msgs.text(textToolShow) }
 
 // Screens says "Screens"
 // in the language the app shows under cx.
@@ -1430,17 +942,3 @@ func (msgs Messages) ResolveCommentsPrompt(count int) string {
 		}
 	}
 }
-
-// ToolSetElement says "Change element"
-// in the language the app shows under cx.
-func ToolSetElement(cx *core.Scope) string { return For(cx).ToolSetElement() }
-
-// ToolSetElement is the package's ToolSetElement in the language of msgs.
-func (msgs Messages) ToolSetElement() string { return msgs.text(textToolSetElement) }
-
-// ToolResolveComment says "Resolve comment"
-// in the language the app shows under cx.
-func ToolResolveComment(cx *core.Scope) string { return For(cx).ToolResolveComment() }
-
-// ToolResolveComment is the package's ToolResolveComment in the language of msgs.
-func (msgs Messages) ToolResolveComment() string { return msgs.text(textToolResolveComment) }
