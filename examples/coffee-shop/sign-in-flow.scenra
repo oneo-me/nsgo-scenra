@@ -4,8 +4,13 @@ node tap "Tap Sign in" kind=start
 node check "Check password" kind=decision note="Lock after 5 tries"
 node home "Show the menu" kind=end
 node error "Show the error"
+node forgot "Tap Forgot password"
+node mail "Send a reset link" kind=data
+node reset "Set a new password"
 
 tap -> check
 check -> home "valid"
 check -> error "invalid"
 error ..> tap "try again"
+error -> forgot -> mail -> reset
+reset ..> tap

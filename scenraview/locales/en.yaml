@@ -2,9 +2,11 @@ edited: Edited
 newFile: New File
 newDesign: New Design
 newFlow: New Flow
+design: Design
+flow: Flow
+designOrFlow: Design or Flow
 openFolder: Open Folder…
 save: Save
-closeTab: Close Tab
 noFolder: Open a folder to design an app in its Scenra files, a design or a flow chart each.
 noFileOpen: Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow.
 files: Files
@@ -12,7 +14,7 @@ filesEmpty: The designs and flows of this folder appear here.
 expand: Expand
 fileName: Name
 fileExists: A file of that name exists in this folder.
-fileNameInvalid: A name cannot be empty, start with a dot or hold slashes.
+fileNameInvalid: A name cannot be empty, start with a dot, hold slashes or end in -flow.
 create: Create
 settings: Settings…
 zoomIn: Zoom In
@@ -23,9 +25,6 @@ diagramLabel: "Flow chart with {nodes, plural, one {# node} other {# nodes}} and
 openFailed: "Could not open the file: {error}"
 saveFailed: "Could not save the file: {error}"
 saved: Saved
-saveChanges: "Do you want to save the changes you made to {name}?"
-changesLost: Your changes will be lost if you don't save them.
-dontSave: Don't Save
 assistant: Assistant
 newChat: New Chat
 emptyTitle: Let's design an app together

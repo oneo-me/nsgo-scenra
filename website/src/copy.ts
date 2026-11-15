@@ -91,7 +91,7 @@ const en = {
     lead: 'The assistant runs the full height of the window while designs and flow charts fill the canvas beside it. Select anything to point the conversation at it.',
     points: [
       'Phone, tablet and desktop designs share the canvas with every flow chart.',
-      'Files open in tabs, each with its own undo history.',
+      'A screen’s design and its flow sit side by side, one switch apart.',
       'One conversation per folder, which the assistant reads and draws in.',
     ],
     preview: {
@@ -119,7 +119,7 @@ const en = {
   file: {
     kicker: 'Plain text',
     title: 'A file you can read, diff and commit.',
-    lead: 'Every project is one .scenra file: plain text that sits beside the code it describes. Review it in a pull request, edit it by hand, or keep it in version control.',
+    lead: 'Each screen is a .scenra design, with its flow beside it in -flow.scenra: plain text that sits beside the code it describes. Review it in a pull request, edit it by hand, or keep it in version control.',
   },
   privacy: {
     kicker: 'Statistics',
@@ -229,7 +229,7 @@ const en = {
         title: 'Local data',
         body: [],
         items: [
-          'Settings, the open folder, the paths of the files open in tabs and the random statistics ID live in the app’s own storage on your device.',
+          'Settings, the open folder, the path of the file shown and the random statistics ID live in the app’s own storage on your device.',
           'Scenra files are saved only in the folder you open.',
         ],
       },
@@ -340,7 +340,7 @@ const zh: typeof en = {
     lead: '助手占据窗口整列高度，界面设计和流程图在旁边的画布上铺开。选中任意元素，对话就围绕它继续。',
     points: [
       '手机、平板和桌面设计，与所有流程图共享同一块画布。',
-      '文件分标签打开，各自保留撤销记录。',
+      '界面的设计与流程并排存放，一键切换。',
       '每个文件夹一段对话，助手在其中阅读和绘制。',
     ],
     preview: {
@@ -368,7 +368,7 @@ const zh: typeof en = {
   file: {
     kicker: '纯文本',
     title: '一份能读、能 diff、能提交的文件',
-    lead: '每个项目都是一个 .scenra 文件：纯文本，放在它所描述的代码旁边。可以在 pull request 里审阅、手写修改，或者纳入版本控制。',
+    lead: '每个界面是一个 .scenra 设计，它的流程就在旁边的 -flow.scenra 里：纯文本，放在它所描述的代码旁边。可以在 pull request 里审阅、手写修改，或者纳入版本控制。',
   },
   privacy: {
     kicker: '使用统计',
@@ -474,7 +474,7 @@ const zh: typeof en = {
         title: '本地数据',
         body: [],
         items: [
-          '设置、打开的文件夹、标签页中打开文件的路径和随机统计 ID 保存在应用自己的设备存储中。',
+          '设置、打开的文件夹、当前文件的路径和随机统计 ID 保存在应用自己的设备存储中。',
           'Scenra 文件只会保存在你打开的文件夹中。',
         ],
       },

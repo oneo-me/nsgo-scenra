@@ -16,15 +16,16 @@ import (
 // The views show an Editor. An app composes them, or shows its Window;
 // each follows the document the editor shows.
 
-// TabBar is a tab for each open document. As the window's TitleBar, it drags the window and keeps clear
-// of the window controls.
-type TabBar struct {
+// Header names the document shown and switches between a design and its
+// flow. As the window's TitleBar, it drags the window and keeps clear of
+// the window controls.
+type Header struct {
 	Editor   *Editor
 	TitleBar bool
 }
 
 // Render implements core.Node.
-func (t TabBar) Render(cx *core.Scope) core.Node { return titleBar(cx, t.Editor, t.TitleBar) }
+func (h Header) Render(cx *core.Scope) core.Node { return header(cx, h.Editor, h.TitleBar) }
 
 // Sidebar is the open folder's Scenra files as a tree, which shows the
 // one chosen and makes new ones.
@@ -52,7 +53,7 @@ type Assistant struct {
 // Render implements core.Node.
 func (a Assistant) Render(cx *core.Scope) core.Node { return assistantPane(cx, a.Editor.a, a.TitleBar) }
 
-// Window is Scenra's layout: the TabBar over the Sidebar and the
+// Window is Scenra's layout: the Header over the Sidebar and the
 // Workspace, beside the Assistant running the window's height, whose
 // width the user drags. With TitleBar, its top is the window's title bar.
 type Window struct {
@@ -67,7 +68,7 @@ func (w Window) Render(cx *core.Scope) core.Node {
 	chatWidth := core.NewSignal(cx, core.Points(400))
 	return ui.ResizablePanelGroup{Style: ui.FillRest, HandleLabel: tr.Assistant(), Panels: []base.ResizablePanel{
 		{MinSize: 640, Children: []core.Node{core.View{Style: ui.FillRest, Children: []core.Node{
-			TabBar{Editor: e, TitleBar: w.TitleBar},
+			Header{Editor: e, TitleBar: w.TitleBar},
 			core.View{Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{Sidebar{e}, Workspace{e}}},
 		}}}},
 		{Size: chatWidth.Get, OnResize: chatWidth.Set, MinSize: 320, MaxSize: 720, Children: []core.Node{Assistant{Editor: e, TitleBar: w.TitleBar}}},

@@ -19,11 +19,10 @@ import (
 // TestMain gives the platform the main thread under nsgo test -target.
 func TestMain(m *testing.M) { nsgotest.Main(m) }
 
-// The storage keys of the folder and files the test app keeps open.
+// The storage keys of the folder and file the test app keeps open.
 const (
-	keyFolder     = "editor.folder"
-	keyOpenFiles  = "editor.openFiles"
-	keyActiveFile = "editor.activeFile"
+	keyFolder = "editor.folder"
+	keyFile   = "editor.file"
 )
 
 // folderOfFiles writes files, by their paths with slashes, in a new
@@ -64,10 +63,13 @@ func startEditor(t *testing.T, opts ...nsgotest.Option) (*nsgotest.App, *Editor)
 	return app, e
 }
 
-// tabNames are the names of the open tabs, in order.
-func tabNames(app *nsgotest.App) []string {
+// shownName is the name the header gives the file shown.
+func shownName(app *nsgotest.App) string { return app.Find("id:header >> id:file-name").Text }
+
+// treeNames are the names of the tree's rows, in order.
+func treeNames(app *nsgotest.App) []string {
 	var names []string
-	for _, v := range app.Query("id:title-bar >> role:tab") {
+	for _, v := range app.Query("id:files >> role:treeitem") {
 		names = append(names, v.Props.Label)
 	}
 	return names
@@ -98,29 +100,25 @@ func TestShowsTheFolderAsATree(t *testing.T) {
 			t.Errorf("the tree shows %s", name)
 		}
 	}
-	// Choosing a file shows it in a tab.
+	// Choosing a file shows it in place of the one shown.
 	app.Press("id:files >> label:plan")
 	app.WaitFor("flow >> label:Research", time.Second)
 	app.Find("flow >> text:Read the docs")
 	app.Press("id:files >> label:home")
 	app.WaitFor("design >> text:Welcome", time.Second)
-	if got := tabNames(app); !slices.Equal(got, []string{"plan.scenra", "home.scenra"}) {
-		t.Fatalf("tabs %v", got)
+	if got := shownName(app); got != "home" {
+		t.Fatalf("the header names %q", got)
 	}
-	app.Press("id:title-bar >> label:plan.scenra")
-	app.WaitFor("flow >> label:Research", time.Second)
 	// A file another program makes shows in the tree.
 	os.WriteFile(filepath.Join(dir, "screens", "later.scenra"), []byte("flow\n"), 0o644)
 	app.WaitFor("id:files >> label:later", 5*time.Second)
 
-	// The folder and its files open again at the next start, the one
-	// shown too.
-	stored, _ := app.Storage().GetItem(keyOpenFiles)
-	again, _ := startEditor(t, nsgotest.Storage(map[string]string{keyFolder: dir, keyOpenFiles: stored,
-		keyActiveFile: filepath.Join(dir, "screens", "home.scenra")}))
-	if got := tabNames(again); !slices.Equal(got, []string{"plan.scenra", "home.scenra"}) {
-		t.Fatalf("restored tabs %v", got)
+	// The folder and the file shown open again at the next start.
+	stored, _ := app.Storage().GetItem(keyFile)
+	if stored != filepath.Join(dir, "screens", "home.scenra") {
+		t.Fatalf("kept %q", stored)
 	}
+	again, _ := startEditor(t, nsgotest.Storage(map[string]string{keyFolder: dir, keyFile: stored}))
 	again.Find("design >> text:Welcome")
 	again.WaitFor("id:files >> label:plan", time.Second)
 }
@@ -136,8 +134,8 @@ func TestOpeningAFileOpensItsFolder(t *testing.T) {
 	}
 	openPath(t, app, e, other)
 	app.WaitFor("flow >> label:Second", time.Second)
-	if got := tabNames(app); !slices.Equal(got, []string{"b.scenra"}) || core.Untracked(e.cx, e.Folder) != filepath.Dir(other) {
-		t.Fatalf("tabs %v in %s", got, core.Untracked(e.cx, e.Folder))
+	if got := shownName(app); got != "b" || core.Untracked(e.cx, e.Folder) != filepath.Dir(other) {
+		t.Fatalf("%s shown in %s", got, core.Untracked(e.cx, e.Folder))
 	}
 	app.WaitFor("id:files >> label:b", time.Second)
 	if app.Exists("id:files >> label:a") {
@@ -209,10 +207,13 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	app, e := startEditor(t)
 	openPath(t, app, e, dir)
 	app.WaitFor("id:files >> label:old", time.Second)
-	create := func(item, name string) {
+	ask := func(item string) {
 		app.Press("id:new-file")
 		app.Press("id:" + item)
 		app.WaitFor("id:new-file-dialog", time.Second)
+	}
+	create := func(item, name string) {
+		ask(item)
 		app.Type("id:new-file-name", name)
 		app.Press("id:new-file-create")
 		app.Settle()
@@ -222,23 +223,48 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	if data, err := os.ReadFile(filepath.Join(dir, "Sign in.scenra")); err != nil || string(data) != "design\n" {
 		t.Fatalf("the design: %q %v", data, err)
 	}
-	if got := tabNames(app); !slices.Equal(got, []string{"Sign in.scenra"}) {
-		t.Fatalf("tabs %v", got)
+	if got := shownName(app); got != "Sign in" {
+		t.Fatalf("the header names %q", got)
 	}
 	app.Find("id:files >> label:Sign in")
 	app.WaitForGone("id:new-file-dialog", time.Second)
-	// A name in use is refused.
-	create("new-design", "Sign in.scenra")
-	app.Find("id:new-file-problem")
-	app.Press("id:new-file-cancel")
-	app.WaitForGone("id:new-file-dialog", time.Second)
+	// A name in use, or one only a flow has, is refused.
+	for _, name := range []string{"Sign in.scenra", "Sign in-flow"} {
+		create("new-design", name)
+		app.Find("id:new-file-problem")
+		app.Press("id:new-file-cancel")
+		app.WaitForGone("id:new-file-dialog", time.Second)
+	}
+	// A new flow is the design's, beside it, which the header switches
+	// to.
+	ask("new-flow")
+	if got := app.Find("id:new-file-name").Text; got != "Sign in" {
+		t.Fatalf("the flow is named %q", got)
+	}
+	app.Press("id:new-file-create")
+	app.Settle()
+	if data, err := os.ReadFile(filepath.Join(dir, "Sign in-flow.scenra")); err != nil || string(data) != "flow\n" {
+		t.Fatalf("the design's flow: %q %v", data, err)
+	}
+	app.Press("id:pair-design")
+	app.WaitFor("id:files >> label:Sign in-flow", time.Second)
+	if got := shownName(app); got != "Sign in" {
+		t.Fatalf("the switch showed %q", got)
+	}
+	app.Press("id:pair-flow")
+	if got := shownName(app); got != "Sign in-flow" {
+		t.Fatalf("the switch showed %q", got)
+	}
 	// A flow goes in the folder selected.
 	app.Press(`id:files >> text:"flows"`)
 	create("new-flow", "checkout")
-	if data, err := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); err != nil || string(data) != "flow\n" {
+	if data, err := os.ReadFile(filepath.Join(dir, "flows", "checkout-flow.scenra")); err != nil || string(data) != "flow\n" {
 		t.Fatalf("the flow: %q %v", data, err)
 	}
-	app.Find("id:files >> label:checkout")
+	app.Find("id:files >> label:checkout-flow")
+	if app.Exists("id:pair") {
+		t.Fatal("a flow without its design switches")
+	}
 
 	// Saving writes the file the document came from.
 	app.Post(func() {
@@ -250,15 +276,28 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	app.Settle()
 	app.Post(e.Save)
 	app.Settle()
-	if data, _ := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); string(data) != "flow direction=right\n" {
+	if data, _ := os.ReadFile(filepath.Join(dir, "flows", "checkout-flow.scenra")); string(data) != "flow direction=right\n" {
 		t.Fatalf("the file was not saved:\n%s", data)
 	}
 }
 
-func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
-	path := writeFlow(t, "plan.scenra", "flow\nnode a \"Research\"\n")
+func TestTheTreeKeepsAFlowByItsDesign(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"sign-in.scenra": "design\n", "sign-in-flow.scenra": "flow\n", "sign-in-error.scenra": "design\n", "about.scenra": "design\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, dir)
+	app.WaitFor("id:files >> label:sign-in-error", time.Second)
+	if got := treeNames(app); !slices.Equal(got, []string{"about", "sign-in", "sign-in-flow", "sign-in-error"}) {
+		t.Fatalf("the tree %v", got)
+	}
+}
+
+func TestShowingAnotherFileSavesTheOneShown(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{"plan.scenra": "flow\nnode a \"Research\"\n", "home.scenra": "design\ntext \"Welcome\"\n"})
+	other := writeFlow(t, "other.scenra", "flow\n")
+	plan := filepath.Join(dir, "plan.scenra")
 	app, e := startEditor(t, nsgotest.PendingAlerts())
-	open := func() { openPath(t, app, e, path) }
 	relabel := func(label string) {
 		app.Post(func() {
 			d := e.shown()
@@ -267,51 +306,34 @@ func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
 			d.change(f, "")
 		})
 		app.Settle()
+		app.Find("id:file-edited")
 	}
-	closeTab := func() {
-		app.Post(e.CloseShown)
-		app.Settle()
-		if alerts := app.Alerts(); len(alerts) != 1 || !strings.Contains(alerts[0].Title, "plan.scenra") {
-			t.Fatalf("alerts %+v", alerts)
+	saved := func(label string) {
+		t.Helper()
+		if data, _ := os.ReadFile(plan); !strings.Contains(string(data), label) {
+			t.Fatalf("the file was not saved:\n%s", data)
+		}
+		if len(app.Alerts()) != 0 {
+			t.Fatalf("leaving the file asked: %+v", app.Alerts())
 		}
 	}
 
-	// Canceling keeps the tab.
-	open()
+	// Choosing another file saves the one shown.
+	openPath(t, app, e, plan)
 	relabel("Edited plan")
-	closeTab()
-	app.Answer(2)
-	app.Settle()
-	if got := tabNames(app); !slices.Equal(got, []string{"plan.scenra"}) {
-		t.Fatalf("after canceling, the tabs are %v", got)
-	}
+	app.WaitFor("id:files >> label:home", time.Second)
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome", time.Second)
+	saved("Edited plan")
 
-	// Saving writes the file before the tab closes.
-	closeTab()
-	app.Answer(0)
-	app.Settle()
-	if data, _ := os.ReadFile(path); !strings.Contains(string(data), "Edited plan") {
-		t.Fatalf("the file was not saved:\n%s", data)
-	}
-	if got := tabNames(app); len(got) != 0 {
-		t.Fatalf("after closing the last tab, the tabs are %v", got)
-	}
-
-	// Not saving drops the changes.
-	open()
-	relabel("Dropped")
-	closeTab()
-	app.Answer(1)
-	app.Settle()
-	if data, _ := os.ReadFile(path); strings.Contains(string(data), "Dropped") {
-		t.Fatal("not saving saved")
-	}
-
-	// A clean document goes without asking.
-	app.Post(e.CloseShown)
-	app.Settle()
-	if len(app.Alerts()) != 0 {
-		t.Fatalf("a clean document asked: %+v", app.Alerts())
+	// So does opening another folder.
+	app.Press("id:files >> label:plan")
+	app.WaitFor("flow >> label:Edited plan", time.Second)
+	relabel("Moved on")
+	openPath(t, app, e, other)
+	saved("Moved on")
+	if got := shownName(app); got != "other" {
+		t.Fatalf("the header names %q", got)
 	}
 }
 
@@ -378,8 +400,8 @@ func TestAnotherAppShowsOneFile(t *testing.T) {
 	app.WaitFor("id:files >> label:browse", time.Second)
 	app.Press("id:files >> label:browse")
 	app.WaitFor("flow >> label:Browse", time.Second)
-	if app.Exists("id:title-bar") || app.Exists("id:composer") {
-		t.Fatal("the views shown brought the tabs or the assistant")
+	if app.Exists("id:header") || app.Exists("id:composer") {
+		t.Fatal("the views shown brought the header or the assistant")
 	}
 	if _, ok := app.Storage().GetItem(keyFolder); ok {
 		t.Fatal("an editor that remembers nothing kept its folder")

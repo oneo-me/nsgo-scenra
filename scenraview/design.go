@@ -171,7 +171,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	c := newDesignCanvas(cx)
 	look := core.NewMemo(cx, func() string { return e.cur().doc.Get().Format() })
 	// Another design shows fitted.
-	shown := core.NewMemo(cx, func() int { return e.cur().id })
+	shown := core.NewMemo(cx, e.cur)
 	cx.Effect(func() {
 		shown.Get()
 		cx.Post(func() { c.fit(false) })

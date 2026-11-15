@@ -30,8 +30,9 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 
 ## Features
 
-- Scenra works in a folder: the left shows its Scenra files as a tree, each one design or one flow chart, the files you choose open in tabs across the window's top, and the conversation runs the window's height on the right.
-- ⌘S saves a file in place, and the folder and its open files reopen at the next start.
+- Scenra works in a folder: the left shows its Scenra files as a tree, each one design or one flow chart, the file you choose shows beside it, and the conversation runs the window's height on the right.
+- A screen's design `sign-in.scenra` and its flow `sign-in-flow.scenra` sit side by side, and the bar above switches between them.
+- Choosing another file saves the one shown, as does ⌘S, and the folder and its file reopen at the next start.
 - Phone, tablet and desktop designs are drawn from boxes, texts, icons, images and SVG shaped by Tailwind CSS classes, so a draft can look like anything; zoom, pan and select its elements as in the flow charts.
 - The assistant is a coding agent you have installed, such as Claude Code, Codex, pi or CodeBuddy Code: it asks what it needs, then writes and makes the folder's files as the Scenra skill teaches, and each redraws as it writes.
 - The assistant works on what you select, resolves the comments you leave on design elements, and works in the open folder, so it can chart how the code there works.
@@ -66,7 +67,7 @@ Release builds send anonymous usage statistics to Umami: how often and how long 
 
 ## Use in your app
 
-`scenraview` gives other NSGo apps Scenra's editor for `.scenra` files: an `Editor` of a folder and its open files, and views of it, the `Window` as Scenra shows it, or a `TabBar`, `Sidebar`, `Workspace` and `Assistant` to lay out themselves. The assistant runs the agents of an [Agio](https://github.com/oneo-me/nsgo-agio) backend; give them the skill in `cmd/scenra/resources/skills/scenra` and the `Server` that tells them what the user sees.
+`scenraview` gives other NSGo apps Scenra's editor for `.scenra` files: an `Editor` of a folder and the file shown, and views of it, the `Window` as Scenra shows it, or a `Header`, `Sidebar`, `Workspace` and `Assistant` to lay out themselves. The assistant runs the agents of an [Agio](https://github.com/oneo-me/nsgo-agio) backend; give them the skill in `cmd/scenra/resources/skills/scenra` and the `Server` that tells them what the user sees.
 
 ```sh
 go get github.com/oneo-me/nsgo-scenra

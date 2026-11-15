@@ -3,7 +3,6 @@ package scenraview
 import (
 	"os"
 	"path/filepath"
-	"slices"
 	"time"
 
 	"github.com/nsgo-dev/nsgo/ui"
@@ -50,11 +49,7 @@ func (e *Editor) watch() {
 			case <-done:
 				return
 			case <-tick.C:
-				e.cx.Post(func() {
-					for _, d := range e.tabs.GetUntracked() {
-						e.reload(d)
-					}
-				})
+				e.cx.Post(func() { e.reload(e.shown()) })
 				if ticks++; ticks%scanEvery != 0 {
 					continue
 				}
@@ -118,15 +113,10 @@ func (e *Editor) reload(d *document) {
 	d.dirty.Set(false)
 }
 
-// saveQuietly writes the documents the user changed to their files,
-// without telling of it, so what an agent reads is what the user sees.
-func (e *Editor) saveQuietly() {
-	for _, d := range e.tabs.GetUntracked() {
-		if d.dirty.GetUntracked() {
-			e.save(d)
-		}
-	}
-}
+// saveQuietly writes the document shown to its file when the user
+// changed it, without telling of it, so what an agent reads is what the
+// user sees.
+func (e *Editor) saveQuietly() { e.SaveChanges() }
 
 // locked says the user cannot change the documents now, as the agent is
 // at work in the folder.
@@ -143,21 +133,17 @@ func (e *Editor) viewOf() string {
 	if dir == "" {
 		return "No folder is open in Scenra.\n"
 	}
-	shown := e.shown()
 	var files []fileView
-	for _, d := range e.tabs.GetUntracked() {
-		// What the agent just wrote counts.
-		e.reload(d)
-	}
+	// What the agent just wrote counts.
+	e.reload(e.shown())
 	found, _ := scan(dir, nil)
 	e.scannedFiles(dir, found, false)
-	shown = e.shown()
+	shown := e.shown()
 	for _, en := range found {
 		path := filepath.Join(dir, filepath.FromSlash(en.path))
 		fv := fileView{path: en.path}
-		if i := slices.IndexFunc(e.tabs.GetUntracked(), func(d *document) bool { return d.path == path }); i >= 0 {
-			d := e.tabs.GetUntracked()[i]
-			fv.file, fv.broken = d.doc.GetUntracked(), d.broken
+		if shown.path == path {
+			fv.file, fv.broken = shown.doc.GetUntracked(), shown.broken
 		} else if f, err := readFile(path); err != nil {
 			fv.broken = err.Error()
 		} else {

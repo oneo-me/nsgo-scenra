@@ -42,7 +42,6 @@ var Parameters = map[string][]string{
 	"DiagramLabel":          {"nodes", "edges"},
 	"OpenFailed":            {"error_"},
 	"SaveFailed":            {"error_"},
-	"SaveChanges":           {"name"},
 	"ResolveComment":        {"path", "comment"},
 	"ResolveCommentsPrompt": {"count"},
 }
@@ -56,7 +55,6 @@ type Translation struct {
 	DiagramLabel          func(nodes int, edges int) string
 	OpenFailed            func(error_ string) string
 	SaveFailed            func(error_ string) string
-	SaveChanges           func(name string) string
 	ResolveComment        func(path string, comment string) string
 	ResolveCommentsPrompt func(count int) string
 }
@@ -69,9 +67,11 @@ const (
 	textNewFile
 	textNewDesign
 	textNewFlow
+	textDesign
+	textFlow
+	textDesignOrFlow
 	textOpenFolder
 	textSave
-	textCloseTab
 	textNoFolder
 	textNoFileOpen
 	textFiles
@@ -87,8 +87,6 @@ const (
 	textFit
 	textLeftToRight
 	textSaved
-	textChangesLost
-	textDontSave
 	textAssistant
 	textNewChat
 	textEmptyTitle
@@ -117,9 +115,11 @@ var keyOfText = [numTexts]string{
 	"newFile",
 	"newDesign",
 	"newFlow",
+	"design",
+	"flow",
+	"designOrFlow",
 	"openFolder",
 	"save",
-	"closeTab",
 	"noFolder",
 	"noFileOpen",
 	"files",
@@ -135,8 +135,6 @@ var keyOfText = [numTexts]string{
 	"fit",
 	"leftToRight",
 	"saved",
-	"changesLost",
-	"dontSave",
 	"assistant",
 	"newChat",
 	"emptyTitle",
@@ -163,9 +161,11 @@ var textsEn = i18n.NewTexts(""+
 	"New File"+
 	"New Design"+
 	"New Flow"+
+	"Design"+
+	"Flow"+
+	"Design or Flow"+
 	"Open Folder…"+
 	"Save"+
-	"Close Tab"+
 	"Open a folder to design an app in its Scenra files, a design or a flow chart each."+
 	"Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow."+
 	"Files"+
@@ -173,7 +173,7 @@ var textsEn = i18n.NewTexts(""+
 	"Expand"+
 	"Name"+
 	"A file of that name exists in this folder."+
-	"A name cannot be empty, start with a dot or hold slashes."+
+	"A name cannot be empty, start with a dot, hold slashes or end in -flow."+
 	"Create"+
 	"Settings…"+
 	"Zoom In"+
@@ -181,8 +181,6 @@ var textsEn = i18n.NewTexts(""+
 	"Fit to Window"+
 	"Left to Right"+
 	"Saved"+
-	"Your changes will be lost if you don't save them."+
-	"Don't Save"+
 	"Assistant"+
 	"New Chat"+
 	"Let's design an app together"+
@@ -206,9 +204,11 @@ var textsEn = i18n.NewTexts(""+
 		8,
 		10,
 		8,
+		6,
+		4,
+		14,
 		14,
 		4,
-		9,
 		82,
 		93,
 		5,
@@ -216,7 +216,7 @@ var textsEn = i18n.NewTexts(""+
 		6,
 		4,
 		42,
-		57,
+		71,
 		6,
 		11,
 		7,
@@ -224,8 +224,6 @@ var textsEn = i18n.NewTexts(""+
 		13,
 		13,
 		5,
-		49,
-		10,
 		9,
 		8,
 		28,
@@ -252,9 +250,11 @@ var textsZhHans = i18n.NewTexts(""+
 	"新建文件"+
 	"新建设计"+
 	"新建流程"+
+	"设计"+
+	"流程"+
+	"设计或流程"+
 	"打开文件夹…"+
 	"保存"+
-	"关闭标签页"+
 	"打开一个文件夹，在其中的 Scenra 文件里设计应用，每个文件是一张设计图或一张流程图。"+
 	"在侧边栏选择一个文件、新建一个，或让助手设计应用、绘制流程。"+
 	"文件"+
@@ -262,7 +262,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"展开"+
 	"名称"+
 	"这个文件夹中已有同名文件。"+
-	"名称不能为空、不能以点开头，也不能包含斜杠。"+
+	"名称不能为空、不能以点开头、不能包含斜杠，也不能以 -flow 结尾。"+
 	"创建"+
 	"设置…"+
 	"放大"+
@@ -270,8 +270,6 @@ var textsZhHans = i18n.NewTexts(""+
 	"适合窗口"+
 	"从左到右"+
 	"已保存"+
-	"如果不保存，你的更改将会丢失。"+
-	"不保存"+
 	"助手"+
 	"新对话"+
 	"一起来设计应用"+
@@ -295,9 +293,11 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		12,
 		12,
-		18,
+		6,
 		6,
 		15,
+		18,
+		6,
 		119,
 		90,
 		6,
@@ -305,15 +305,13 @@ var textsZhHans = i18n.NewTexts(""+
 		6,
 		6,
 		39,
-		66,
+		91,
 		6,
 		9,
 		6,
 		6,
 		12,
 		12,
-		9,
-		45,
 		9,
 		6,
 		9,
@@ -398,9 +396,6 @@ func Supply(lang string, t Translation) {
 	if t.SaveFailed != nil {
 		s.SaveFailed = t.SaveFailed
 	}
-	if t.SaveChanges != nil {
-		s.SaveChanges = t.SaveChanges
-	}
 	if t.ResolveComment != nil {
 		s.ResolveComment = t.ResolveComment
 	}
@@ -448,6 +443,27 @@ func NewFlow(cx *core.Scope) string { return For(cx).NewFlow() }
 // NewFlow is the package's NewFlow in the language of msgs.
 func (msgs Messages) NewFlow() string { return msgs.text(textNewFlow) }
 
+// Design says "Design"
+// in the language the app shows under cx.
+func Design(cx *core.Scope) string { return For(cx).Design() }
+
+// Design is the package's Design in the language of msgs.
+func (msgs Messages) Design() string { return msgs.text(textDesign) }
+
+// Flow says "Flow"
+// in the language the app shows under cx.
+func Flow(cx *core.Scope) string { return For(cx).Flow() }
+
+// Flow is the package's Flow in the language of msgs.
+func (msgs Messages) Flow() string { return msgs.text(textFlow) }
+
+// DesignOrFlow says "Design or Flow"
+// in the language the app shows under cx.
+func DesignOrFlow(cx *core.Scope) string { return For(cx).DesignOrFlow() }
+
+// DesignOrFlow is the package's DesignOrFlow in the language of msgs.
+func (msgs Messages) DesignOrFlow() string { return msgs.text(textDesignOrFlow) }
+
 // OpenFolder says "Open Folder…"
 // in the language the app shows under cx.
 func OpenFolder(cx *core.Scope) string { return For(cx).OpenFolder() }
@@ -461,13 +477,6 @@ func Save(cx *core.Scope) string { return For(cx).Save() }
 
 // Save is the package's Save in the language of msgs.
 func (msgs Messages) Save() string { return msgs.text(textSave) }
-
-// CloseTab says "Close Tab"
-// in the language the app shows under cx.
-func CloseTab(cx *core.Scope) string { return For(cx).CloseTab() }
-
-// CloseTab is the package's CloseTab in the language of msgs.
-func (msgs Messages) CloseTab() string { return msgs.text(textCloseTab) }
 
 // NoFolder says "Open a folder to design an app in its Scenra files, a design or a flow chart each."
 // in the language the app shows under cx.
@@ -518,7 +527,7 @@ func FileExists(cx *core.Scope) string { return For(cx).FileExists() }
 // FileExists is the package's FileExists in the language of msgs.
 func (msgs Messages) FileExists() string { return msgs.text(textFileExists) }
 
-// FileNameInvalid says "A name cannot be empty, start with a dot or hold slashes."
+// FileNameInvalid says "A name cannot be empty, start with a dot, hold slashes or end in -flow."
 // in the language the app shows under cx.
 func FileNameInvalid(cx *core.Scope) string { return For(cx).FileNameInvalid() }
 
@@ -661,42 +670,6 @@ func Saved(cx *core.Scope) string { return For(cx).Saved() }
 
 // Saved is the package's Saved in the language of msgs.
 func (msgs Messages) Saved() string { return msgs.text(textSaved) }
-
-// SaveChanges says "Do you want to save the changes you made to {name}?"
-// in the language the app shows under cx.
-func SaveChanges(cx *core.Scope, name string) string { return For(cx).SaveChanges(name) }
-
-// SaveChanges is the package's SaveChanges in the language of msgs.
-func (msgs Messages) SaveChanges(name string) string {
-	if i18n.IsPseudo(msgs.lang) {
-		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.SaveChanges(name))
-	}
-	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
-		if f := supplied[lang].SaveChanges; f != nil {
-			return f(name)
-		}
-		switch lang {
-		case "", "en":
-			return "Do you want to save the changes you made to " + msgs.arg(name) + "?"
-		case "zh-Hans":
-			return "要保存对“" + name + "”所做的更改吗？"
-		}
-	}
-}
-
-// ChangesLost says "Your changes will be lost if you don't save them."
-// in the language the app shows under cx.
-func ChangesLost(cx *core.Scope) string { return For(cx).ChangesLost() }
-
-// ChangesLost is the package's ChangesLost in the language of msgs.
-func (msgs Messages) ChangesLost() string { return msgs.text(textChangesLost) }
-
-// DontSave says "Don't Save"
-// in the language the app shows under cx.
-func DontSave(cx *core.Scope) string { return For(cx).DontSave() }
-
-// DontSave is the package's DontSave in the language of msgs.
-func (msgs Messages) DontSave() string { return msgs.text(textDontSave) }
 
 // Assistant says "Assistant"
 // in the language the app shows under cx.

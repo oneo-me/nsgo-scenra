@@ -1,6 +1,6 @@
 // Command scenra is a desktop app designer with an AI assistant: a folder
 // of Scenra files, each a design or a flow chart, as a tree on the left,
-// the files chosen in tabs, and on the right a conversation with a coding
+// the file chosen beside it, and on the right a conversation with a coding
 // agent, such as Claude Code or Codex, run through Agio, which edits the
 // folder's files as the scenra skill among the app's resources teaches.
 // It is scenraview's Window with the app's menu, settings and usage
@@ -31,8 +31,8 @@ func main() {
 // shown is the editor of the window shown last, which tests reach.
 var shown *scenraview.Editor
 
-// Root is the app's window: the open documents' tabs in its title bar
-// over the folder's files, the file shown and the assistant.
+// Root is the app's window: the name of the file shown in its title bar
+// over the folder's files and the file, and the assistant.
 func Root(cx *core.Scope) core.Node {
 	home, _ := os.UserHomeDir()
 	return root(cx, host.Options{Dir: home})
@@ -66,12 +66,12 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 			}
 		}
 	})
-	// Closing the window with unsaved changes asks first.
+	// Closing the window saves the changes, and stays open when saving
+	// fails.
 	if w := desktop.CurrentWindow(cx); w != nil {
 		w.OnClosing(cx, func(c *desktop.WindowClosing) {
-			if core.Untracked(cx, e.Unsaved) {
+			if !e.SaveChanges() {
 				c.Cancel()
-				e.KeepAllChanges(w.Close)
 			}
 		})
 	}
@@ -97,7 +97,6 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		cx.OnKey("mod+shift+n", e.NewFlow)
 		cx.OnKey("mod+o", e.OpenFolder)
 		cx.OnKey("mod+s", e.Save)
-		cx.OnKey("mod+w", e.CloseShown)
 	}
 
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
@@ -127,7 +126,7 @@ func menu(cx *core.Scope, e *scenraview.Editor, settingsOpen *core.Signal[bool])
 			{Separator: true},
 			{Label: w.NewChat(), Shortcut: "mod+alt+n", OnSelect: e.NewChat},
 			{Separator: true},
-			{Label: w.CloseTab(), Shortcut: "mod+w", OnSelect: e.CloseShown},
+			{Role: desktop.MenuClose},
 		}},
 		{Label: tr.EditMenu(), Items: []desktop.MenuItem{
 			{Role: desktop.MenuUndo}, {Role: desktop.MenuRedo}, {Separator: true},

@@ -169,9 +169,19 @@ func newFileDialog(cx *core.Scope, e *Editor) core.Node {
 		colors := ui.ColorsOf(cx)
 		name := core.NewSignal(cx, "")
 		problem := core.NewSignal(cx, "")
+		// A new flow is named for the design shown, as its flow.
 		cx.Effect(func() {
 			e.naming.Get()
-			core.Untracked(cx, func() bool { name.Set(""); problem.Set(""); return true })
+			core.Untracked(cx, func() bool {
+				name.Set("")
+				if d := e.shown(); k == flowfile.Chart && d.doc.GetUntracked().Kind == flowfile.Design {
+					if design, flow := stem(d.name()); !flow {
+						name.Set(design)
+					}
+				}
+				problem.Set("")
+				return true
+			})
 		})
 		create := func() {
 			err := e.create(k, e.into, name.GetUntracked())

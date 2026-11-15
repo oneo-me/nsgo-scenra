@@ -2,9 +2,11 @@ edited: 已编辑
 newFile: 新建文件
 newDesign: 新建设计
 newFlow: 新建流程
+design: 设计
+flow: 流程
+designOrFlow: 设计或流程
 openFolder: 打开文件夹…
 save: 保存
-closeTab: 关闭标签页
 noFolder: 打开一个文件夹，在其中的 Scenra 文件里设计应用，每个文件是一张设计图或一张流程图。
 noFileOpen: 在侧边栏选择一个文件、新建一个，或让助手设计应用、绘制流程。
 files: 文件
@@ -12,7 +14,7 @@ filesEmpty: 这个文件夹中的设计和流程会出现在这里。
 expand: 展开
 fileName: 名称
 fileExists: 这个文件夹中已有同名文件。
-fileNameInvalid: 名称不能为空、不能以点开头，也不能包含斜杠。
+fileNameInvalid: 名称不能为空、不能以点开头、不能包含斜杠，也不能以 -flow 结尾。
 create: 创建
 settings: 设置…
 zoomIn: 放大
@@ -23,9 +25,6 @@ diagramLabel: "包含 {nodes, number} 个节点和 {edges, number} 条连线的�
 openFailed: "无法打开文件：{error}"
 saveFailed: "无法保存文件：{error}"
 saved: 已保存
-saveChanges: "要保存对“{name}”所做的更改吗？"
-changesLost: 如果不保存，你的更改将会丢失。
-dontSave: 不保存
 assistant: 助手
 newChat: 新对话
 emptyTitle: 一起来设计应用

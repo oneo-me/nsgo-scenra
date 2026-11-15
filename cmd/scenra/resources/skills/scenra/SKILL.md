@@ -5,12 +5,12 @@ description: Design app screens and draw flow charts in Scenra files (.scenra), 
 
 # Scenra files
 
-Scenra files (`.scenra`) are plain text, and each holds one thing: a design, a draft of how one screen of an app looks, or a flow chart, such as what the app does when the user presses a screen's main button. The user opens a folder in the Scenra editor, which lists the folder's Scenra files as a tree on the left and draws the one open in the middle. A project is a folder of them: give each screen a design file and each process a flow file, named after it, such as `sign-in.scenra` and `flows/signing-in.scenra`, and group them in folders as the app grows. When the user only wants a flow chart, make flow files only.
+Scenra files (`.scenra`) are plain text, and each holds one thing: a design, a draft of how one screen of an app looks, or a flow chart, such as what the app does when the user presses a screen's main button. The user opens a folder in the Scenra editor, which lists the folder's Scenra files as a tree on the left and draws the one open in the middle. A project is a folder of them: give each screen a design file named after it, such as `sign-in.scenra`, and put what happens on that screen in its flow beside it, named the same with `-flow`, such as `sign-in-flow.scenra`; the editor keeps the two together and switches between them. Group screens in folders as the app grows. When the user only wants a flow chart, make only a flow file, still named `<name>-flow.scenra`. Never name a design with `-flow` at the end.
 
 ## Working on files
 
 1. Before you change files, call the `get_view` tool of the `scenra` MCP server. It names the open folder and the file the user is looking at and what they selected, lists their comments and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger".
-2. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads open files as you write them, opens the files you make, and the user cannot edit them while you work.
+2. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads the file shown as you write it, shows the files you make, and the user cannot edit them while you work.
 3. After you write them, call `get_view` again: it reports the files that do not parse and the classes that draw nothing. Fix what it reports.
 4. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
 

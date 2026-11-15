@@ -122,23 +122,22 @@ const tones = ['indigo', 'green', 'amber', 'green', 'indigo', 'amber'];
       <div class="code-window" dir="ltr">
         <div class="code-bar">
           <span class="code-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="code-name">coffee-shop.scenra</span>
+          <span class="code-name">sign-in.scenra · sign-in-flow.scenra</span>
         </div>
-        <pre><code><span class="tok-comment"># Screens and flows in one plain-text file.</span>
-<span class="tok-key">screen</span> shop <span class="tok-str">"Coffee shop"</span> device=phone
-  <span class="tok-key">box</span> <span class="tok-prop">class</span>=<span class="tok-str">"gap-6 bg-white px-6 pt-16"</span>
-    <span class="tok-key">icon</span> coffee <span class="tok-prop">class</span>=<span class="tok-str">"size-14 text-amber-600"</span>
-    <span class="tok-key">text</span> <span class="tok-str">"Welcome back"</span> <span class="tok-prop">class</span>=<span class="tok-str">"text-3xl font-bold"</span>
-  <span class="tok-key">end</span>
+        <pre><code><span class="tok-comment"># sign-in.scenra: the screen.</span>
+<span class="tok-key">design</span> device=phone
+<span class="tok-key">box</span> <span class="tok-prop">class</span>=<span class="tok-str">"flex-1 gap-6 bg-white px-6 pt-16"</span>
+  <span class="tok-key">icon</span> coffee <span class="tok-prop">class</span>=<span class="tok-str">"size-14 text-amber-600"</span>
+  <span class="tok-key">text</span> <span class="tok-str">"Welcome back"</span> <span class="tok-prop">class</span>=<span class="tok-str">"text-3xl font-bold"</span>
 <span class="tok-key">end</span>
 
-<span class="tok-key">flow</span> order <span class="tok-str">"Order handling"</span>
-  <span class="tok-key">node</span> start <span class="tok-str">"Order placed"</span> kind=start
-  <span class="tok-key">node</span> check <span class="tok-str">"Check stock"</span> kind=decision note=<span class="tok-str">"Reserve every item"</span>
-  <span class="tok-key">node</span> pay <span class="tok-str">"Charge card"</span> status=doing
-  start -&gt; check
-  check -&gt; pay <span class="tok-str">"in stock"</span>
-<span class="tok-key">end</span></code></pre>
+<span class="tok-comment"># sign-in-flow.scenra: what happens on it, beside it.</span>
+<span class="tok-key">flow</span>
+<span class="tok-key">node</span> tap <span class="tok-str">"Tap Sign in"</span> kind=start
+<span class="tok-key">node</span> check <span class="tok-str">"Check password"</span> kind=decision note=<span class="tok-str">"Lock after 5 tries"</span>
+<span class="tok-key">node</span> home <span class="tok-str">"Show the menu"</span> kind=end
+tap -&gt; check
+check -&gt; home <span class="tok-str">"valid"</span></code></pre>
       </div>
     </div>
   </section>

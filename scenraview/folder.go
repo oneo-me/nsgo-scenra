@@ -10,6 +10,33 @@ import (
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
+// flowSuffix ends the name of a design's flow, which lives beside it:
+// sign-in-flow.scenra is the flow of sign-in.scenra.
+const flowSuffix = "-flow"
+
+// fileName is the file name of the design or flow named name.
+func fileName(name string, kind flowfile.Kind) string {
+	if kind == flowfile.Chart {
+		return name + flowSuffix + ".scenra"
+	}
+	return name + ".scenra"
+}
+
+// stem is the name of the design that the file at path is or whose flow
+// it is, and flow says it is named as a flow.
+func stem(path string) (name string, flow bool) {
+	name = strings.TrimSuffix(path, ".scenra")
+	trimmed := strings.TrimSuffix(name, flowSuffix)
+	return trimmed, trimmed != name
+}
+
+// pairOf is the design and the flow named alike in the folder of the file
+// at path, which is one of them.
+func pairOf(path string) (design, flow string) {
+	name, _ := stem(path)
+	return name + ".scenra", name + flowSuffix + ".scenra"
+}
+
 // scanLimit is how many files and folders a scan of the open folder looks
 // at, so a folder as large as a home folder stays quick to read.
 const scanLimit = 20000
@@ -145,7 +172,16 @@ func treeOf(files []entry) fileTree {
 				}
 				return 1
 			}
-			return strings.Compare(strings.ToLower(a), strings.ToLower(b))
+			// A design's flow follows it.
+			sa, fa := stem(strings.ToLower(a))
+			sb, fb := stem(strings.ToLower(b))
+			if c := strings.Compare(sa, sb); c != 0 || fa == fb {
+				return c
+			}
+			if fa {
+				return 1
+			}
+			return -1
 		})
 	}
 	return t

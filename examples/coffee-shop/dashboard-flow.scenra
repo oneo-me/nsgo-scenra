@@ -1,6 +1,6 @@
 flow
 
-node ask "Customer asks" kind=start
+node ask "Customer asks for a refund" kind=start note="From Orders"
 node check "Within 24 hours?" kind=decision
 node refund "Refund to card" kind=end
 node credit "Offer store credit" kind=end

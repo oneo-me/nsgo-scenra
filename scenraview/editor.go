@@ -8,7 +8,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/nsgo-dev/nsgo/base"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/ui"
 	uiflow "github.com/nsgo-dev/nsgo/ui/flow"
@@ -36,19 +35,16 @@ type Options struct {
 	// show.
 	Toaster *ui.Toaster
 	// Remember, when set, prefixes the storage keys under which the open
-	// folder, the files open in tabs and the one shown open again at the
-	// next start.
+	// folder and the file shown open again at the next start.
 	Remember string
 	// OnSend, when set, hears of each message sent to the assistant.
 	OnSend func()
 }
 
-// document is a Scenra file open in a tab: its content and path, its
-// history and what the user selected in it.
+// document is the Scenra file shown: its content and path, its history
+// and what the user selected in it.
 type document struct {
-	e *Editor
-	// id keys the document's tab.
-	id  int
+	e   *Editor
 	doc *core.Signal[flowfile.File]
 	// path is the file the document came from, which saving writes
 	// again; dirty says it changed since.
@@ -69,10 +65,10 @@ type document struct {
 	broken string
 }
 
-// Editor is a folder of Scenra files, the ones open for editing, a tab
-// each, and the one shown, with an assistant that works in the folder.
-// The views show an editor; an app showing one file opens just it and
-// leaves out the TabBar.
+// Editor is a folder of Scenra files and the one shown for editing, with
+// an assistant that works in the folder. Showing another file saves the
+// one shown. The views show an editor; an app showing one file opens just
+// it and leaves out the Header.
 type Editor struct {
 	cx   *core.Scope
 	opts Options
@@ -80,7 +76,6 @@ type Editor struct {
 	// files found in it.
 	folder *core.Signal[string]
 	files  *core.Signal[[]entry]
-	tabs   *core.Signal[[]*document]
 	active *core.Signal[*document]
 	// blank stands for the document shown while none is open.
 	blank *document
@@ -91,7 +86,6 @@ type Editor struct {
 	camera *uiflow.State
 	toasts *ui.Toaster
 	a      *assistant
-	ids    int
 	// scanning is the folder the scan reads, shared with its goroutine,
 	// and rescan asks it to read the folder now.
 	mu       sync.Mutex
@@ -107,7 +101,6 @@ func New(cx *core.Scope, opts Options) *Editor {
 		toasts = ui.NewToaster(cx)
 	}
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
-		tabs:   core.NewSignalFunc(cx, []*document(nil), func(a, b []*document) bool { return false }),
 		active: core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
 		camera: &uiflow.State{}, toasts: toasts, rescan: make(chan struct{}, 1)}
 	e.blank = e.newDocument(flowfile.File{}, "")
@@ -119,29 +112,22 @@ func New(cx *core.Scope, opts Options) *Editor {
 		cx.Post(e.camera.Fit)
 	})
 	if opts.Remember != "" {
-		e.remember(opts.Remember+".folder", opts.Remember+".openFiles", opts.Remember+".activeFile")
+		e.remember(opts.Remember+".folder", opts.Remember+".file")
 	}
 	return e
 }
 
-// remember opens the folder and the files open in tabs when the app last
-// quit, under the storage keys folder, list and active, and keeps them
-// there.
-func (e *Editor) remember(folder, list, active string) {
+// remember opens the folder and the file shown when the app last quit,
+// under the storage keys folder and file, and keeps them there.
+func (e *Editor) remember(folder, file string) {
 	cx := e.cx
-	e.restore(folder, list, active)
+	e.restore(folder, file)
 	cx.Effect(func() {
-		dir := e.folder.Get()
-		var paths []string
-		for _, d := range e.tabs.Get() {
-			paths = append(paths, d.path)
-		}
-		shown := e.cur().path
+		dir, shown := e.folder.Get(), e.cur().path
 		core.Untracked(cx, func() bool {
 			st := cx.Storage()
 			st.SetItem(folder, dir)
-			st.SetItem(list, strings.Join(paths, "\n"))
-			st.SetItem(active, shown)
+			st.SetItem(file, shown)
 			return true
 		})
 	})
@@ -150,35 +136,21 @@ func (e *Editor) remember(folder, list, active string) {
 // Toaster shows the editor's messages.
 func (e *Editor) Toaster() *ui.Toaster { return e.toasts }
 
-// restore opens the folder the storage keeps under folderKey, and its
-// files under listKey, leaving out those that are gone, and shows the
-// one under activeKey.
-func (e *Editor) restore(folderKey, listKey, activeKey string) {
+// restore opens the folder the storage keeps under folderKey, and shows
+// the file under fileKey unless it is gone.
+func (e *Editor) restore(folderKey, fileKey string) {
 	st := e.cx.Storage()
 	dir, _ := st.GetItem(folderKey)
 	if info, err := os.Stat(dir); dir == "" || err != nil || !info.IsDir() {
 		return
 	}
 	e.setFolder(dir)
-	list, _ := st.GetItem(listKey)
-	active, _ := st.GetItem(activeKey)
-	var shown *document
-	for _, path := range strings.Split(list, "\n") {
-		if path == "" || !e.inside(path) {
-			continue
-		}
-		f, err := readFile(path)
-		if err != nil {
-			continue
-		}
-		d := e.newDocument(f, path)
-		e.tabs.Set(append(e.tabs.GetUntracked(), d))
-		if shown == nil || path == active {
-			shown = d
-		}
+	path, _ := st.GetItem(fileKey)
+	if path == "" || !e.inside(path) {
+		return
 	}
-	if shown != nil {
-		e.active.Set(shown)
+	if f, err := readFile(path); err == nil {
+		e.active.Set(e.newDocument(f, path))
 	}
 }
 
@@ -196,8 +168,7 @@ func (e *Editor) newDocument(f flowfile.File, path string) *document {
 	cx := e.cx
 	never := func(a, b flowfile.File) bool { return false }
 	stacks := func(a, b []flowfile.File) bool { return false }
-	e.ids++
-	d := &document{e: e, id: e.ids, doc: core.NewSignalFunc(cx, f, never), path: path, dirty: core.NewSignal(cx, false),
+	d := &document{e: e, doc: core.NewSignalFunc(cx, f, never), path: path, dirty: core.NewSignal(cx, false),
 		selected: core.NewSignal(cx, ""), element: core.NewSignal(cx, ""),
 		undos: core.NewSignalFunc(cx, []flowfile.File(nil), stacks), redos: core.NewSignalFunc(cx, []flowfile.File(nil), stacks)}
 	d.mark()
@@ -217,13 +188,10 @@ func (e *Editor) cur() *document {
 func (e *Editor) shown() *document { return core.Untracked(e.cx, e.cur) }
 
 // empty says no document is open.
-func (e *Editor) empty() bool { return len(e.tabs.Get()) == 0 }
+func (e *Editor) empty() bool { return e.active.Get() == nil }
 
-// activate shows d's tab.
-func (e *Editor) activate(d *document) {
-	if e.active.GetUntracked() == d {
-		return
-	}
+// show shows d in place of the document shown.
+func (e *Editor) show(d *document) {
 	e.active.Set(d)
 	e.cx.Post(e.camera.Fit)
 }
@@ -263,26 +231,21 @@ func (e *Editor) setFolder(dir string) {
 }
 
 // openFolder opens the folder at dir in place of the open one, once the
-// changes of the files open are saved or discarded, and runs then, when
-// set, after; the open folder stays as it is.
-func (e *Editor) openFolder(dir string, then func()) {
+// changes of the document shown are saved; the open folder stays when
+// saving fails.
+func (e *Editor) openFolder(dir string) bool {
 	if abs, err := filepath.Abs(dir); err == nil && abs == e.folder.GetUntracked() {
-		if then != nil {
-			then()
-		}
-		return
+		return true
 	}
-	e.KeepAllChanges(func() {
-		e.a.remove()
-		e.cx.Batch(func() {
-			e.tabs.Set(nil)
-			e.active.Set(nil)
-			e.setFolder(dir)
-		})
-		if then != nil {
-			then()
-		}
+	if !e.SaveChanges() {
+		return false
+	}
+	e.a.remove()
+	e.cx.Batch(func() {
+		e.active.Set(nil)
+		e.setFolder(dir)
 	})
+	return true
 }
 
 // OpenFolder asks for a folder and opens it.
@@ -292,12 +255,12 @@ func (e *Editor) OpenFolder() {
 		case err != nil:
 			e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).OpenFailed(err.Error())})
 		case len(dirs) > 0 && dirs[0].Path != "":
-			e.openFolder(dirs[0].Path, nil)
+			e.openFolder(dirs[0].Path)
 		}
 	})
 }
 
-// OpenPath opens the folder at path, or the Scenra file at path in a tab,
+// OpenPath opens the folder at path, or shows the Scenra file at path,
 // opening the folder holding it first when it is not in the open one.
 func (e *Editor) OpenPath(path string) error {
 	if abs, err := filepath.Abs(path); err == nil {
@@ -308,28 +271,23 @@ func (e *Editor) OpenPath(path string) error {
 		return err
 	}
 	if info.IsDir() {
-		e.openFolder(path, nil)
+		e.openFolder(path)
 		return nil
 	}
 	f, err := readFile(path)
 	if err != nil {
 		return err
 	}
-	if e.inside(path) {
+	if e.inside(path) || e.openFolder(filepath.Dir(path)) {
 		e.openDoc(f, path)
-		return nil
 	}
-	e.openFolder(filepath.Dir(path), func() { e.openDoc(f, path) })
 	return nil
 }
 
-// open shows the file at path, which the sidebar chose, in a tab.
+// open shows the file at path, which the sidebar chose.
 func (e *Editor) open(path string) {
-	for _, d := range e.tabs.GetUntracked() {
-		if d.path == path {
-			e.activate(d)
-			return
-		}
+	if e.shown().path == path {
+		return
 	}
 	f, err := readFile(path)
 	if err != nil {
@@ -339,20 +297,13 @@ func (e *Editor) open(path string) {
 	e.openDoc(f, path)
 }
 
-// openDoc opens f from the file at path in a tab: the file's tab when it
-// is open already, else a new one.
+// openDoc shows f from the file at path, once the changes of the
+// document shown are saved; the document shown stays when saving fails.
 func (e *Editor) openDoc(f flowfile.File, path string) {
-	for _, d := range e.tabs.GetUntracked() {
-		if d.path == path {
-			e.activate(d)
-			return
-		}
+	if e.shown().path == path || !e.SaveChanges() {
+		return
 	}
-	d := e.newDocument(f, path)
-	e.cx.Batch(func() {
-		e.tabs.Set(append(slices.Clone(e.tabs.GetUntracked()), d))
-		e.activate(d)
-	})
+	e.show(e.newDocument(f, path))
 }
 
 // NewDesign and NewFlow ask for the name of a new design or flow, which
@@ -375,13 +326,17 @@ var (
 )
 
 // create makes a file of kind named name in the folder into, relative to
-// the open one, and opens it.
+// the open one, and opens it: name.scenra for a design, and
+// name-flow.scenra for a flow, which is the design name's flow.
 func (e *Editor) create(kind flowfile.Kind, into, name string) error {
 	name = strings.TrimSuffix(strings.TrimSpace(name), ".scenra")
-	if name == "" || strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, ".") {
+	if kind == flowfile.Chart {
+		name = strings.TrimSuffix(name, flowSuffix)
+	}
+	if name == "" || strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, ".") || strings.HasSuffix(name, flowSuffix) {
 		return errName
 	}
-	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(into), name+".scenra")
+	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(into), fileName(name, kind))
 	f := flowfile.File{Kind: kind}
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
 	if errors.Is(err, os.ErrExist) {
@@ -493,73 +448,11 @@ func (d *document) step(from, to *core.Signal[[]flowfile.File]) {
 func (e *Editor) Undo() { e.shown().undo() }
 func (e *Editor) Redo() { e.shown().redo() }
 
-// closeTab closes d's tab once its changes are saved or discarded.
-func (e *Editor) closeTab(d *document) {
-	e.keepChanges(d, func() {
-		tabs := slices.Clone(e.tabs.GetUntracked())
-		i := slices.Index(tabs, d)
-		if i < 0 {
-			return
-		}
-		tabs = slices.Delete(tabs, i, i+1)
-		e.cx.Batch(func() {
-			e.tabs.Set(tabs)
-			switch {
-			case len(tabs) == 0:
-				e.active.Set(nil)
-			case e.active.GetUntracked() == d:
-				e.activate(tabs[min(i, len(tabs)-1)])
-			}
-		})
-	})
-}
-
-// CloseShown closes the tab shown.
-func (e *Editor) CloseShown() {
-	if !e.empty() {
-		e.closeTab(e.shown())
-	}
-}
-
-// keepChanges asks what becomes of d's unsaved changes before it goes,
-// showing its tab, and runs then once they are saved or discarded;
-// canceling, or a save that fails, keeps the document.
-func (e *Editor) keepChanges(d *document, then func()) {
-	if !d.dirty.GetUntracked() {
-		then()
-		return
-	}
-	e.activate(d)
-	tr := locales.For(e.cx)
-	save, discard := tr.Save(), tr.DontSave()
-	base.ShowAlertDialog(e.cx, base.AlertDialog{
-		Title: tr.SaveChanges(d.name()), Description: tr.ChangesLost(),
-		Actions: []core.AlertAction{{Label: save}, {Label: discard, Role: core.AlertDestructive}, {Label: tr.Cancel(), Role: core.AlertCancel}},
-	}, func(label string) {
-		switch label {
-		case save:
-			if e.save(d) {
-				then()
-			}
-		case discard:
-			then()
-		}
-	})
-}
-
-// KeepAllChanges asks about each document's unsaved changes in turn, and
-// runs then once every one is saved or discarded.
-func (e *Editor) KeepAllChanges(then func()) { e.keepChangesFrom(0, then) }
-
-func (e *Editor) keepChangesFrom(i int, then func()) {
-	tabs := e.tabs.GetUntracked()
-	for ; i < len(tabs); i++ {
-		if d := tabs[i]; d.dirty.GetUntracked() {
-			e.keepChanges(d, func() { e.keepChangesFrom(i+1, then) })
-			return
-		}
-	}
-	then()
+// SaveChanges saves the changes of the document shown, and says none
+// are left unsaved.
+func (e *Editor) SaveChanges() bool {
+	d := e.shown()
+	return !d.dirty.GetUntracked() || e.save(d)
 }
 
 // Save writes the document shown to its file.
@@ -612,13 +505,9 @@ func (e *Editor) Empty() bool { return e.empty() }
 // Name is the file name of the document shown, "" while none is.
 func (e *Editor) Name() string { return e.cur().name() }
 
-// Edited says the document shown changed since it was last saved.
+// Edited says the document shown changed since it was last saved, which
+// showing another file or folder, sending a message or Save saves.
 func (e *Editor) Edited() bool { return e.cur().dirty.Get() }
-
-// Unsaved says some open document changed since it was last saved.
-func (e *Editor) Unsaved() bool {
-	return slices.ContainsFunc(e.tabs.Get(), func(d *document) bool { return d.dirty.Get() })
-}
 
 // File is the document shown.
 func (e *Editor) File() flowfile.File { return e.cur().doc.Get() }
