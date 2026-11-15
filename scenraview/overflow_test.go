@@ -8,9 +8,8 @@ import (
 
 func TestLongConversationKeepsTheComposer(t *testing.T) {
 	long := strings.Repeat("A long line of the reply. ", 20)
-	app, _, d := startAssistant(t)
-	newFileAt(t, app, "long.scenra")
-	app.Press("id:chat-new-file")
+	app, e, d := startAssistant(t)
+	openPath(t, app, e, t.TempDir())
 	for i := range 6 {
 		d.script(reply{text: strings.Repeat(long+"\n\n", 6)})
 		send(app, "Question")

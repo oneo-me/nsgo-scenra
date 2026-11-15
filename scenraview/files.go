@@ -1,9 +1,9 @@
 package scenraview
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/nsgo-dev/nsgo/ui"
@@ -30,14 +30,21 @@ func stampOf(path string) stamp {
 	return stamp{info.Size(), info.ModTime()}
 }
 
-// watch reads the open files again as they change, until the editor's
-// scope ends.
+// scanEvery is how many times the editor looks at the open files for
+// each time it reads the open folder for its Scenra files.
+const scanEvery = 4
+
+// watch reads the open files again as they change, and the open folder
+// for its Scenra files, off the UI's goroutine, until the editor's scope
+// ends.
 func (e *Editor) watch() {
 	done := make(chan struct{})
 	e.cx.Cleanup(func() { close(done) })
 	go func() {
 		tick := time.NewTicker(watchEvery)
 		defer tick.Stop()
+		var cache map[string]scanned
+		ticks, last := 0, ""
 		for {
 			select {
 			case <-done:
@@ -48,7 +55,22 @@ func (e *Editor) watch() {
 						e.reload(d)
 					}
 				})
+				if ticks++; ticks%scanEvery != 0 {
+					continue
+				}
+			case <-e.rescan:
 			}
+			e.mu.Lock()
+			dir := e.scanning
+			e.mu.Unlock()
+			if dir == "" {
+				continue
+			}
+			var files []entry
+			files, cache = scan(dir, cache)
+			first := dir != last
+			last = dir
+			e.cx.Post(func() { e.scannedFiles(dir, files, first) })
 		}
 	}()
 }
@@ -56,8 +78,8 @@ func (e *Editor) watch() {
 // mark notes the version of d's file the document holds, after reading
 // or writing it.
 func (d *document) mark() {
-	if path := d.path.GetUntracked(); path != "" {
-		d.stamp = stampOf(path)
+	if d.path != "" {
+		d.stamp = stampOf(d.path)
 	}
 }
 
@@ -67,7 +89,7 @@ func (d *document) mark() {
 // alone and tells of the error once, which the agent hears through the
 // server too.
 func (e *Editor) reload(d *document) {
-	path := d.path.GetUntracked()
+	path := d.path
 	if path == "" || d.dirty.GetUntracked() {
 		return
 	}
@@ -80,7 +102,7 @@ func (e *Editor) reload(d *document) {
 	if err != nil {
 		return
 	}
-	p, err := flowfile.ParseProject(string(data))
+	f, err := flowfile.Parse(string(data))
 	if err != nil {
 		if d.broken != err.Error() {
 			d.broken = err.Error()
@@ -89,62 +111,63 @@ func (e *Editor) reload(d *document) {
 		return
 	}
 	d.broken = ""
-	if p.Format() == d.doc.GetUntracked().Format() {
+	if f.Format() == d.doc.GetUntracked().Format() {
 		return
 	}
-	d.change(p, e.a.group(d))
+	d.change(f, e.a.group())
 	d.dirty.Set(false)
 }
 
-// saveQuietly writes d to its file when the user changed it, without
-// telling of it, so what an agent reads is what the user sees.
-func (e *Editor) saveQuietly(d *document) {
-	path := d.path.GetUntracked()
-	if path == "" || !d.dirty.GetUntracked() {
-		return
-	}
-	if err := writeFile(path, d.doc.GetUntracked().Format()); err != nil {
-		e.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: locales.For(e.cx).SaveFailed(err.Error())})
-		return
-	}
-	d.mark()
-	d.dirty.Set(false)
-}
-
-// locked says the user cannot change d now, as its agent is at work on
-// it.
-func (e *Editor) locked(d *document) bool { return e.a.busy(d) }
-
-// Working says the agent is at work on the document shown, which the
-// user cannot change meanwhile; a caller reading it follows.
-func (e *Editor) Working() bool { return e.a.working(e.cur()) }
-
-// viewOf is what the Server tells an agent of the file at path: what the
-// user sees of it and its problems.
-func (e *Editor) viewOf(path string) (string, bool) {
-	if !filepath.IsAbs(path) {
-		return fmt.Sprintf("error: %q is not an absolute path", path), true
-	}
-	path = filepath.Clean(path)
+// saveQuietly writes the documents the user changed to their files,
+// without telling of it, so what an agent reads is what the user sees.
+func (e *Editor) saveQuietly() {
 	for _, d := range e.tabs.GetUntracked() {
-		if d.path.GetUntracked() != path {
-			continue
+		if d.dirty.GetUntracked() {
+			e.save(d)
 		}
+	}
+}
+
+// locked says the user cannot change the documents now, as the agent is
+// at work in the folder.
+func (e *Editor) locked() bool { return e.a.busy() }
+
+// Working says the agent is at work in the folder, while which the user
+// cannot change its files; a caller reading it follows.
+func (e *Editor) Working() bool { return e.a.working() }
+
+// viewOf is what the Server tells an agent: what the user sees of the
+// open folder, and the problems of its files.
+func (e *Editor) viewOf() string {
+	dir := e.folder.GetUntracked()
+	if dir == "" {
+		return "No folder is open in Scenra.\n"
+	}
+	shown := e.shown()
+	var files []fileView
+	for _, d := range e.tabs.GetUntracked() {
 		// What the agent just wrote counts.
 		e.reload(d)
-		text := view(d.doc.GetUntracked(), d.at())
-		if d.broken != "" {
-			text = "The file does not parse, so the editor still shows its last version: " + d.broken + "\n" + text
+	}
+	found, _ := scan(dir, nil)
+	e.scannedFiles(dir, found, false)
+	shown = e.shown()
+	for _, en := range found {
+		path := filepath.Join(dir, filepath.FromSlash(en.path))
+		fv := fileView{path: en.path}
+		if i := slices.IndexFunc(e.tabs.GetUntracked(), func(d *document) bool { return d.path == path }); i >= 0 {
+			d := e.tabs.GetUntracked()[i]
+			fv.file, fv.broken = d.doc.GetUntracked(), d.broken
+		} else if f, err := readFile(path); err != nil {
+			fv.broken = err.Error()
+		} else {
+			fv.file = f
 		}
-		return text, false
+		if shown.path == path {
+			at := shown.at()
+			fv.shown = &at
+		}
+		files = append(files, fv)
 	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "error: " + err.Error(), true
-	}
-	p, err := flowfile.ParseProject(string(data))
-	if err != nil {
-		return "The file is not open in the editor, and does not parse: " + err.Error() + "\n", false
-	}
-	return "The file is not open in the editor.\n" + view(p, location{}), false
+	return view(dir, files)
 }

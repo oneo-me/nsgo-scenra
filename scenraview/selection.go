@@ -7,56 +7,81 @@ import (
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
-// location is what the user sees: a screen, one of its flows, "" for
-// none, and a selected node of that flow, or the screen's design when
-// design says, and the path of a selected element of it.
-type location struct {
-	screen, flow, node string
-	design             bool
-	element            string
+// location is what the user selected in a file: a node of a flow, or the
+// path of an element of a design, "" for none.
+type location struct{ node, element string }
+
+// fileView is what the server tells of a Scenra file of the open folder:
+// its path relative to the folder, its content as the editor has it, why
+// its latest version does not parse, and what the user selected in it
+// while it shows.
+type fileView struct {
+	path   string
+	file   flowfile.File
+	broken string
+	shown  *location
 }
 
-// view tells an agent what the user sees of p, open at at, and the
-// problems of the file: where the user looks, what is selected, the
-// user's comments and the classes that draw nothing.
-func view(p flowfile.Project, at location) string {
+// view tells an agent what the user sees of the folder dir and the
+// problems of its files: the file shown and what is selected in it, the
+// user's comments, the files that do not parse and the classes that draw
+// nothing.
+func view(dir string, files []fileView) string {
 	var b strings.Builder
-	if at.screen != "" {
-		fmt.Fprintf(&b, "The user has screen %q open", at.screen)
-		switch {
-		case at.design:
-			b.WriteString(" on its design")
-		case at.flow != "":
-			fmt.Fprintf(&b, " on flow %q", at.flow)
-		}
-		b.WriteString(".\n")
-	} else if len(p.Screens) == 0 {
-		b.WriteString("The file has no screens yet.\n")
+	fmt.Fprintf(&b, "The open folder is %s; the paths below are relative to it.\n", dir)
+	if len(files) == 0 {
+		b.WriteString("It has no Scenra files yet.\n")
 	}
-	if at.node != "" {
-		fmt.Fprintf(&b, "The user has selected node %q of the flow.\n", at.node)
-	}
-	if i := p.ScreenIndex(at.screen); i >= 0 && at.design && at.element != "" {
-		if el, ok := flowfile.ElementAt(p.Screens[i].UI, at.element); ok {
-			fmt.Fprintf(&b, "The user has selected element %s of the design:\n\n```\n%s```\n", at.element, flowfile.FormatUI([]flowfile.Element{el}))
+	var shown *fileView
+	for i := range files {
+		if files[i].shown != nil {
+			shown = &files[i]
 		}
 	}
-	if comments := p.Comments(); len(comments) > 0 {
-		b.WriteString("The user's open comments:\n")
-		for _, c := range comments {
-			fmt.Fprintf(&b, "- screen %s, element %s: %q\n", c.Screen, c.Path, c.Text)
+	switch {
+	case shown == nil:
+		b.WriteString("The user has no file open.\n")
+	case shown.file.Kind == flowfile.Chart:
+		fmt.Fprintf(&b, "The user has flow %s open.\n", shown.path)
+		if n := shown.shown.node; n != "" {
+			fmt.Fprintf(&b, "The user has selected node %q of the flow.\n", n)
+		}
+	default:
+		fmt.Fprintf(&b, "The user has design %s open.\n", shown.path)
+		if el, ok := flowfile.ElementAt(shown.file.UI, shown.shown.element); ok {
+			fmt.Fprintf(&b, "The user has selected element %s of the design:\n\n```\n%s```\n", shown.shown.element, flowfile.FormatUI([]flowfile.Element{el}))
 		}
 	}
-	if classes := unknownClasses(p); len(classes) > 0 {
-		fmt.Fprintf(&b, "These classes draw nothing: %s.\n", strings.Join(classes, ", "))
+	section := func(title string, line func(f fileView) []string) {
+		var lines []string
+		for _, f := range files {
+			lines = append(lines, line(f)...)
+		}
+		if len(lines) > 0 {
+			b.WriteString(title + "\n")
+			for _, l := range lines {
+				b.WriteString("- " + l + "\n")
+			}
+		}
 	}
+	section("The user's open comments:", func(f fileView) []string {
+		var out []string
+		for _, c := range f.file.Comments() {
+			out = append(out, fmt.Sprintf("%s, element %s: %q", f.path, c.Path, c.Text))
+		}
+		return out
+	})
+	section("Files that do not parse, which the editor shows as they last parsed:", func(f fileView) []string {
+		if f.broken == "" {
+			return nil
+		}
+		return []string{f.path + ": " + f.broken}
+	})
+	section("Classes that draw nothing:", func(f fileView) []string {
+		if classes := unknownClasses(f.file.UI); len(classes) > 0 {
+			return []string{f.path + ": " + strings.Join(classes, ", ")}
+		}
+		return nil
+	})
 	return b.String()
-}
-
-// cmp is a, or b when a is empty.
-func cmp(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
 }

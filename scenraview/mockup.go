@@ -10,7 +10,7 @@ import (
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
-// deviceSize is the size a screen of device is laid out at.
+// deviceSize is the size a design of device is laid out at.
 func deviceSize(device string) (w, h float32) {
 	switch device {
 	case "tablet":
@@ -32,7 +32,7 @@ type selection struct {
 	laidOut *core.Signal[int]
 }
 
-// bounds is the frame of the element at path in its screen's.
+// bounds is the frame of the element at path in the design's.
 func (sel selection) bounds(path string) (core.Bounds, bool) {
 	at, err := flowfile.ParsePath(path)
 	if path == "" || err != nil {
@@ -52,7 +52,7 @@ func (sel selection) bounds(path string) (core.Bounds, bool) {
 }
 
 // elementAt is the path of the innermost element of els at p, in the
-// screen's coordinates with els's parent at origin, the one drawn last
+// design's coordinates with els's parent at origin, the one drawn last
 // where several overlap, or "" for none. Children are looked in where
 // they reach outside their parent, as positioned ones can.
 func (sel selection) elementAt(els []flowfile.Element, parent []int, origin, p core.Point) string {
@@ -73,9 +73,9 @@ func (sel selection) elementAt(els []flowfile.Element, parent []int, origin, p c
 	return ""
 }
 
-// screenView draws a screen's interface at its device's size: its
-// elements stack in the device's frame, which clips what overflows.
-func screenView(cx *core.Scope, s flowfile.Screen, sel selection) core.Node {
+// screenView draws a design at its device's size: its elements stack in
+// the device's frame, which clips what overflows.
+func screenView(cx *core.Scope, s flowfile.File, sel selection) core.Node {
 	colors := ui.ColorsOf(cx)
 	w, h := deviceSize(s.Device)
 	radius := core.Points(44)
@@ -143,8 +143,9 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 	return core.Group{}
 }
 
-// unknownClasses are the classes of p's interfaces that draw nothing.
-func unknownClasses(p flowfile.Project) []string {
+// unknownClasses are the classes of a design's elements that draw
+// nothing.
+func unknownClasses(els []flowfile.Element) []string {
 	var out []string
 	var walk func(els []flowfile.Element)
 	walk = func(els []flowfile.Element) {
@@ -157,8 +158,6 @@ func unknownClasses(p flowfile.Project) []string {
 			walk(el.Children)
 		}
 	}
-	for _, s := range p.Screens {
-		walk(s.UI)
-	}
+	walk(els)
 	return out
 }

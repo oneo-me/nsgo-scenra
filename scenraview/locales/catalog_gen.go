@@ -43,8 +43,6 @@ var Parameters = map[string][]string{
 	"OpenFailed":            {"error_"},
 	"SaveFailed":            {"error_"},
 	"SaveChanges":           {"name"},
-	"ScreenCount":           {"count"},
-	"FlowCount":             {"count"},
 	"ResolveComment":        {"path", "comment"},
 	"ResolveCommentsPrompt": {"count"},
 }
@@ -59,8 +57,6 @@ type Translation struct {
 	OpenFailed            func(error_ string) string
 	SaveFailed            func(error_ string) string
 	SaveChanges           func(name string) string
-	ScreenCount           func(count int) string
-	FlowCount             func(count int) string
 	ResolveComment        func(path string, comment string) string
 	ResolveCommentsPrompt func(count int) string
 }
@@ -69,21 +65,27 @@ var supplied = map[string]Translation{}
 
 // The indexes of the messages without arguments in the tables.
 const (
-	textUntitled = iota
-	textEdited
+	textEdited = iota
+	textNewFile
+	textNewDesign
 	textNewFlow
-	textOpen
+	textOpenFolder
 	textSave
-	textSaveAs
 	textCloseTab
-	textNoFiles
+	textNoFolder
+	textNoFileOpen
+	textFiles
+	textFilesEmpty
+	textExpand
+	textFileName
+	textFileExists
+	textFileNameInvalid
+	textCreate
 	textSettings
 	textZoomIn
 	textZoomOut
 	textFit
 	textLeftToRight
-	textTopToBottom
-	textDiagramEmpty
 	textSaved
 	textChangesLost
 	textDontSave
@@ -97,11 +99,7 @@ const (
 	textStatusDone
 	textStatusBlocked
 	textStatusSkipped
-	textScreens
-	textScreensEmpty
-	textFlows
 	textFlowEmpty
-	textDesign
 	textDesignEmpty
 	textComment
 	textCommentPlaceholder
@@ -115,21 +113,27 @@ const (
 // keyOfText is the key of the message without arguments at each
 // index, by which Supply reads a Translation's Texts.
 var keyOfText = [numTexts]string{
-	"untitled",
 	"edited",
+	"newFile",
+	"newDesign",
 	"newFlow",
-	"open",
+	"openFolder",
 	"save",
-	"saveAs",
 	"closeTab",
-	"noFiles",
+	"noFolder",
+	"noFileOpen",
+	"files",
+	"filesEmpty",
+	"expand",
+	"fileName",
+	"fileExists",
+	"fileNameInvalid",
+	"create",
 	"settings",
 	"zoomIn",
 	"zoomOut",
 	"fit",
 	"leftToRight",
-	"topToBottom",
-	"diagramEmpty",
 	"saved",
 	"changesLost",
 	"dontSave",
@@ -143,11 +147,7 @@ var keyOfText = [numTexts]string{
 	"statusDone",
 	"statusBlocked",
 	"statusSkipped",
-	"screens",
-	"screensEmpty",
-	"flows",
 	"flowEmpty",
-	"design",
 	"designEmpty",
 	"comment",
 	"commentPlaceholder",
@@ -159,40 +159,42 @@ var keyOfText = [numTexts]string{
 
 // textsEn are the messages without arguments in en.
 var textsEn = i18n.NewTexts(""+
-	"Untitled"+
 	"Edited"+
+	"New File"+
+	"New Design"+
 	"New Flow"+
-	"Open…"+
+	"Open Folder…"+
 	"Save"+
-	"Save As…"+
 	"Close Tab"+
-	"Make a Scenra file, or open one, to design an app or chart a flow."+
+	"Open a folder to design an app in its Scenra files, a design or a flow chart each."+
+	"Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow."+
+	"Files"+
+	"The designs and flows of this folder appear here."+
+	"Expand"+
+	"Name"+
+	"A file of that name exists in this folder."+
+	"A name cannot be empty, start with a dot or hold slashes."+
+	"Create"+
 	"Settings…"+
 	"Zoom In"+
 	"Zoom Out"+
 	"Fit to Window"+
 	"Left to Right"+
-	"Top to Bottom"+
-	"Ask the assistant to design an app or draw a flow."+
 	"Saved"+
 	"Your changes will be lost if you don't save them."+
 	"Don't Save"+
 	"Assistant"+
 	"New Chat"+
 	"Let's design an app together"+
-	"Describe an app or a process, and the assistant asks what it needs and draws its screens and flows on the left."+
+	"Describe an app or a process, and the assistant asks what it needs and draws its designs and flows in this folder."+
 	"Cancel"+
 	"To do"+
 	"In progress"+
 	"Done"+
 	"Blocked"+
 	"Skipped"+
-	"Screens"+
-	"The screens the assistant designs appear here."+
-	"Flows"+
-	"Ask the assistant to draw a flow of this screen."+
-	"Design"+
-	"This screen has no design yet. Ask the assistant to draw one."+
+	"This flow has no steps yet. Ask the assistant to draw them."+
+	"This design is empty. Ask the assistant to draw it."+
 	"Comment"+
 	"What should change here?"+
 	"Save"+
@@ -200,40 +202,42 @@ var textsEn = i18n.NewTexts(""+
 	"Ask Assistant"+
 	"Ask the Assistant to Resolve Comments",
 	[]uint16{
-		8,
 		6,
 		8,
-		7,
-		4,
 		10,
+		8,
+		14,
+		4,
 		9,
-		66,
+		82,
+		93,
+		5,
+		49,
+		6,
+		4,
+		42,
+		57,
+		6,
 		11,
 		7,
 		8,
 		13,
 		13,
-		13,
-		50,
 		5,
 		49,
 		10,
 		9,
 		8,
 		28,
-		111,
+		114,
 		6,
 		5,
 		11,
 		4,
 		7,
 		7,
-		7,
-		46,
-		5,
-		48,
-		6,
-		61,
+		59,
+		51,
 		7,
 		24,
 		4,
@@ -244,40 +248,42 @@ var textsEn = i18n.NewTexts(""+
 
 // textsZhHans are the messages without arguments in zh-Hans.
 var textsZhHans = i18n.NewTexts(""+
-	"未命名"+
 	"已编辑"+
+	"新建文件"+
+	"新建设计"+
 	"新建流程"+
-	"打开…"+
+	"打开文件夹…"+
 	"保存"+
-	"另存为…"+
 	"关闭标签页"+
-	"新建或打开一个 Scenra 文件，开始设计应用或绘制流程。"+
+	"打开一个文件夹，在其中的 Scenra 文件里设计应用，每个文件是一张设计图或一张流程图。"+
+	"在侧边栏选择一个文件、新建一个，或让助手设计应用、绘制流程。"+
+	"文件"+
+	"这个文件夹中的设计和流程会出现在这里。"+
+	"展开"+
+	"名称"+
+	"这个文件夹中已有同名文件。"+
+	"名称不能为空、不能以点开头，也不能包含斜杠。"+
+	"创建"+
 	"设置…"+
 	"放大"+
 	"缩小"+
 	"适合窗口"+
 	"从左到右"+
-	"从上到下"+
-	"让助手设计一个应用或画一个流程。"+
 	"已保存"+
 	"如果不保存，你的更改将会丢失。"+
 	"不保存"+
 	"助手"+
 	"新对话"+
 	"一起来设计应用"+
-	"描述一个应用或流程，助手会询问所需的细节，并在左侧画出它的界面和流程。"+
+	"描述一个应用或流程，助手会询问所需的细节，并在这个文件夹中画出它的设计和流程。"+
 	"取消"+
 	"待办"+
 	"进行中"+
 	"已完成"+
 	"受阻"+
 	"已跳过"+
-	"界面"+
-	"助手设计的界面会出现在这里。"+
-	"流程"+
-	"让助手为这个界面画一个流程。"+
-	"设计"+
-	"这个界面还没有设计，让助手画一个吧。"+
+	"这个流程还没有步骤，让助手画出来吧。"+
+	"这张设计还是空的，让助手画出来吧。"+
 	"评论"+
 	"这里需要怎么改？"+
 	"保存"+
@@ -286,39 +292,41 @@ var textsZhHans = i18n.NewTexts(""+
 	"让助手处理评论",
 	[]uint16{
 		9,
-		9,
 		12,
-		9,
+		12,
+		12,
+		18,
 		6,
-		12,
 		15,
-		74,
+		119,
+		90,
+		6,
+		57,
+		6,
+		6,
+		39,
+		66,
+		6,
 		9,
 		6,
 		6,
 		12,
 		12,
-		12,
-		48,
 		9,
 		45,
 		9,
 		6,
 		9,
 		21,
-		105,
+		117,
 		6,
 		6,
 		9,
 		9,
 		6,
 		9,
-		6,
-		42,
-		6,
-		42,
-		6,
 		54,
+		51,
 		6,
 		24,
 		6,
@@ -393,12 +401,6 @@ func Supply(lang string, t Translation) {
 	if t.SaveChanges != nil {
 		s.SaveChanges = t.SaveChanges
 	}
-	if t.ScreenCount != nil {
-		s.ScreenCount = t.ScreenCount
-	}
-	if t.FlowCount != nil {
-		s.FlowCount = t.FlowCount
-	}
 	if t.ResolveComment != nil {
 		s.ResolveComment = t.ResolveComment
 	}
@@ -418,19 +420,26 @@ func (msgs Messages) arg(s string) string {
 	return s
 }
 
-// Untitled says "Untitled"
-// in the language the app shows under cx.
-func Untitled(cx *core.Scope) string { return For(cx).Untitled() }
-
-// Untitled is the package's Untitled in the language of msgs.
-func (msgs Messages) Untitled() string { return msgs.text(textUntitled) }
-
 // Edited says "Edited"
 // in the language the app shows under cx.
 func Edited(cx *core.Scope) string { return For(cx).Edited() }
 
 // Edited is the package's Edited in the language of msgs.
 func (msgs Messages) Edited() string { return msgs.text(textEdited) }
+
+// NewFile says "New File"
+// in the language the app shows under cx.
+func NewFile(cx *core.Scope) string { return For(cx).NewFile() }
+
+// NewFile is the package's NewFile in the language of msgs.
+func (msgs Messages) NewFile() string { return msgs.text(textNewFile) }
+
+// NewDesign says "New Design"
+// in the language the app shows under cx.
+func NewDesign(cx *core.Scope) string { return For(cx).NewDesign() }
+
+// NewDesign is the package's NewDesign in the language of msgs.
+func (msgs Messages) NewDesign() string { return msgs.text(textNewDesign) }
 
 // NewFlow says "New Flow"
 // in the language the app shows under cx.
@@ -439,12 +448,12 @@ func NewFlow(cx *core.Scope) string { return For(cx).NewFlow() }
 // NewFlow is the package's NewFlow in the language of msgs.
 func (msgs Messages) NewFlow() string { return msgs.text(textNewFlow) }
 
-// Open says "Open…"
+// OpenFolder says "Open Folder…"
 // in the language the app shows under cx.
-func Open(cx *core.Scope) string { return For(cx).Open() }
+func OpenFolder(cx *core.Scope) string { return For(cx).OpenFolder() }
 
-// Open is the package's Open in the language of msgs.
-func (msgs Messages) Open() string { return msgs.text(textOpen) }
+// OpenFolder is the package's OpenFolder in the language of msgs.
+func (msgs Messages) OpenFolder() string { return msgs.text(textOpenFolder) }
 
 // Save says "Save"
 // in the language the app shows under cx.
@@ -453,13 +462,6 @@ func Save(cx *core.Scope) string { return For(cx).Save() }
 // Save is the package's Save in the language of msgs.
 func (msgs Messages) Save() string { return msgs.text(textSave) }
 
-// SaveAs says "Save As…"
-// in the language the app shows under cx.
-func SaveAs(cx *core.Scope) string { return For(cx).SaveAs() }
-
-// SaveAs is the package's SaveAs in the language of msgs.
-func (msgs Messages) SaveAs() string { return msgs.text(textSaveAs) }
-
 // CloseTab says "Close Tab"
 // in the language the app shows under cx.
 func CloseTab(cx *core.Scope) string { return For(cx).CloseTab() }
@@ -467,12 +469,68 @@ func CloseTab(cx *core.Scope) string { return For(cx).CloseTab() }
 // CloseTab is the package's CloseTab in the language of msgs.
 func (msgs Messages) CloseTab() string { return msgs.text(textCloseTab) }
 
-// NoFiles says "Make a Scenra file, or open one, to design an app or chart a flow."
+// NoFolder says "Open a folder to design an app in its Scenra files, a design or a flow chart each."
 // in the language the app shows under cx.
-func NoFiles(cx *core.Scope) string { return For(cx).NoFiles() }
+func NoFolder(cx *core.Scope) string { return For(cx).NoFolder() }
 
-// NoFiles is the package's NoFiles in the language of msgs.
-func (msgs Messages) NoFiles() string { return msgs.text(textNoFiles) }
+// NoFolder is the package's NoFolder in the language of msgs.
+func (msgs Messages) NoFolder() string { return msgs.text(textNoFolder) }
+
+// NoFileOpen says "Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow."
+// in the language the app shows under cx.
+func NoFileOpen(cx *core.Scope) string { return For(cx).NoFileOpen() }
+
+// NoFileOpen is the package's NoFileOpen in the language of msgs.
+func (msgs Messages) NoFileOpen() string { return msgs.text(textNoFileOpen) }
+
+// Files says "Files"
+// in the language the app shows under cx.
+func Files(cx *core.Scope) string { return For(cx).Files() }
+
+// Files is the package's Files in the language of msgs.
+func (msgs Messages) Files() string { return msgs.text(textFiles) }
+
+// FilesEmpty says "The designs and flows of this folder appear here."
+// in the language the app shows under cx.
+func FilesEmpty(cx *core.Scope) string { return For(cx).FilesEmpty() }
+
+// FilesEmpty is the package's FilesEmpty in the language of msgs.
+func (msgs Messages) FilesEmpty() string { return msgs.text(textFilesEmpty) }
+
+// Expand says "Expand"
+// in the language the app shows under cx.
+func Expand(cx *core.Scope) string { return For(cx).Expand() }
+
+// Expand is the package's Expand in the language of msgs.
+func (msgs Messages) Expand() string { return msgs.text(textExpand) }
+
+// FileName says "Name"
+// in the language the app shows under cx.
+func FileName(cx *core.Scope) string { return For(cx).FileName() }
+
+// FileName is the package's FileName in the language of msgs.
+func (msgs Messages) FileName() string { return msgs.text(textFileName) }
+
+// FileExists says "A file of that name exists in this folder."
+// in the language the app shows under cx.
+func FileExists(cx *core.Scope) string { return For(cx).FileExists() }
+
+// FileExists is the package's FileExists in the language of msgs.
+func (msgs Messages) FileExists() string { return msgs.text(textFileExists) }
+
+// FileNameInvalid says "A name cannot be empty, start with a dot or hold slashes."
+// in the language the app shows under cx.
+func FileNameInvalid(cx *core.Scope) string { return For(cx).FileNameInvalid() }
+
+// FileNameInvalid is the package's FileNameInvalid in the language of msgs.
+func (msgs Messages) FileNameInvalid() string { return msgs.text(textFileNameInvalid) }
+
+// Create says "Create"
+// in the language the app shows under cx.
+func Create(cx *core.Scope) string { return For(cx).Create() }
+
+// Create is the package's Create in the language of msgs.
+func (msgs Messages) Create() string { return msgs.text(textCreate) }
 
 // Settings says "Settings…"
 // in the language the app shows under cx.
@@ -508,20 +566,6 @@ func LeftToRight(cx *core.Scope) string { return For(cx).LeftToRight() }
 
 // LeftToRight is the package's LeftToRight in the language of msgs.
 func (msgs Messages) LeftToRight() string { return msgs.text(textLeftToRight) }
-
-// TopToBottom says "Top to Bottom"
-// in the language the app shows under cx.
-func TopToBottom(cx *core.Scope) string { return For(cx).TopToBottom() }
-
-// TopToBottom is the package's TopToBottom in the language of msgs.
-func (msgs Messages) TopToBottom() string { return msgs.text(textTopToBottom) }
-
-// DiagramEmpty says "Ask the assistant to design an app or draw a flow."
-// in the language the app shows under cx.
-func DiagramEmpty(cx *core.Scope) string { return For(cx).DiagramEmpty() }
-
-// DiagramEmpty is the package's DiagramEmpty in the language of msgs.
-func (msgs Messages) DiagramEmpty() string { return msgs.text(textDiagramEmpty) }
 
 // DiagramLabel says "Flow chart with {nodes, plural, one {# node} other {# nodes}} and {edges, plural, one {# edge} other {# edges}}."
 // in the language the app shows under cx.
@@ -675,7 +719,7 @@ func EmptyTitle(cx *core.Scope) string { return For(cx).EmptyTitle() }
 // EmptyTitle is the package's EmptyTitle in the language of msgs.
 func (msgs Messages) EmptyTitle() string { return msgs.text(textEmptyTitle) }
 
-// EmptyDetail says "Describe an app or a process, and the assistant asks what it needs and draws its screens and flows on the left."
+// EmptyDetail says "Describe an app or a process, and the assistant asks what it needs and draws its designs and flows in this folder."
 // in the language the app shows under cx.
 func EmptyDetail(cx *core.Scope) string { return For(cx).EmptyDetail() }
 
@@ -724,120 +768,14 @@ func StatusSkipped(cx *core.Scope) string { return For(cx).StatusSkipped() }
 // StatusSkipped is the package's StatusSkipped in the language of msgs.
 func (msgs Messages) StatusSkipped() string { return msgs.text(textStatusSkipped) }
 
-// Screens says "Screens"
-// in the language the app shows under cx.
-func Screens(cx *core.Scope) string { return For(cx).Screens() }
-
-// Screens is the package's Screens in the language of msgs.
-func (msgs Messages) Screens() string { return msgs.text(textScreens) }
-
-// ScreenCount says "{count, plural, one {# screen} other {# screens}}"
-// in the language the app shows under cx.
-func ScreenCount(cx *core.Scope, count int) string { return For(cx).ScreenCount(count) }
-
-// ScreenCount is the package's ScreenCount in the language of msgs.
-func (msgs Messages) ScreenCount(count int) string {
-	if i18n.IsPseudo(msgs.lang) {
-		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.ScreenCount(count))
-	}
-	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
-		if f := supplied[lang].ScreenCount; f != nil {
-			return f(count)
-		}
-		switch lang {
-		case "", "en":
-			var b strings.Builder
-			switch i18n.Cardinal("en", float64(count)) {
-			case i18n.One:
-				b.WriteString(msgs.arg(i18n.FormatNumber("en", float64(count))))
-				b.WriteString(" screen")
-			default:
-				b.WriteString(msgs.arg(i18n.FormatNumber("en", float64(count))))
-				b.WriteString(" screens")
-			}
-			return b.String()
-		case "zh-Hans":
-			return i18n.FormatNumber("zh-Hans", float64(count)) + " 个界面"
-		}
-	}
-}
-
-// ScreensEmpty says "The screens the assistant designs appear here."
-// in the language the app shows under cx.
-func ScreensEmpty(cx *core.Scope) string { return For(cx).ScreensEmpty() }
-
-// ScreensEmpty is the package's ScreensEmpty in the language of msgs.
-func (msgs Messages) ScreensEmpty() string { return msgs.text(textScreensEmpty) }
-
-// Flows says "Flows"
-// in the language the app shows under cx.
-func Flows(cx *core.Scope) string { return For(cx).Flows() }
-
-// Flows is the package's Flows in the language of msgs.
-func (msgs Messages) Flows() string { return msgs.text(textFlows) }
-
-// FlowCount says "{count, plural, =0 {No flows} one {# flow} other {# flows}}"
-// in the language the app shows under cx.
-func FlowCount(cx *core.Scope, count int) string { return For(cx).FlowCount(count) }
-
-// FlowCount is the package's FlowCount in the language of msgs.
-func (msgs Messages) FlowCount(count int) string {
-	if i18n.IsPseudo(msgs.lang) {
-		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.FlowCount(count))
-	}
-	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
-		if f := supplied[lang].FlowCount; f != nil {
-			return f(count)
-		}
-		switch lang {
-		case "", "en":
-			var b strings.Builder
-			switch {
-			case count == 0:
-				b.WriteString("No flows")
-			default:
-				switch i18n.Cardinal("en", float64(count)) {
-				case i18n.One:
-					b.WriteString(msgs.arg(i18n.FormatNumber("en", float64(count))))
-					b.WriteString(" flow")
-				default:
-					b.WriteString(msgs.arg(i18n.FormatNumber("en", float64(count))))
-					b.WriteString(" flows")
-				}
-			}
-			return b.String()
-		case "zh-Hans":
-			var b strings.Builder
-			switch {
-			case count == 0:
-				b.WriteString("无流程")
-			default:
-				switch i18n.Cardinal("zh-Hans", float64(count)) {
-				default:
-					b.WriteString(i18n.FormatNumber("zh-Hans", float64(count)))
-					b.WriteString(" 个流程")
-				}
-			}
-			return b.String()
-		}
-	}
-}
-
-// FlowEmpty says "Ask the assistant to draw a flow of this screen."
+// FlowEmpty says "This flow has no steps yet. Ask the assistant to draw them."
 // in the language the app shows under cx.
 func FlowEmpty(cx *core.Scope) string { return For(cx).FlowEmpty() }
 
 // FlowEmpty is the package's FlowEmpty in the language of msgs.
 func (msgs Messages) FlowEmpty() string { return msgs.text(textFlowEmpty) }
 
-// Design says "Design"
-// in the language the app shows under cx.
-func Design(cx *core.Scope) string { return For(cx).Design() }
-
-// Design is the package's Design in the language of msgs.
-func (msgs Messages) Design() string { return msgs.text(textDesign) }
-
-// DesignEmpty says "This screen has no design yet. Ask the assistant to draw one."
+// DesignEmpty says "This design is empty. Ask the assistant to draw it."
 // in the language the app shows under cx.
 func DesignEmpty(cx *core.Scope) string { return For(cx).DesignEmpty() }
 
@@ -910,7 +848,7 @@ func ResolveComments(cx *core.Scope) string { return For(cx).ResolveComments() }
 // ResolveComments is the package's ResolveComments in the language of msgs.
 func (msgs Messages) ResolveComments() string { return msgs.text(textResolveComments) }
 
-// ResolveCommentsPrompt says "{count, plural, one {Resolve my comment on this screen.} other {Resolve my # comments on this screen.}}"
+// ResolveCommentsPrompt says "{count, plural, one {Resolve my comment on this design.} other {Resolve my # comments on this design.}}"
 // in the language the app shows under cx.
 func ResolveCommentsPrompt(cx *core.Scope, count int) string {
 	return For(cx).ResolveCommentsPrompt(count)
@@ -930,15 +868,15 @@ func (msgs Messages) ResolveCommentsPrompt(count int) string {
 			var b strings.Builder
 			switch i18n.Cardinal("en", float64(count)) {
 			case i18n.One:
-				b.WriteString("Resolve my comment on this screen.")
+				b.WriteString("Resolve my comment on this design.")
 			default:
 				b.WriteString("Resolve my ")
 				b.WriteString(msgs.arg(i18n.FormatNumber("en", float64(count))))
-				b.WriteString(" comments on this screen.")
+				b.WriteString(" comments on this design.")
 			}
 			return b.String()
 		case "zh-Hans":
-			return "处理我在这个界面上的 " + i18n.FormatNumber("zh-Hans", float64(count)) + " 条评论。"
+			return "处理我在这张设计上的 " + i18n.FormatNumber("zh-Hans", float64(count)) + " 条评论。"
 		}
 	}
 }

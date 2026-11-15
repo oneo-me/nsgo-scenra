@@ -12,11 +12,13 @@ import (
 // ServerName names the editor's MCP server to agents.
 const ServerName = "scenra"
 
-// ToolView is the server's one tool: what the user sees of a file.
+// ToolView is the server's one tool: what the user sees of the open
+// folder.
 const ToolView = "get_view"
 
-// Server tells agents over MCP what the user sees of the files open in an
-// editor, as agents edit the files themselves but cannot see the editor.
+// Server tells agents over MCP what the user sees of the folder open in
+// an editor, as agents edit its files themselves but cannot see the
+// editor.
 // An app starts it before its window, to give the agents it runs, and
 // attaches the editor once there is one; calls fail while none is
 // attached.
@@ -30,9 +32,8 @@ type Server struct {
 func Listen() (*Server, error) {
 	s := &Server{}
 	srv, err := mcp.Listen(mcp.Options{Name: ServerName, Tools: []mcp.Tool{{Name: ToolView,
-		Description: "Tell what the user sees of a Scenra file in the editor: the screen and flow open, the node or element selected and the user's comments, and the file's problems: whether it parses and the classes that draw nothing. Call it before changing the file and after writing it.",
-		InputSchema: map[string]any{"type": "object", "required": []string{"file"}, "properties": map[string]any{
-			"file": map[string]any{"type": "string", "description": "Absolute path of the Scenra file."}}}}},
+		Description: "Tell what the user sees in Scenra: the open folder, the design or flow open in it, the node or element selected and the user's comments, and the problems of the folder's Scenra files: those that do not parse and the classes that draw nothing. Call it before changing the files and after writing them.",
+		InputSchema: map[string]any{"type": "object", "properties": map[string]any{}}}},
 		Call: s.call})
 	if err != nil {
 		return nil, err
@@ -63,26 +64,17 @@ func (s *Server) Close() error { return s.srv.Close() }
 
 // call answers a call on the UI's goroutine and waits for it.
 func (s *Server) call(ctx context.Context, name string, arguments json.RawMessage) (string, bool) {
-	var a struct{ File string }
-	json.Unmarshal(arguments, &a)
 	s.mu.Lock()
 	e := s.e
 	s.mu.Unlock()
 	if e == nil {
 		return "error: no Scenra editor is open", true
 	}
-	type answer struct {
-		text   string
-		failed bool
-	}
-	done := make(chan answer, 1)
-	e.cx.Post(func() {
-		text, failed := e.viewOf(a.File)
-		done <- answer{text, failed}
-	})
+	done := make(chan string, 1)
+	e.cx.Post(func() { done <- e.viewOf() })
 	select {
-	case a := <-done:
-		return a.text, a.failed
+	case text := <-done:
+		return text, false
 	case <-ctx.Done():
 		return "error: " + ctx.Err().Error(), true
 	}

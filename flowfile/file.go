@@ -10,30 +10,27 @@ import (
 	"strings"
 )
 
-// Devices a screen may be drawn on; an empty device is a phone.
+// Devices a design may be drawn on; an empty device is a phone.
 var Devices = []string{"phone", "tablet", "desktop"}
 
-// Project is a flow file's content: its screens in order.
-type Project struct {
-	Title   string
-	Screens []Screen
+// Kind is what a file holds.
+type Kind string
+
+const (
+	Design Kind = "design"
+	Chart  Kind = "flow"
+)
+
+// File is a Scenra file's content: a design of a screen, its Device and
+// UI, or a flow chart, its Flow.
+type File struct {
+	Kind   Kind
+	Device string
+	UI     []Element
+	Flow   Flow
 }
 
-// Screen is one interface of the app and the flows that happen on it.
-type Screen struct {
-	ID, Title string
-	Device    string
-	UI        []Element
-	Flows     []Flow
-}
-
-// Flow is a flow chart of a screen; its Doc's title is the flow's.
-type Flow struct {
-	ID string
-	Doc
-}
-
-// Element is a piece of a screen's interface: a box holding others, a
+// Element is a piece of a design: a box holding others, a
 // text, an icon, an image or an SVG drawing, its look given by Tailwind
 // CSS classes.
 type Element struct {
@@ -205,7 +202,7 @@ func (r *uiReader) done() ([]Element, string) {
 	return r.out, ""
 }
 
-// ParseUI reads the lines of an interface: elements, without a screen.
+// ParseUI reads the lines of a design: elements, without its first line.
 func ParseUI(src string) ([]Element, error) {
 	var r uiReader
 	if err := eachLine(src, r.line); err != nil {
@@ -218,37 +215,11 @@ func ParseUI(src string) ([]Element, error) {
 	return els, nil
 }
 
-// ParseProject reads a flow file.
-func ParseProject(src string) (Project, error) {
-	var p Project
-	var ui *uiReader
-	flow := -1
-	last := func() *Screen { return &p.Screens[len(p.Screens)-1] }
-	// endUI ends the interface being read, if one is.
-	endUI := func() string {
-		if ui == nil {
-			return ""
-		}
-		els, msg := ui.done()
-		last().UI, ui = els, nil
-		return msg
-	}
-	addScreen := func(s Screen) string {
-		if p.ScreenIndex(s.ID) >= 0 {
-			return fmt.Sprintf("a screen %q exists", s.ID)
-		}
-		p.Screens = append(p.Screens, s)
-		flow = -1
-		return ""
-	}
-	addFlow := func(f Flow) string {
-		if s, _ := p.FlowIndex(f.ID); s >= 0 {
-			return fmt.Sprintf("a flow %q exists", f.ID)
-		}
-		last().Flows = append(last().Flows, f)
-		flow = len(last().Flows) - 1
-		return ""
-	}
+// Parse reads a Scenra file, whose first line says whether it holds a
+// design or a flow.
+func Parse(src string) (File, error) {
+	var f File
+	var ui uiReader
 	lines := 0
 	err := eachLine(src, func(toks []token) string {
 		lines++
@@ -258,116 +229,74 @@ func ParseProject(src string) (Project, error) {
 			word = head.text
 		}
 		switch {
-		case word == "title" && len(p.Screens) == 0:
-			p.Title = joined(toks[1:])
-		case word == "title":
-			return "title belongs before the first screen; name screens and flows on their own lines"
-		case word == "screen":
-			if msg := endUI(); msg != "" {
-				return msg
-			}
-			s, msg := screenLine(toks)
-			if msg == "" {
-				msg = addScreen(s)
-			}
-			ui = &uiReader{}
-			return msg
-		case word == "flow":
-			if msg := endUI(); msg != "" {
-				return msg
-			}
-			if len(p.Screens) == 0 {
-				addScreen(Screen{ID: "main"})
-			}
-			if len(toks) < 2 || toks[1].quoted || !ValidID(toks[1].text) {
-				return "flow needs an ID of letters, digits, _, - or ."
-			}
-			f := Flow{ID: toks[1].text}
-			for _, t := range toks[2:] {
-				if _, _, isAttr := t.attr(); isAttr || f.Title != "" {
-					return fmt.Sprintf("unexpected %q; a flow line is flow ID \"Title\"", t.text)
-				}
-				f.Title = t.text
-			}
-			return addFlow(f)
-		case flow >= 0:
-			return last().Flows[flow].line(toks)
-		case ui != nil:
-			return ui.line(toks)
+		case lines == 1:
+			return f.header(toks)
+		case word == string(Design) || word == string(Chart):
+			return "a file holds one design or one flow; put another in a file of its own"
+		case f.Kind == Chart:
+			return f.Flow.line(toks)
+		case word == "node" || len(toks) > 2 && !toks[1].quoted && (toks[1].text == "->" || toks[1].text == "..>"):
+			return "a design holds no flow; draw a flow in a file of its own"
 		default:
-			// A file without screens is one flow.
-			addScreen(Screen{ID: "main"})
-			addFlow(Flow{ID: "main"})
-			return last().Flows[flow].line(toks)
+			return ui.line(toks)
 		}
-		return ""
 	})
 	if err != nil {
-		return Project{}, err
+		return File{}, err
 	}
-	if msg := endUI(); msg != "" {
-		return Project{}, &Error{lines, msg}
+	if lines == 0 {
+		return File{}, &Error{1, headerHelp}
 	}
-	for i := range p.Screens {
-		for j := range p.Screens[i].Flows {
-			p.Screens[i].Flows[j].fillLabels()
-		}
+	els, msg := ui.done()
+	if msg != "" {
+		return File{}, &Error{lines, msg}
 	}
-	return p, nil
+	f.UI = els
+	f.Flow.fillLabels()
+	return f, nil
 }
 
-func screenLine(toks []token) (Screen, string) {
-	if len(toks) < 2 || toks[1].quoted || !ValidID(toks[1].text) {
-		return Screen{}, "screen needs an ID of letters, digits, _, - or ."
+const headerHelp = "a file starts with design or flow, the one it holds"
+
+// header reads the first line: design with its device, or flow with its
+// direction.
+func (f *File) header(toks []token) string {
+	head := toks[0]
+	if head.quoted || head.text != string(Design) && head.text != string(Chart) {
+		return headerHelp
 	}
-	s := Screen{ID: toks[1].text}
-	for _, t := range toks[2:] {
+	f.Kind = Kind(head.text)
+	for _, t := range toks[1:] {
 		key, value, isAttr := t.attr()
 		switch {
-		case !isAttr && s.Title == "":
-			s.Title = t.text
 		case !isAttr:
-			return Screen{}, fmt.Sprintf("unexpected %q; write attributes as key=value", t.text)
-		case key == "device":
+			return fmt.Sprintf("unexpected %q; write attributes as key=value", t.text)
+		case f.Kind == Design && key == "device":
 			if !slices.Contains(Devices, value) {
-				return Screen{}, fmt.Sprintf("unknown device %q; use one of %s", value, strings.Join(Devices, ", "))
+				return fmt.Sprintf("unknown device %q; use one of %s", value, strings.Join(Devices, ", "))
 			}
-			s.Device = value
+			f.Device = value
+		case f.Kind == Chart && key == "direction":
+			switch dir := Direction(value); dir {
+			case Down, Right:
+				f.Flow.Direction = dir
+			default:
+				return fmt.Sprintf("unknown direction %q; use down or right", value)
+			}
+		case f.Kind == Design:
+			return fmt.Sprintf("unknown attribute %q; a design takes device", key)
 		default:
-			return Screen{}, fmt.Sprintf("unknown attribute %q; a screen takes device", key)
+			return fmt.Sprintf("unknown attribute %q; a flow takes direction", key)
 		}
 	}
-	return s, ""
+	return ""
 }
 
-// ScreenIndex returns the index of the screen with id, or -1.
-func (p Project) ScreenIndex(id string) int {
-	return slices.IndexFunc(p.Screens, func(s Screen) bool { return s.ID == id })
-}
-
-// FlowIndex returns the indexes of the screen and of the flow with id
-// on it, or -1 and -1.
-func (p Project) FlowIndex(id string) (screen, flow int) {
-	for i, s := range p.Screens {
-		if j := slices.IndexFunc(s.Flows, func(f Flow) bool { return f.ID == id }); j >= 0 {
-			return i, j
-		}
-	}
-	return -1, -1
-}
-
-// Clone returns a copy of p that shares nothing with it.
-func (p Project) Clone() Project {
-	p.Screens = slices.Clone(p.Screens)
-	for i := range p.Screens {
-		s := &p.Screens[i]
-		s.UI = cloneElements(s.UI)
-		s.Flows = slices.Clone(s.Flows)
-		for j := range s.Flows {
-			s.Flows[j].Doc = s.Flows[j].Doc.Clone()
-		}
-	}
-	return p
+// Clone returns a copy of f that shares nothing with it.
+func (f File) Clone() File {
+	f.UI = cloneElements(f.UI)
+	f.Flow = f.Flow.Clone()
+	return f
 }
 
 func cloneElements(els []Element) []Element {
@@ -379,41 +308,28 @@ func cloneElements(els []Element) []Element {
 	return els
 }
 
-// Format writes p as a flow file.
-func (p Project) Format() string {
+// Format writes f as a Scenra file.
+func (f File) Format() string {
 	var b strings.Builder
-	if p.Title != "" {
-		fmt.Fprintf(&b, "title %s\n", quote(p.Title))
-	}
-	for _, s := range p.Screens {
-		if b.Len() > 0 {
-			b.WriteByte('\n')
-		}
-		fmt.Fprintf(&b, "screen %s", s.ID)
-		if s.Title != "" {
-			fmt.Fprintf(&b, " %s", quote(s.Title))
-		}
-		if s.Device != "" && s.Device != "phone" {
-			fmt.Fprintf(&b, " device=%s", s.Device)
+	if f.Kind == Chart {
+		b.WriteString(string(Chart))
+		if f.Flow.Direction != "" && f.Flow.Direction != Down {
+			fmt.Fprintf(&b, " direction=%s", f.Flow.Direction)
 		}
 		b.WriteByte('\n')
-		formatUI(&b, s.UI, "  ")
-		for j, f := range s.Flows {
-			if len(s.UI) > 0 || j > 0 {
-				b.WriteByte('\n')
-			}
-			fmt.Fprintf(&b, "  flow %s", f.ID)
-			if f.Title != "" {
-				fmt.Fprintf(&b, " %s", quote(f.Title))
-			}
-			b.WriteByte('\n')
-			f.body(&b, "    ", false)
-		}
+		f.Flow.body(&b)
+		return b.String()
 	}
+	b.WriteString(string(Design))
+	if f.Device != "" && f.Device != "phone" {
+		fmt.Fprintf(&b, " device=%s", f.Device)
+	}
+	b.WriteByte('\n')
+	formatUI(&b, f.UI, "")
 	return b.String()
 }
 
-// FormatUI writes elements as the lines of an interface.
+// FormatUI writes elements as the lines of a design.
 func FormatUI(els []Element) string {
 	var b strings.Builder
 	formatUI(&b, els, "")

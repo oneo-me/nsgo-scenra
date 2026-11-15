@@ -10,16 +10,16 @@ import (
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
-// diagramData maps the flow with id, the open one for "", onto the
-// diagram's data. Each node's face reads its node from the document, as
-// the view keeps a face while its ID stays.
-func diagramData(e *Editor, flow string) func() uiflow.Data {
+// diagramData maps the flow shown onto the diagram's data. Each node's
+// face reads its node from the document, as the view keeps a face while
+// its ID stays.
+func diagramData(e *Editor) func() uiflow.Data {
 	return func() uiflow.Data {
-		d := e.cur().flowDoc(cmp(flow, e.cur().flow.Get()))
+		d := e.cur().doc.Get().Flow
 		var data uiflow.Data
 		for _, n := range d.Nodes {
 			data.Nodes = append(data.Nodes, uiflow.Node{ID: n.ID, Label: n.Label, Muted: n.Status == "skipped",
-				Content: nodeCard{e: e, flow: flow, id: n.ID}})
+				Content: nodeCard{e: e, id: n.ID}})
 		}
 		for _, l := range d.Edges {
 			data.Edges = append(data.Edges, uiflow.Edge{Source: l.From, Target: l.To, Label: l.Label, Dashed: l.Dashed})
@@ -28,11 +28,10 @@ func diagramData(e *Editor, flow string) func() uiflow.Data {
 	}
 }
 
-// diagramDirection is the way the flow with id, the open one for "",
-// points.
-func diagramDirection(e *Editor, flow string) func() uiflow.Direction {
+// diagramDirection is the way the flow shown points.
+func diagramDirection(e *Editor) func() uiflow.Direction {
 	return func() uiflow.Direction {
-		if e.cur().flowDoc(cmp(flow, e.cur().flow.Get())).Direction == flowfile.Right {
+		if e.cur().doc.Get().Flow.Direction == flowfile.Right {
 			return uiflow.LeftToRight
 		}
 		return uiflow.TopToBottom
@@ -42,14 +41,14 @@ func diagramDirection(e *Editor, flow string) func() uiflow.Direction {
 // nodeCard is a node's face: its kind's icon tile, label and note, and
 // its status above them.
 type nodeCard struct {
-	e        *Editor
-	flow, id string
+	e  *Editor
+	id string
 }
 
 // Render implements core.Node.
 func (c nodeCard) Render(cx *core.Scope) core.Node {
 	node := core.NewMemo(cx, func() flowfile.Node {
-		n, _ := c.e.cur().flowDoc(cmp(c.flow, c.e.cur().flow.Get())).Node(c.id)
+		n, _ := c.e.cur().doc.Get().Flow.Node(c.id)
 		return n
 	})
 	return core.Dynamic(func(cx *core.Scope) core.Node { return card(cx, node.Get()) })
@@ -102,12 +101,12 @@ func card(cx *core.Scope, n flowfile.Node) core.Node {
 	return card
 }
 
-// flowPane is the open flow's chart, with the view's tools over it.
+// flowPane is the chart of the flow shown, with the view's tools over it.
 func flowPane(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
-	full := func() bool { d := e.cur(); return len(d.flowDoc(d.flow.Get()).Nodes) > 0 }
+	full := func() bool { return len(e.cur().doc.Get().Flow.Nodes) > 0 }
 	tool := func(icon func() *core.SVG, label string, enabled func() bool, press func(), testID string) core.Node {
 		b := ui.IconButton{Icon: icon, Label: label, OnPress: press, TestID: testID}
 		if enabled != nil {
@@ -125,35 +124,29 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 			tool(lucide.ZoomIn, tr.ZoomIn(), full, func() { e.camera.ZoomIn() }, "zoom-in"),
 			tool(lucide.Scan, tr.Fit(), full, func() { e.camera.Fit() }, "fit"),
 		}}
-	// One view follows the open flow: remounting a chart is costly.
-	view := uiflow.View{TestID: "flow", State: e.camera, Data: diagramData(e, ""), Direction: diagramDirection(e, ""),
+	// One view follows the flow shown: remounting a chart is costly.
+	view := uiflow.View{TestID: "flow", State: e.camera, Data: diagramData(e), Direction: diagramDirection(e),
 		LabelFunc: func() string {
-			d := e.cur()
-			f := d.flowDoc(d.flow.Get())
+			f := e.cur().doc.Get().Flow
 			return tr.DiagramLabel(len(f.Nodes), len(f.Edges))
 		},
 		EmptyText: tr.FlowEmpty(), Selected: func() string { return e.cur().selected.Get() }, OnSelect: func(id string) { e.shown().selected.Set(id) }, Overlay: toolbar}
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{view}}
 }
 
-// ToggleDirection turns the open flow between down and right, unless the
-// agent works on it.
+// ToggleDirection turns the flow shown between down and right, unless
+// the agent works.
 func (e *Editor) ToggleDirection() {
 	d := e.shown()
-	if e.locked(d) {
+	f := d.doc.GetUntracked().Clone()
+	if e.locked() || f.Kind != flowfile.Chart {
 		return
 	}
-	p := d.doc.GetUntracked().Clone()
-	i, j := p.FlowIndex(d.flow.GetUntracked())
-	if i < 0 {
-		return
-	}
-	f := &p.Screens[i].Flows[j]
-	if f.Direction == flowfile.Right {
-		f.Direction = flowfile.Down
+	if f.Flow.Direction == flowfile.Right {
+		f.Flow.Direction = flowfile.Down
 	} else {
-		f.Direction = flowfile.Right
+		f.Flow.Direction = flowfile.Right
 	}
-	d.change(p, "")
+	d.change(f, "")
 	e.cx.Post(func() { e.camera.Fit() })
 }

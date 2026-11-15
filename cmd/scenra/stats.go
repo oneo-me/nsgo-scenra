@@ -127,7 +127,7 @@ func (u *usage) start(e *scenraview.Editor) {
 	cx := u.cx
 	u.send("")
 	cx.Effect(func() {
-		e.Project()
+		e.File()
 		core.Untracked(cx, func() bool { u.since = time.Now(); return true })
 	})
 	var beat func()

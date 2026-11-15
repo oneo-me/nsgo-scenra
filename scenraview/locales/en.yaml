@@ -1,18 +1,24 @@
-untitled: Untitled
 edited: Edited
+newFile: New File
+newDesign: New Design
 newFlow: New Flow
-open: Open…
+openFolder: Open Folder…
 save: Save
-saveAs: Save As…
 closeTab: Close Tab
-noFiles: Make a Scenra file, or open one, to design an app or chart a flow.
+noFolder: Open a folder to design an app in its Scenra files, a design or a flow chart each.
+noFileOpen: Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow.
+files: Files
+filesEmpty: The designs and flows of this folder appear here.
+expand: Expand
+fileName: Name
+fileExists: A file of that name exists in this folder.
+fileNameInvalid: A name cannot be empty, start with a dot or hold slashes.
+create: Create
 settings: Settings…
 zoomIn: Zoom In
 zoomOut: Zoom Out
 fit: Fit to Window
 leftToRight: Left to Right
-topToBottom: Top to Bottom
-diagramEmpty: Ask the assistant to design an app or draw a flow.
 diagramLabel: "Flow chart with {nodes, plural, one {# node} other {# nodes}} and {edges, plural, one {# edge} other {# edges}}."
 openFailed: "Could not open the file: {error}"
 saveFailed: "Could not save the file: {error}"
@@ -23,21 +29,15 @@ dontSave: Don't Save
 assistant: Assistant
 newChat: New Chat
 emptyTitle: Let's design an app together
-emptyDetail: Describe an app or a process, and the assistant asks what it needs and draws its screens and flows on the left.
+emptyDetail: Describe an app or a process, and the assistant asks what it needs and draws its designs and flows in this folder.
 cancel: Cancel
 statusTodo: To do
 statusDoing: In progress
 statusDone: Done
 statusBlocked: Blocked
 statusSkipped: Skipped
-screens: Screens
-screenCount: "{count, plural, one {# screen} other {# screens}}"
-screensEmpty: The screens the assistant designs appear here.
-flows: Flows
-flowCount: "{count, plural, =0 {No flows} one {# flow} other {# flows}}"
-flowEmpty: Ask the assistant to draw a flow of this screen.
-design: Design
-designEmpty: This screen has no design yet. Ask the assistant to draw one.
+flowEmpty: This flow has no steps yet. Ask the assistant to draw them.
+designEmpty: This design is empty. Ask the assistant to draw it.
 comment: Comment
 commentPlaceholder: What should change here?
 saveComment: Save
@@ -45,4 +45,4 @@ removeComment: Remove Comment
 askAssistant: Ask Assistant
 resolveComment: "Resolve my comment on element {path}: {comment}"
 resolveComments: Ask the Assistant to Resolve Comments
-resolveCommentsPrompt: "{count, plural, one {Resolve my comment on this screen.} other {Resolve my # comments on this screen.}}"
+resolveCommentsPrompt: "{count, plural, one {Resolve my comment on this design.} other {Resolve my # comments on this design.}}"

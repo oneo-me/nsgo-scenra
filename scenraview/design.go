@@ -24,7 +24,7 @@ const (
 	designPinchZoom = 48
 )
 
-// designCanvas is the camera over a screen's design: the design is laid
+// designCanvas is the camera over a design: the design is laid
 // out at its device's size on a plane that the camera moves and scales,
 // fitted and centered until the user pans or zooms it.
 type designCanvas struct {
@@ -155,7 +155,7 @@ func (c *designCanvas) wheel(e core.WheelEvent) {
 	}
 }
 
-// designPane is the open screen's design on the canvas, with its zoom
+// designPane is the design shown on the canvas, with its zoom
 // tools. A layer over the design takes the pointer and finds the element
 // under it itself, as the camera's transform moves the design where the
 // platforms' hit testing does not follow: an outline marks the element
@@ -169,14 +169,11 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	colors := ui.ColorsOf(cx)
 	fin := ui.FinOf(cx)
 	c := newDesignCanvas(cx)
-	look := core.NewMemo(cx, func() string {
-		s, _ := e.cur().openScreen()
-		return s.ID + "\n" + s.Device + "\n" + flowfile.FormatUI(s.UI)
-	})
-	// Another screen shows fitted.
-	screen := core.NewMemo(cx, func() string { s, _ := e.cur().openScreen(); return s.ID })
+	look := core.NewMemo(cx, func() string { return e.cur().doc.Get().Format() })
+	// Another design shows fitted.
+	shown := core.NewMemo(cx, func() int { return e.cur().id })
 	cx.Effect(func() {
-		screen.Get()
+		shown.Get()
 		cx.Post(func() { c.fit(false) })
 	})
 	hovered := core.NewSignal(cx, "")
@@ -219,7 +216,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		return ""
 	}, 1, "design-hovered")
 	elementAt := func(p core.Point) string {
-		s, _ := e.cur().openScreen()
+		s := e.cur().doc.Get()
 		w, h := deviceSize(s.Device)
 		at := c.toDesign(p)
 		if at.X < 0 || at.Y < 0 || at.X >= core.Points(w) || at.Y >= core.Points(h) {
@@ -235,7 +232,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	})
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
 		look.Get()
-		s := core.Untracked(cx, func() flowfile.Screen { s, _ := e.cur().openScreen(); return s })
+		s := core.Untracked(cx, func() flowfile.File { return e.cur().doc.Get() })
 		clear(sel.frames)
 		if len(s.UI) == 0 {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
@@ -250,11 +247,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			OnLayout: c.measured,
 			Children: append(append([]core.Node{screenView(cx, s, sel)}, commentPins(cx, s, sel, c.zoomed.Get)...), hover, selected)}
 	})
-	// comments counts the open screen's comments.
-	comments := func() int {
-		s, _ := e.cur().openScreen()
-		return len((flowfile.Project{Screens: []flowfile.Screen{s}}).Comments())
-	}
+	// comments counts the design's comments.
+	comments := func() int { return len(e.cur().doc.Get().Comments()) }
 	// anchor is the point of the view the comment card opens beside.
 	anchor := func() (core.Point, bool) {
 		path := sel.selected()

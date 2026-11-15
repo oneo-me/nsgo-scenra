@@ -13,118 +13,121 @@ import (
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
-// assistant gives each document with a file a conversation of
-// Options.Agents about it, which starts its agent with the first message.
-// The agent edits the file itself, as the app's skill teaches, and asks
-// the app's Server what the user sees of it.
+// assistant gives the open folder a conversation of Options.Agents about
+// it, which starts its agent with the first message. The agent edits the
+// folder's files itself, as the app's skill teaches, and asks the app's
+// Server what the user sees.
 type assistant struct {
 	cx *core.Scope
 	e  *Editor
 	m  *chatview.Model
+	// agent is the ID of the conversation, "" until there is one;
+	// creating says one is being made.
+	agent    *core.Signal[string]
+	creating bool
 }
 
 func newAssistant(cx *core.Scope, e *Editor) *assistant {
-	a := &assistant{cx: cx, e: e, m: e.opts.Agents}
+	a := &assistant{cx: cx, e: e, m: e.opts.Agents, agent: core.NewSignal(cx, "")}
 	if a.m == nil {
 		return a
 	}
-	// The document shown gets its conversation once it has a file.
+	// The open folder gets its conversation.
 	cx.Effect(func() {
-		d := e.cur()
-		if path := d.path.Get(); path != "" && d.agent.Get() == "" {
-			cx.Untrack(func() { a.create(d) })
+		if dir := e.folder.Get(); dir != "" && a.agent.Get() == "" {
+			cx.Untrack(func() { a.create(dir) })
 		}
 	})
 	return a
 }
 
-// prompt is the system prompt of a conversation about the file at path.
-func prompt(path string) string {
-	return "You are an app designer working in Scenra, a design and flow editor. The user sees the Scenra file " + path + ` beside this conversation, which is about it. Edit it as the scenra skill says, and ask the scenra MCP server's ` + ToolView + ` tool what the user sees of it and has selected before you change it.
+// prompt is the system prompt of a conversation about the folder dir.
+func prompt(dir string) string {
+	return "You are an app designer working in Scenra, a design and flow editor. The user has the folder " + dir + ` open in it beside this conversation, which is about the folder's Scenra files: each holds one design of a screen or one flow chart. Edit and make them as the scenra skill says, and ask the scenra MCP server's ` + ToolView + ` tool what the user sees and has selected before you change them.
 
 Discuss the app with the user: ask about its screens, what each shows, the steps, decisions, actors and edge cases of what happens on them when they are unclear, suggest improvements, and draw as you agree. Reply in the user's language.`
 }
 
-// create starts d's conversation, in the folder holding its file.
-func (a *assistant) create(d *document) {
-	if d.creating {
+// create starts the conversation about the folder dir, working in it.
+func (a *assistant) create(dir string) {
+	if a.creating {
 		return
 	}
-	d.creating = true
-	path := d.path.GetUntracked()
-	a.m.Create(agio.Create{Dir: filepath.Dir(path), Title: filepath.Base(path), SystemPrompt: prompt(path)}, func(id string) {
-		d.creating = false
-		d.agent.Set(id)
+	a.creating = true
+	a.m.Create(agio.Create{Dir: dir, Title: filepath.Base(dir), SystemPrompt: prompt(dir)}, func(id string) {
+		a.creating = false
+		if a.e.folder.GetUntracked() != dir {
+			a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
+			return
+		}
+		a.agent.Set(id)
 	})
 }
 
-// remove forgets d's conversation and stops its agent.
-func (a *assistant) remove(d *document) {
-	id := d.agent.GetUntracked()
+// remove forgets the conversation and stops its agent; the folder gets
+// another.
+func (a *assistant) remove() {
+	id := a.agent.GetUntracked()
 	if a.m == nil || id == "" {
 		return
 	}
-	d.agent.Set("")
+	a.agent.Set("")
 	a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
 }
 
-// clear starts a new conversation about the document shown.
-func (a *assistant) clear() { a.remove(a.e.shown()) }
-
-// ask sends prompt to the conversation about the document shown, saving
-// it first; nil without agents.
+// ask sends prompt to the conversation, saving the documents first; nil
+// without agents.
 func (a *assistant) ask() func(prompt string) {
 	if a.m == nil {
 		return nil
 	}
 	return func(prompt string) {
-		d := a.e.shown()
-		id := d.agent.GetUntracked()
-		if id == "" || a.e.locked(d) {
+		id := a.agent.GetUntracked()
+		if id == "" || a.busy() {
 			return
 		}
-		a.sent(d)
+		a.sent()
 		a.m.Do(func(b agio.Backend) error { return b.Send(id, agio.Message{Text: prompt}) }, nil)
 	}
 }
 
-// sent saves d, so what its agent reads is what the user sees, as a
-// message about it is sent.
-func (a *assistant) sent(d *document) {
-	a.e.saveQuietly(d)
+// sent saves the documents, so what the agent reads is what the user
+// sees, as a message is sent.
+func (a *assistant) sent() {
+	a.e.saveQuietly()
 	if a.e.opts.OnSend != nil {
 		a.e.opts.OnSend()
 	}
 }
 
-// working says d's agent is at work, while which the user cannot edit d;
-// a caller reading it follows.
-func (a *assistant) working(d *document) bool {
+// working says the agent is at work, while which the user cannot edit
+// the files; a caller reading it follows.
+func (a *assistant) working() bool {
 	if a.m == nil {
 		return false
 	}
-	id := d.agent.Get()
+	id := a.agent.Get()
 	return id != "" && a.m.Conversation(id).Running
 }
 
 // busy is working as the backend has it now, which the model follows a
 // little later, for actions to check.
-func (a *assistant) busy(d *document) bool {
+func (a *assistant) busy() bool {
 	if a.m == nil {
 		return false
 	}
-	c := a.m.Backend().State().Conversation(d.agent.GetUntracked())
+	c := a.m.Backend().State().Conversation(a.agent.GetUntracked())
 	return c != nil && c.Running
 }
 
-// group is the undo group of a change to d the agent made now: its
-// running turn, whose changes undo together, else none.
-func (a *assistant) group(d *document) string {
+// group is the undo group of a change the agent made now: its running
+// turn, whose changes undo together, else none.
+func (a *assistant) group() string {
 	if a.m == nil {
 		return ""
 	}
 	// The backend's state, as the model's follows it a little later.
-	c := a.m.Backend().State().Conversation(d.agent.GetUntracked())
+	c := a.m.Backend().State().Conversation(a.agent.GetUntracked())
 	if c == nil || !c.Running || len(c.Turns) == 0 {
 		return ""
 	}
@@ -135,16 +138,16 @@ func (a *assistant) group(d *document) string {
 	return c.ID + "/" + t.ID
 }
 
-// assistantPane is the conversation about the document shown under a
-// header that is the window's title bar with titleBar; or, while the
-// document has no file, a way to make or open one.
+// assistantPane is the conversation about the open folder under a header
+// that is the window's title bar with titleBar; or, while no folder is
+// open, a way to open one.
 func assistantPane(cx *core.Scope, a *assistant, titleBar bool) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	e := a.e
 	_, drag := chrome(cx, titleBar)
 	actions := []core.Node{ui.Spacer{},
-		ui.IconButton{Icon: lucide.MessageSquarePlus, Label: tr.NewChat(), OnPress: a.clear, TestID: "new-chat"}}
+		ui.IconButton{Icon: lucide.MessageSquarePlus, Label: tr.NewChat(), OnPress: a.remove, TestID: "new-chat"}}
 	if open := e.opts.OpenSettings; open != nil {
 		actions = append(actions, ui.IconButton{Icon: lucide.Settings, Label: tr.Settings(), OnPress: open, TestID: "open-settings"})
 	}
@@ -172,11 +175,13 @@ func assistantPane(cx *core.Scope, a *assistant, titleBar bool) core.Node {
 	// The conversation is built again for another one, as its draft and
 	// scrolling are its own.
 	body := core.Dynamic(func(cx *core.Scope) core.Node {
-		id := e.cur().agent.Get()
-		if a.m == nil || id == "" {
-			return placeholder(tr.NoFiles(),
-				ui.Button{Text: tr.NewFlow(), Icon: lucide.FilePlus, Variant: ui.ButtonPrimary, OnPress: e.NewFile, TestID: "chat-new-file"},
-				ui.Button{Text: tr.Open(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: e.Open, TestID: "chat-open-file"})
+		id := a.agent.Get()
+		switch {
+		case e.folder.Get() == "":
+			return placeholder(tr.NoFolder(),
+				ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonPrimary, OnPress: e.OpenFolder, TestID: "chat-open-folder"})
+		case a.m == nil || id == "":
+			return placeholder(tr.EmptyDetail())
 		}
 		empty := func() bool {
 			c := a.m.Conversation(id)
@@ -185,7 +190,7 @@ func assistantPane(cx *core.Scope, a *assistant, titleBar bool) core.Node {
 		// The placeholder leaves the composer free.
 		return core.View{Style: ui.FillRest, Children: []core.Node{
 			// What the user changed is saved for the agent to read.
-			chatview.Conversation{Model: a.m, ID: id, TestID: "conversation", OnSend: func() { a.sent(e.shown()) }},
+			chatview.Conversation{Model: a.m, ID: id, TestID: "conversation", OnSend: a.sent},
 			core.Show{When: empty, Then: func(*core.Scope) core.Node {
 				return core.View{NoFocus: true, Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(180)},
 					Children: []core.Node{placeholder(tr.EmptyDetail())}}

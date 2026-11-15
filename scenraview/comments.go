@@ -18,12 +18,12 @@ const (
 	cardWidth = 320
 )
 
-// commentPins mark the commented elements of s with a pin on each one's
+// commentPins mark the commented elements of the design s with a pin on each one's
 // top right corner, its size on screen the same at any zoom.
-func commentPins(cx *core.Scope, s flowfile.Screen, sel selection, zoom func() float64) []core.Node {
+func commentPins(cx *core.Scope, s flowfile.File, sel selection, zoom func() float64) []core.Node {
 	colors := ui.ColorsOf(cx)
 	var out []core.Node
-	for _, c := range (flowfile.Project{Screens: []flowfile.Screen{s}}).Comments() {
+	for _, c := range s.Comments() {
 		out = append(out, core.View{TestID: "comment-pin-" + c.Path, PointerEvents: core.PointerEventsNone,
 			StyleFunc: func() core.Style {
 				sel.laidOut.Get()
@@ -51,9 +51,8 @@ func commentCard(cx *core.Scope, e *Editor, ask func(prompt string), place func(
 	fin := ui.FinOf(cx)
 	selected := func() (flowfile.Element, string) {
 		d := e.cur()
-		s, _ := d.openScreen()
 		path := d.element.Get()
-		el, _ := flowfile.ElementAt(s.UI, path)
+		el, _ := flowfile.ElementAt(d.doc.Get().UI, path)
 		return el, path
 	}
 	comment := core.NewMemo(cx, func() string { el, _ := selected(); return el.Attr("comment") })

@@ -1,0 +1,11 @@
+flow
+
+node tap "Tap Sign in" kind=start
+node check "Check password" kind=decision note="Lock after 5 tries"
+node home "Show the menu" kind=end
+node error "Show the error"
+
+tap -> check
+check -> home "valid"
+check -> error "invalid"
+error ..> tap "try again"

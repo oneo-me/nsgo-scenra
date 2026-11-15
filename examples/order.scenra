@@ -1,4 +1,4 @@
-title "Order handling"
+flow
 
 node start "Order placed" kind=start
 node check "Check stock" kind=decision note="Reserve every item"

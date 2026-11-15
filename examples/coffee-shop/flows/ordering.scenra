@@ -1,0 +1,11 @@
+flow
+
+node pick "Pick a drink" kind=start
+node size "Choose the size" note="Small, medium or large"
+node cart "Add to cart" kind=data
+node pay "Pay" kind=decision
+node ready "Collect at the counter" kind=end status=todo
+
+pick -> size -> cart -> pay
+pay -> ready "paid"
+pay ..> cart "declined"

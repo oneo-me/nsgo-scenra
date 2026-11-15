@@ -55,8 +55,8 @@ const en = {
     cards: [
       {
         icon: 'layers',
-        title: 'Screens and flows in one place',
-        body: 'Every .scenra file holds an app’s screens, each with a phone, tablet or desktop design and its flow charts, listed together in the sidebar.',
+        title: 'A folder for every project',
+        body: 'Open a folder and its .scenra files show as a tree: each one phone, tablet or desktop design, or one flow chart, organized in folders as the app grows.',
       },
       {
         icon: 'sparkles',
@@ -71,12 +71,12 @@ const en = {
       {
         icon: 'pointer',
         title: 'Edits that follow your selection',
-        body: 'Work on the element or node you select, read your other open files, or let the assistant read the project folder to chart how the code works.',
+        body: 'Work on the element or node you select, across the folder’s designs and flows, or let the assistant read the project to chart how the code works.',
       },
       {
         icon: 'file',
         title: 'Plain text you own',
-        body: 'No database, no lock-in. .scenra files are readable, diffable and editable by hand, and saves stay where you opened them.',
+        body: 'No database, no lock-in. .scenra files are readable, diffable and editable by hand, and live in your folder.',
       },
       {
         icon: 'undo',
@@ -91,8 +91,8 @@ const en = {
     lead: 'The assistant runs the full height of the window while designs and flow charts fill the canvas beside it. Select anything to point the conversation at it.',
     points: [
       'Phone, tablet and desktop designs share the canvas with every flow chart.',
-      'Tabbed files keep their own conversation and undo history.',
-      'The assistant reads your other open files, and the folder a file lives in.',
+      'Files open in tabs, each with its own undo history.',
+      'One conversation per folder, which the assistant reads and draws in.',
     ],
     preview: {
       design: 'Design',
@@ -229,8 +229,8 @@ const en = {
         title: 'Local data',
         body: [],
         items: [
-          'Settings, the paths of the files open in tabs and the random statistics ID live in the app’s own storage on your device.',
-          'Scenra files are saved only where you choose.',
+          'Settings, the open folder, the paths of the files open in tabs and the random statistics ID live in the app’s own storage on your device.',
+          'Scenra files are saved only in the folder you open.',
         ],
       },
       {
@@ -304,8 +304,8 @@ const zh: typeof en = {
     cards: [
       {
         icon: 'layers',
-        title: '界面与流程，在同一处',
-        body: '每个 .scenra 文件保存应用的多个界面，每个界面都有手机、平板或桌面设计，以及一张或多张流程图，在侧栏中一起列出。',
+        title: '一个项目，一个文件夹',
+        body: '打开一个文件夹，其中的 .scenra 文件以树形列出：每个文件是一张手机、平板或桌面设计，或一张流程图，随着应用变大用文件夹归类。',
       },
       {
         icon: 'sparkles',
@@ -320,12 +320,12 @@ const zh: typeof en = {
       {
         icon: 'pointer',
         title: '改动跟着选择走',
-        body: '只改你选中的元素或节点，也能读取其他打开的文件；需要时，还能读取文件所在的项目文件夹，把代码的运作方式画成流程。',
+        body: '只改你选中的元素或节点，也能顾及文件夹中的其他设计和流程；需要时，还能读取项目代码，把它的运作方式画成流程。',
       },
       {
         icon: 'file',
         title: '纯文本，归你所有',
-        body: '没有数据库，也没有厂商锁定。.scenra 文件可读、可 diff、可手改，保存时留在你打开它的位置。',
+        body: '没有数据库，也没有厂商锁定。.scenra 文件可读、可 diff、可手改，就放在你的文件夹里。',
       },
       {
         icon: 'undo',
@@ -340,8 +340,8 @@ const zh: typeof en = {
     lead: '助手占据窗口整列高度，界面设计和流程图在旁边的画布上铺开。选中任意元素，对话就围绕它继续。',
     points: [
       '手机、平板和桌面设计，与所有流程图共享同一块画布。',
-      '多个文件分标签打开，各自保留对话和撤销记录。',
-      '助手能读取你其他打开的文件，以及文件所在的项目文件夹。',
+      '文件分标签打开，各自保留撤销记录。',
+      '每个文件夹一段对话，助手在其中阅读和绘制。',
     ],
     preview: {
       design: '设计',
@@ -474,8 +474,8 @@ const zh: typeof en = {
         title: '本地数据',
         body: [],
         items: [
-          '设置、标签页中打开文件的路径和随机统计 ID 保存在应用自己的设备存储中。',
-          'Scenra 文件只会保存到你选择的位置。',
+          '设置、打开的文件夹、标签页中打开文件的路径和随机统计 ID 保存在应用自己的设备存储中。',
+          'Scenra 文件只会保存在你打开的文件夹中。',
         ],
       },
       {

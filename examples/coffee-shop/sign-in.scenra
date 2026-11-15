@@ -1,0 +1,58 @@
+design
+box class="flex-1 gap-6 bg-white px-6 pt-16 pb-10"
+  box class="size-14 items-center justify-center rounded-2xl bg-amber-600 shadow-lg"
+    icon coffee class="size-7 text-white"
+  end
+  box class="gap-2"
+    text "Welcome back" class="text-3xl font-bold text-zinc-900"
+    text "Sign in to order ahead and collect points." class="text-base text-zinc-500"
+  end
+  box class="gap-3"
+    box class="h-12 flex-row items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4"
+      icon mail class="size-4 text-zinc-400"
+      text "you@example.com" class="text-zinc-900"
+    end
+    box class="h-12 flex-row items-center gap-3 rounded-xl border border-zinc-200 bg-zinc-50 px-4"
+      icon lock class="size-4 text-zinc-400"
+      text "••••••••" class="flex-1 text-zinc-900"
+      icon eye-off class="size-4 text-zinc-400"
+    end
+    box class="flex-row items-center justify-between"
+      box class="flex-row items-center gap-2"
+        box class="size-5 items-center justify-center rounded-md bg-amber-600"
+          icon check class="size-3.5 text-white"
+        end
+        text "Remember me" class="text-sm text-zinc-700"
+      end
+      text "Forgot password?" class="text-sm font-medium text-amber-700"
+    end
+  end
+  box class="h-12 flex-row items-center justify-center gap-2 rounded-xl bg-amber-600 shadow-md"
+    text "Sign in" class="text-base font-semibold text-white"
+    icon arrow-right class="size-4 text-white"
+  end
+  box class="flex-row items-center gap-3"
+    box class="h-px flex-1 bg-zinc-200"
+    end
+    text "or" class="text-sm text-zinc-400"
+    box class="h-px flex-1 bg-zinc-200"
+    end
+  end
+  box class="flex-row gap-3"
+    box class="h-12 flex-1 items-center justify-center rounded-xl border border-zinc-200"
+      text "Apple" class="font-medium text-zinc-900"
+    end
+    box class="h-12 flex-1 items-center justify-center rounded-xl border border-zinc-200"
+      text "Google" class="font-medium text-zinc-900"
+    end
+  end
+  box class="flex-1"
+  end
+  box class="flex-row items-center gap-3 rounded-2xl bg-amber-50 p-4"
+    icon gift class="size-5 text-amber-700"
+    box class="flex-1 gap-0.5"
+      text "New here?" class="font-semibold text-amber-900"
+      text "Your first drink is on us." class="text-sm text-amber-800"
+    end
+  end
+end

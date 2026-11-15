@@ -26,16 +26,16 @@
 
 ## The name
 
-Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*, the flow that leads from one to the next. A Scenra file holds both: the screens and the paths between them.
+Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*, the flow that leads from one to the next. A Scenra project holds both: a folder of designs of the screens and charts of the paths between them.
 
 ## Features
 
-- Scenra files open in tabs across the window's top; the left lists each screen's design and flow charts, the open one is in the middle, and the conversation runs the window's height on the right.
-- Files remember where they were opened from or saved to, so ⌘S saves them in place, and reopen at the next start.
+- Scenra works in a folder: the left shows its Scenra files as a tree, each one design or one flow chart, the files you choose open in tabs across the window's top, and the conversation runs the window's height on the right.
+- ⌘S saves a file in place, and the folder and its open files reopen at the next start.
 - Phone, tablet and desktop designs are drawn from boxes, texts, icons, images and SVG shaped by Tailwind CSS classes, so a draft can look like anything; zoom, pan and select its elements as in the flow charts.
-- The assistant is a coding agent you have installed, such as Claude Code, Codex, pi or CodeBuddy Code: it asks what it needs, then writes the file as the Scenra skill teaches, and the file redraws as it writes.
-- The assistant works on what you select, resolves the comments you leave on design elements, and works in the folder a file is saved in, so it can chart how the code there works.
-- Sending a message saves your changes; while the assistant works the file stays as it leaves it, and each of its turns undoes as one step.
+- The assistant is a coding agent you have installed, such as Claude Code, Codex, pi or CodeBuddy Code: it asks what it needs, then writes and makes the folder's files as the Scenra skill teaches, and each redraws as it writes.
+- The assistant works on what you select, resolves the comments you leave on design elements, and works in the open folder, so it can chart how the code there works.
+- Sending a message saves your changes; while the assistant works the files stay as it leaves them, and each of its turns undoes as one step.
 - Designs are plain-text `.scenra` files you can read, diff and edit by hand.
 - Runs on macOS, Windows and Linux, in English and Simplified Chinese.
 
@@ -48,15 +48,15 @@ go tool nsgo dev cmd/scenra     # run
 go tool nsgo build cmd/scenra   # build macOS, Windows and Linux into cmd/scenra/dist/
 ```
 
-On macOS, `.scenra` files open with the app from the Finder; on Windows and Linux, a Scenra file given on the command line opens at start.
+On macOS, `.scenra` files open with the app from the Finder; on Windows and Linux, a Scenra file or folder given on the command line opens at start. A file opens with the folder holding it.
 
 ## Getting started
 
 1. Install and sign in to a coding agent such as [Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex); **Settings** (⌘,) shows the agents Scenra found and turns them or their models on or off.
-2. Describe an app or a process in the assistant, such as "Design the sign-in screen of a coffee shop app" or "Chart how we handle an order".
-3. To chart an existing project, save the Scenra file in the project's folder: the assistant works there.
-4. Answer its questions and watch it draw the screens and flows; pick a screen's design or flow on the left.
-5. A new file is saved where you choose first, and ⌘S saves it from then on; or open `examples/shop.scenra` or `examples/order.scenra` to start from an example.
+2. Open a folder (⌘O), such as a project's, which the assistant works in, or `examples/` to start from an example.
+3. Describe an app or a process in the assistant, such as "Design the sign-in screen of a coffee shop app" or "Chart how we handle an order".
+4. Answer its questions and watch it make and draw the designs and flows; pick one in the tree on the left.
+5. Make a design (⌘N) or a flow (⌘⇧N) yourself in the folder selected in the tree.
 
 The [`flowfile` package comment](flowfile/) describes the file format.
 
@@ -66,7 +66,7 @@ Release builds send anonymous usage statistics to Umami: how often and how long 
 
 ## Use in your app
 
-`scenraview` gives other NSGo apps Scenra's editor for `.scenra` files: an `Editor` of open files and views of it, the `Window` as Scenra shows it, or a `TabBar`, `Sidebar`, `Workspace` and `Assistant` to lay out themselves. The assistant runs the agents of an [Agio](https://github.com/oneo-me/nsgo-agio) backend; give them the skill in `cmd/scenra/resources/skills/scenra` and the `Server` that tells them what the user sees.
+`scenraview` gives other NSGo apps Scenra's editor for `.scenra` files: an `Editor` of a folder and its open files, and views of it, the `Window` as Scenra shows it, or a `TabBar`, `Sidebar`, `Workspace` and `Assistant` to lay out themselves. The assistant runs the agents of an [Agio](https://github.com/oneo-me/nsgo-agio) backend; give them the skill in `cmd/scenra/resources/skills/scenra` and the `Server` that tells them what the user sees.
 
 ```sh
 go get github.com/oneo-me/nsgo-scenra
@@ -75,7 +75,7 @@ go get github.com/oneo-me/nsgo-scenra
 ```go
 nsgo.Run(func(cx *core.Scope) core.Node {
 	e := scenraview.New(cx, scenraview.Options{})
-	e.OpenPath("app.scenra")
+	e.OpenPath("designs") // a folder, or a file, which opens with its folder
 	return core.View{Style: core.Style{Direction: core.Row, FlexGrow: 1}, Children: []core.Node{
 		scenraview.Sidebar{Editor: e}, scenraview.Workspace{Editor: e},
 	}}

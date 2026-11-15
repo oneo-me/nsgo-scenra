@@ -26,10 +26,8 @@ func chrome(cx *core.Scope, titleBar bool) (core.Edges, core.WindowDrag) {
 	return desktop.TitleBar(cx), core.WindowDragOn
 }
 
-// titleBar is the bar over the documents: a tab for each, as Figma's,
-// and a button that makes another.
+// titleBar is the bar over the documents: a tab for each, as Figma's.
 func titleBar(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
-	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	tabs := core.Each(e.tabs.Get, func(d *document) int { return d.id }, func(cx *core.Scope, d func() *document, _ func() int) core.Node {
 		return tabView(cx, e, core.Untracked(cx, d))
@@ -45,9 +43,6 @@ func titleBar(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 		Children: []core.Node{
 			core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignStretch, FlexShrink: 1, MinWidth: core.Pt(0)},
 				Children: []core.Node{tabs}},
-			core.View{Style: core.Style{JustifyContent: core.JustifyCenter, Padding: core.Symmetric(0, 6)}, Children: []core.Node{
-				ui.IconButton{Icon: lucide.Plus, Label: tr.NewFlow(), Size: 26, OnPress: e.NewFile, TestID: "new"},
-			}},
 		}}
 }
 

@@ -6,8 +6,7 @@ import (
 )
 
 const sample = `# Orders
-title "Order handling"
-direction right
+flow direction=right
 
 node start "Order placed" kind=start
 node check "Check stock" note="Reserve every item" status=done
@@ -17,13 +16,14 @@ check ..> start "out \"of\" stock"   # retry
 ship -> done -> archive
 `
 
-func TestParse(t *testing.T) {
-	d, err := Parse(sample)
+func TestParseFlow(t *testing.T) {
+	f, err := Parse(sample)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if d.Title != "Order handling" || d.Direction != Right {
-		t.Fatalf("header: %q %q", d.Title, d.Direction)
+	d := f.Flow
+	if f.Kind != Chart || d.Direction != Right {
+		t.Fatalf("header: %q %q", f.Kind, d.Direction)
 	}
 	var ids []string
 	for _, n := range d.Nodes {
@@ -62,13 +62,13 @@ func TestFormatRoundTrips(t *testing.T) {
 
 func TestParseErrors(t *testing.T) {
 	for src, want := range map[string]string{
-		"direction up":          "line 1: unknown direction",
-		"\nnode a kind=box":     "line 2: unknown kind",
-		`node a "x`:             "unclosed quote",
-		"a -> ":                 "a line is",
-		"a => b":                "expected -> or ..>",
-		"node":                  "node needs an ID",
-		`node a "A" colour=red`: "unknown attribute",
+		"flow direction=up":             "line 1: unknown direction",
+		"flow\n\nnode a kind=box":       "line 3: unknown kind",
+		"flow\nnode a \"x":              "unclosed quote",
+		"flow\na -> ":                   "a line of a flow is",
+		"flow\na => b":                  "expected -> or ..>",
+		"flow\nnode":                    "node needs an ID",
+		"flow\nnode a \"A\" colour=red": "unknown attribute",
 	} {
 		if _, err := Parse(src); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v, want %q", src, err, want)
@@ -77,7 +77,7 @@ func TestParseErrors(t *testing.T) {
 }
 
 func TestEdits(t *testing.T) {
-	var d Doc
+	var d Flow
 	for _, n := range []Node{{ID: "a"}, {ID: "b", Label: "B"}} {
 		if err := d.AddNode(n); err != nil {
 			t.Fatal(err)

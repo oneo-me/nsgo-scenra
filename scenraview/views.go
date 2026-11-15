@@ -1,8 +1,8 @@
 // Package scenraview gives NSGo apps support for Scenra files: an Editor
-// that opens, edits, saves and undoes them, with an assistant that draws
-// on them, and views of it that an app shows as Scenra's Window or lays
-// out itself. The app supplies the model provider and keeps its own
-// menus, settings and window.
+// of a folder of them that opens, edits, saves and undoes them, with an
+// assistant that draws in the folder, and views of it that an app shows
+// as Scenra's Window or lays out itself. The app supplies the agents and
+// keeps its own menus, settings and window.
 package scenraview
 
 import (
@@ -16,8 +16,7 @@ import (
 // The views show an Editor. An app composes them, or shows its Window;
 // each follows the document the editor shows.
 
-// TabBar is a tab for each open document, and a button that makes
-// another. As the window's TitleBar, it drags the window and keeps clear
+// TabBar is a tab for each open document. As the window's TitleBar, it drags the window and keeps clear
 // of the window controls.
 type TabBar struct {
 	Editor   *Editor
@@ -27,23 +26,23 @@ type TabBar struct {
 // Render implements core.Node.
 func (t TabBar) Render(cx *core.Scope) core.Node { return titleBar(cx, t.Editor, t.TitleBar) }
 
-// Sidebar lists the screens of the document shown, each with its design
-// and flows, and opens the one chosen.
+// Sidebar is the open folder's Scenra files as a tree, which shows the
+// one chosen and makes new ones.
 type Sidebar struct{ Editor *Editor }
 
 // Render implements core.Node.
 func (s Sidebar) Render(cx *core.Scope) core.Node { return sidebar(cx, s.Editor) }
 
-// Workspace is what the Sidebar opened: a screen's design, on which the
-// user comments, or a flow chart; or, while no file is open, a way to
-// make or open one.
+// Workspace is the file the Sidebar opened: a design, on which the user
+// comments, or a flow chart; or, while none is, a way to open a folder or
+// make a file.
 type Workspace struct{ Editor *Editor }
 
 // Render implements core.Node.
 func (w Workspace) Render(cx *core.Scope) core.Node { return workspacePane(cx, w.Editor) }
 
-// Assistant is the conversation about the document shown, which draws
-// on it. As the window's TitleBar, its header drags the window and keeps
+// Assistant is the conversation about the open folder, which draws in
+// it. As the window's TitleBar, its header drags the window and keeps
 // clear of the window controls.
 type Assistant struct {
 	Editor   *Editor

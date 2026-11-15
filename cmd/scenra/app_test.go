@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -38,10 +39,13 @@ func testRoot(t *testing.T) func(cx *core.Scope) core.Node {
 
 func TestSettingsTurnAgentsOff(t *testing.T) {
 	app := nsgotest.Start(t, testRoot(t), nsgotest.Size(1280, 800))
-	path := filepath.Join(t.TempDir(), "hello.scenra")
-	app.SaveFile = func(core.SaveRequest) string { return path }
-	app.Press("id:chat-new-file")
-	app.WaitFor("id:title-bar >> label:hello.scenra", 5*time.Second)
+	dir := filepath.Join(t.TempDir(), "hello")
+	os.Mkdir(dir, 0o755)
+	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: dir}} }
+	app.Press("id:chat-open-folder")
+	if got := app.WaitFor("id:folder-name", 5*time.Second).Text; got != "hello" {
+		t.Fatalf("the folder is named %q", got)
+	}
 	app.Press("id:open-settings")
 	app.WaitFor("id:settings", time.Second)
 	app.WaitFor("id:settings >> text:Claude Code", 5*time.Second)

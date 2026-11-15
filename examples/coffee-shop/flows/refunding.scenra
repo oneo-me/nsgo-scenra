@@ -1,0 +1,10 @@
+flow
+
+node ask "Customer asks" kind=start
+node check "Within 24 hours?" kind=decision
+node refund "Refund to card" kind=end
+node credit "Offer store credit" kind=end
+
+ask -> check
+check -> refund "yes"
+check -> credit "no"

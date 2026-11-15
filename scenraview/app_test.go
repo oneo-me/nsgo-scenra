@@ -19,26 +19,42 @@ import (
 // TestMain gives the platform the main thread under nsgo test -target.
 func TestMain(m *testing.M) { nsgotest.Main(m) }
 
-// The storage keys of the files the test app keeps open.
+// The storage keys of the folder and files the test app keeps open.
 const (
+	keyFolder     = "editor.folder"
 	keyOpenFiles  = "editor.openFiles"
 	keyActiveFile = "editor.activeFile"
 )
 
-// newFileAt answers the next save dialogs with path, in a new folder.
-func newFileAt(t *testing.T, app *nsgotest.App, name string) string {
-	path := filepath.Join(t.TempDir(), name)
-	app.SaveFile = func(core.SaveRequest) string { return path }
-	return path
+// folderOfFiles writes files, by their paths with slashes, in a new
+// folder.
+func folderOfFiles(t *testing.T, files map[string]string) string {
+	dir := t.TempDir()
+	for name, text := range files {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
 }
 
-// writeFlow writes a flow file named name in a new folder.
+// writeFlow writes a Scenra file named name in a new folder.
 func writeFlow(t *testing.T, name, text string) string {
-	path := filepath.Join(t.TempDir(), name)
-	if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	return path
+	return filepath.Join(folderOfFiles(t, map[string]string{name: text}), name)
+}
+
+// openPath opens the folder or file at path in e.
+func openPath(t *testing.T, app *nsgotest.App, e *Editor, path string) {
+	app.Post(func() {
+		if err := e.OpenPath(path); err != nil {
+			t.Error(err)
+		}
+	})
+	app.Settle()
 }
 
 // startEditor starts an app of the Window, whose assistant's agent is
@@ -57,63 +73,89 @@ func tabNames(app *nsgotest.App) []string {
 	return names
 }
 
-func TestOpensFlowFilesInTabs(t *testing.T) {
-	plan := writeFlow(t, "plan.scenra", "title \"Plan\"\nnode a \"Research\" note=\"Read the docs\"\na -> b\n")
-	shop := writeFlow(t, "shop.scenra", "screen home \"Home\"\n  text \"Welcome\"\n")
+func TestShowsTheFolderAsATree(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"plan.scenra":             "flow\nnode a \"Research\" note=\"Read the docs\"\na -> b\n",
+		"screens/home.scenra":     "design\ntext \"Welcome\"\n",
+		"screens/broken.scenra":   "box\n",
+		".hidden/secret.scenra":   "flow\n",
+		"node_modules/pkg.scenra": "flow\n",
+		"notes.txt":               "design\n",
+		"empty/nothing-here.md":   "",
+	})
 	app, e := startEditor(t)
-	open := func(path string) {
-		app.Post(func() {
-			if err := e.OpenPath(path); err != nil {
-				t.Error(err)
-			}
-		})
-		app.Settle()
+	app.Find("id:sidebar-open-folder")
+	openPath(t, app, e, dir)
+	app.WaitFor("id:files >> label:plan", time.Second)
+	if got := app.Find("id:folder-name").Text; got != filepath.Base(dir) {
+		t.Fatalf("the folder is named %q", got)
 	}
-	open(plan)
-	app.Find("flow >> label:Research")
-	app.Find("flow >> text:Read the docs")
-	if got := tabNames(app); !slices.Equal(got, []string{"plan.scenra"}) {
-		t.Fatalf("tabs %v", got)
+	for _, name := range []string{"screens", "home", "broken"} {
+		app.Find("id:files >> label:" + name)
 	}
-	open(shop)
-	app.WaitFor("design >> text:Welcome", time.Second)
-	// A file open already shows its tab again.
-	open(plan)
+	for _, name := range []string{"secret", "pkg", "notes", "empty"} {
+		if app.Exists("id:files >> label:" + name) {
+			t.Errorf("the tree shows %s", name)
+		}
+	}
+	// Choosing a file shows it in a tab.
+	app.Press("id:files >> label:plan")
 	app.WaitFor("flow >> label:Research", time.Second)
-	if got := tabNames(app); !slices.Equal(got, []string{"plan.scenra", "shop.scenra"}) {
+	app.Find("flow >> text:Read the docs")
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome", time.Second)
+	if got := tabNames(app); !slices.Equal(got, []string{"plan.scenra", "home.scenra"}) {
 		t.Fatalf("tabs %v", got)
 	}
-	// The sidebar lists the entries of the document shown.
-	app.Press("id:title-bar >> label:shop.scenra")
-	app.WaitFor("id:design-home", time.Second)
-	if app.Exists("id:flow-main") {
-		t.Fatal("the sidebar still lists the other document's flow")
-	}
+	app.Press("id:title-bar >> label:plan.scenra")
+	app.WaitFor("flow >> label:Research", time.Second)
+	// A file another program makes shows in the tree.
+	os.WriteFile(filepath.Join(dir, "screens", "later.scenra"), []byte("flow\n"), 0o644)
+	app.WaitFor("id:files >> label:later", 5*time.Second)
 
-	// The files open again at the next start, the one shown too.
+	// The folder and its files open again at the next start, the one
+	// shown too.
 	stored, _ := app.Storage().GetItem(keyOpenFiles)
-	again, _ := startEditor(t, nsgotest.Storage(map[string]string{keyOpenFiles: stored, keyActiveFile: shop}))
-	if got := tabNames(again); !slices.Equal(got, []string{"plan.scenra", "shop.scenra"}) {
+	again, _ := startEditor(t, nsgotest.Storage(map[string]string{keyFolder: dir, keyOpenFiles: stored,
+		keyActiveFile: filepath.Join(dir, "screens", "home.scenra")}))
+	if got := tabNames(again); !slices.Equal(got, []string{"plan.scenra", "home.scenra"}) {
 		t.Fatalf("restored tabs %v", got)
 	}
 	again.Find("design >> text:Welcome")
+	again.WaitFor("id:files >> label:plan", time.Second)
+}
+
+func TestOpeningAFileOpensItsFolder(t *testing.T) {
+	one := folderOfFiles(t, map[string]string{"a.scenra": "flow\nnode a \"First\"\n"})
+	other := writeFlow(t, "b.scenra", "flow\nnode b \"Second\"\n")
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(one, "a.scenra"))
+	app.WaitFor("flow >> label:First", time.Second)
+	if got := core.Untracked(e.cx, e.Folder); got != one {
+		t.Fatalf("folder %q, want %q", got, one)
+	}
+	openPath(t, app, e, other)
+	app.WaitFor("flow >> label:Second", time.Second)
+	if got := tabNames(app); !slices.Equal(got, []string{"b.scenra"}) || core.Untracked(e.cx, e.Folder) != filepath.Dir(other) {
+		t.Fatalf("tabs %v in %s", got, core.Untracked(e.cx, e.Folder))
+	}
+	app.WaitFor("id:files >> label:b", time.Second)
+	if app.Exists("id:files >> label:a") {
+		t.Fatal("the tree still shows the other folder")
+	}
 }
 
 func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
-	shop := writeFlow(t, "shop.scenra", "screen home \"Home\"\n"+
-		"  box class=\"flex-1 gap-4 p-6\"\n"+
-		"    text \"Welcome\" class=\"text-2xl\"\n"+
-		"    box class=\"flex-row gap-2 p-2\"\n"+
-		"      icon mail class=\"size-5\"\n"+
-		"      text \"Mail\"\n"+
-		"    end\n"+
-		"  end\n")
+	shop := writeFlow(t, "shop.scenra", "design\n"+
+		"box class=\"flex-1 gap-4 p-6\"\n"+
+		"  text \"Welcome\" class=\"text-2xl\"\n"+
+		"  box class=\"flex-row gap-2 p-2\"\n"+
+		"    icon mail class=\"size-5\"\n"+
+		"    text \"Mail\"\n"+
+		"  end\n"+
+		"end\n")
 	app, e := startEditor(t)
-	app.Post(func() {
-		if err := e.OpenPath(shop); err != nil {
-			t.Error(err)
-		}
-	})
+	openPath(t, app, e, shop)
 	app.WaitFor("design >> text:Mail", time.Second)
 	// The design fits the pane scaled down, which the layer over it
 	// undoes: the pointer is where the camera drew each element.
@@ -162,79 +204,67 @@ func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
 	}
 }
 
-func TestSavesWhereTheFileWasSaved(t *testing.T) {
+func TestMakesFilesInTheFolder(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{"flows/old.scenra": "flow\n"})
 	app, e := startEditor(t)
-	// A new file is saved where the user chooses before it opens.
-	saveTo := newFileAt(t, app, "chosen.scenra")
-	app.Press("id:new-file")
-	app.Settle()
-	if got := tabNames(app); !slices.Equal(got, []string{"chosen.scenra"}) {
-		t.Fatalf("tabs after making a file %v", got)
-	}
-	if _, err := os.Stat(saveTo); err != nil {
-		t.Fatal(err)
-	}
-	retitle := func(title string) {
-		app.Post(func() {
-			d := e.shown()
-			p := d.doc.GetUntracked()
-			p.Title = title
-			d.change(p, "")
-		})
+	openPath(t, app, e, dir)
+	app.WaitFor("id:files >> label:old", time.Second)
+	create := func(item, name string) {
+		app.Press("id:new-file")
+		app.Press("id:" + item)
+		app.WaitFor("id:new-file-dialog", time.Second)
+		app.Type("id:new-file-name", name)
+		app.Press("id:new-file-create")
 		app.Settle()
 	}
-	// Saving writes the same file without asking where.
-	retitle("Second")
-	app.Post(e.Save)
-	app.Settle()
-	if len(app.Saves) != 1 {
-		t.Fatalf("asked where to save %d times", len(app.Saves))
+	// A design is made in the folder.
+	create("new-design", "Sign in")
+	if data, err := os.ReadFile(filepath.Join(dir, "Sign in.scenra")); err != nil || string(data) != "design\n" {
+		t.Fatalf("the design: %q %v", data, err)
 	}
-	if data, _ := os.ReadFile(saveTo); !strings.Contains(string(data), "Second") {
-		t.Fatalf("the file was not saved:\n%s", data)
+	if got := tabNames(app); !slices.Equal(got, []string{"Sign in.scenra"}) {
+		t.Fatalf("tabs %v", got)
 	}
+	app.Find("id:files >> label:Sign in")
+	app.WaitForGone("id:new-file-dialog", time.Second)
+	// A name in use is refused.
+	create("new-design", "Sign in.scenra")
+	app.Find("id:new-file-problem")
+	app.Press("id:new-file-cancel")
+	app.WaitForGone("id:new-file-dialog", time.Second)
+	// A flow goes in the folder selected.
+	app.Press(`id:files >> text:"flows"`)
+	create("new-flow", "checkout")
+	if data, err := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); err != nil || string(data) != "flow\n" {
+		t.Fatalf("the flow: %q %v", data, err)
+	}
+	app.Find("id:files >> label:checkout")
 
-	// An opened file saves where it came from.
-	opened := writeFlow(t, "opened.scenra", "title \"Opened\"\n")
+	// Saving writes the file the document came from.
 	app.Post(func() {
-		if err := e.OpenPath(opened); err != nil {
-			t.Error(err)
-		}
+		d := e.shown()
+		f := d.doc.GetUntracked()
+		f.Flow.Direction = flowfile.Right
+		d.change(f, "")
 	})
 	app.Settle()
-	retitle("Changed")
 	app.Post(e.Save)
 	app.Settle()
-	if data, _ := os.ReadFile(opened); len(app.Saves) != 1 || !strings.Contains(string(data), "Changed") {
-		t.Fatalf("saves %d, file:\n%s", len(app.Saves), data)
-	}
-
-	// Canceling the dialog makes no file.
-	app.SaveFile = nil
-	app.Post(e.NewFile)
-	app.Settle()
-	if got := tabNames(app); len(got) != 2 {
-		t.Fatalf("tabs after canceling %v", got)
+	if data, _ := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); string(data) != "flow direction=right\n" {
+		t.Fatalf("the file was not saved:\n%s", data)
 	}
 }
 
 func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
-	path := writeFlow(t, "plan.scenra", "title \"Plan\"\nnode a \"Research\"\n")
+	path := writeFlow(t, "plan.scenra", "flow\nnode a \"Research\"\n")
 	app, e := startEditor(t, nsgotest.PendingAlerts())
-	open := func() {
-		app.Post(func() {
-			if err := e.OpenPath(path); err != nil {
-				t.Error(err)
-			}
-		})
-		app.Settle()
-	}
-	retitle := func(title string) {
+	open := func() { openPath(t, app, e, path) }
+	relabel := func(label string) {
 		app.Post(func() {
 			d := e.shown()
-			p := d.doc.GetUntracked()
-			p.Title = title
-			d.change(p, "")
+			f := d.doc.GetUntracked().Clone()
+			f.Flow.Nodes[0].Label = label
+			d.change(f, "")
 		})
 		app.Settle()
 	}
@@ -248,7 +278,7 @@ func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
 
 	// Canceling keeps the tab.
 	open()
-	retitle("Edited plan")
+	relabel("Edited plan")
 	closeTab()
 	app.Answer(2)
 	app.Settle()
@@ -269,7 +299,7 @@ func TestUnsavedChangesAskBeforeTheyGo(t *testing.T) {
 
 	// Not saving drops the changes.
 	open()
-	retitle("Dropped")
+	relabel("Dropped")
 	closeTab()
 	app.Answer(1)
 	app.Settle()
@@ -300,23 +330,23 @@ func TestEveryIconNameDraws(t *testing.T) {
 	}
 	for name := range lucideIcons {
 		if _, ok := flowfile.IconName(name); !ok {
-			t.Errorf("flow files refuse icon %q", name)
+			t.Errorf("Scenra files refuse icon %q", name)
 		}
 	}
 }
 
 func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
-	paths, _ := filepath.Glob("../examples/*.scenra")
-	for _, path := range paths {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		p, err := flowfile.ParseProject(string(data))
+	files, _ := scan("../examples", nil)
+	if len(files) < 2 {
+		t.Fatalf("examples %v", files)
+	}
+	for _, en := range files {
+		path := filepath.Join("../examples", en.path)
+		f, err := readFile(path)
 		if err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
-		if unknown := unknownClasses(p); len(unknown) > 0 {
+		if unknown := unknownClasses(f.UI); len(unknown) > 0 {
 			t.Errorf("%s: classes that draw nothing: %v", path, unknown)
 		}
 		var walk func(els []flowfile.Element)
@@ -330,29 +360,28 @@ func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 				walk(el.Children)
 			}
 		}
-		for _, s := range p.Screens {
-			walk(s.UI)
-		}
+		walk(f.UI)
 	}
 }
 
 func TestAnotherAppShowsOneFile(t *testing.T) {
-	path := writeFlow(t, "shop.scenra", "screen home \"Home\"\n  text \"Welcome\"\nflow main \"Main\"\n  node a \"Browse\"\n")
+	dir := folderOfFiles(t, map[string]string{"home.scenra": "design\ntext \"Welcome\"\n", "browse.scenra": "flow\nnode a \"Browse\"\n"})
 	var e *Editor
 	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
 		e = New(cx, Options{})
-		if err := e.OpenPath(path); err != nil {
+		if err := e.OpenPath(filepath.Join(dir, "home.scenra")); err != nil {
 			t.Error(err)
 		}
 		return core.View{Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{Sidebar{e}, Workspace{e}}}
 	}, nsgotest.Size(1000, 700))
 	app.Find("design >> text:Welcome")
-	app.Press("id:flow-main")
+	app.WaitFor("id:files >> label:browse", time.Second)
+	app.Press("id:files >> label:browse")
 	app.WaitFor("flow >> label:Browse", time.Second)
 	if app.Exists("id:title-bar") || app.Exists("id:composer") {
 		t.Fatal("the views shown brought the tabs or the assistant")
 	}
-	if _, ok := app.Storage().GetItem(keyOpenFiles); ok {
-		t.Fatal("an editor that remembers nothing kept its files")
+	if _, ok := app.Storage().GetItem(keyFolder); ok {
+		t.Fatal("an editor that remembers nothing kept its folder")
 	}
 }

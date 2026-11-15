@@ -20,7 +20,7 @@ import (
 )
 
 // step is what a scripted agent does: write text to file, or, with view,
-// ask the server what the user sees of it.
+// ask the server what the user sees.
 type step struct {
 	file, text string
 	view       bool
@@ -102,7 +102,7 @@ func (s *scriptedSession) Prompt(_ context.Context, p agentio.Prompt) error {
 				os.WriteFile(st.file, []byte(st.text), 0o644)
 				continue
 			}
-			out, _, err := mcp.CallTool(context.Background(), server, ToolView, map[string]any{"file": st.file})
+			out, _, err := mcp.CallTool(context.Background(), server, ToolView, map[string]any{})
 			if err != nil {
 				out = "error: " + err.Error()
 			}
@@ -119,9 +119,9 @@ func (s *scriptedSession) Prompt(_ context.Context, p agentio.Prompt) error {
 	return nil
 }
 
-func (s *scriptedSession) Abort(context.Context) error                     { return nil }
+func (s *scriptedSession) Abort(context.Context) error                       { return nil }
 func (s *scriptedSession) Configure(context.Context, agentio.Settings) error { return nil }
-func (s *scriptedSession) Close(time.Duration)                             {}
+func (s *scriptedSession) Close(time.Duration)                               {}
 
 // askedSettings counts the times the test app's assistant opened the
 // settings.
@@ -161,34 +161,37 @@ func send(app *nsgotest.App, text string) {
 	app.Press("role:button Send")
 }
 
-func TestAssistantDrawsOnTheChart(t *testing.T) {
+func TestAssistantDrawsInTheFolder(t *testing.T) {
 	app, e, d := startAssistant(t)
-	app.Find("id:chat-new-file")
+	app.Find("id:chat-open-folder")
 	asked := askedSettings
 	app.Press("id:open-settings")
 	if askedSettings != asked+1 {
 		t.Fatal("the assistant's settings button did nothing")
 	}
-	// A conversation is about a file, which the assistant makes.
-	path := newFileAt(t, app, "orders.scenra")
-	app.Press("id:chat-new-file")
+	// A conversation is about a folder.
+	dir := t.TempDir()
+	openPath(t, app, e, dir)
 	app.WaitFor("text:Let's design an app together", 5*time.Second)
+	path := filepath.Join(dir, "orders.scenra")
 	hold := make(chan struct{})
 	d.script(reply{steps: []step{
-		{file: path, view: true},
-		{file: path, text: "node order \"Order placed\" kind=start\n"},
-		{file: path, view: true},
-		{file: path, text: "node order \"Order placed\" kind=start\nnode ship \"Ship order\"\norder -> ship\n"},
-		{file: path, view: true},
+		{view: true},
+		{file: path, text: "flow\nnode order \"Order placed\" kind=start\n"},
+		{view: true},
+		{file: path, text: "flow\nnode order \"Order placed\" kind=start\nnode ship \"Ship order\"\norder -> ship\n"},
+		{view: true},
 	}, hold: hold, text: "I drew **two steps**."})
 	send(app, "Chart an order flow")
-	// What the agent writes shows as it writes it.
+	// A file the agent makes opens, and what it writes shows as it
+	// writes it.
 	app.WaitFor("flow >> label:Ship order", 5*time.Second)
 	app.WaitUntil(5*time.Second, func() bool { _, _, views := d.get(); return len(views) == 3 })
-	if _, _, views := d.get(); !strings.Contains(views[0], "no screens yet") || !strings.Contains(views[2], `screen "main" open on flow "main"`) {
+	if _, _, views := d.get(); !strings.Contains(views[0], "no Scenra files yet") || !strings.Contains(views[2], "flow orders.scenra open") {
 		t.Fatalf("views %q", views)
 	}
-	// The user cannot change the file while the agent works.
+	app.Find("id:files >> label:orders")
+	// The user cannot change the files while the agent works.
 	app.WaitUntil(5*time.Second, func() bool { return core.Untracked(e.cx, e.Working) })
 	app.Post(e.Undo)
 	app.Settle()
@@ -198,16 +201,16 @@ func TestAssistantDrawsOnTheChart(t *testing.T) {
 	}
 	close(hold)
 	app.WaitFor("text:two steps", 5*time.Second)
-	// The agent works where the file is, told of it.
+	// The agent works in the folder, told of it.
 	started, _, _ := d.get()
-	if len(started) != 1 || started[0].Dir != filepath.Dir(path) || !strings.Contains(started[0].SystemPrompt, path) || len(started[0].MCPServers) != 1 {
+	if len(started) != 1 || started[0].Dir != dir || !strings.Contains(started[0].SystemPrompt, dir) || len(started[0].MCPServers) != 1 {
 		t.Fatalf("started %+v", started)
 	}
 
-	// What the turn wrote undoes together.
+	// What the turn wrote after the file opened undoes together.
 	app.WaitUntil(5*time.Second, func() bool { return core.Untracked(e.cx, e.CanUndo) })
 	app.Post(e.Undo)
-	app.WaitForGone("flow >> label:Order placed", time.Second)
+	app.WaitForGone("flow >> label:Ship order", time.Second)
 
 	// A new chat is another conversation.
 	app.Press("id:new-chat")
@@ -215,13 +218,9 @@ func TestAssistantDrawsOnTheChart(t *testing.T) {
 }
 
 func TestSendingSavesWhatTheUserChanged(t *testing.T) {
-	path := writeFlow(t, "shop.scenra", "screen home \"Home\"\n  box class=\"flex-1 gap-4 p-6 bg-nope\"\n    text \"Welcome\"\n  end\n")
+	path := writeFlow(t, "shop.scenra", "design\nbox class=\"flex-1 gap-4 p-6 bg-nope\"\n  text \"Welcome\"\nend\n")
 	app, e, d := startAssistant(t)
-	app.Post(func() {
-		if err := e.OpenPath(path); err != nil {
-			t.Error(err)
-		}
-	})
+	openPath(t, app, e, path)
 	app.WaitFor("design >> text:Welcome", time.Second)
 	app.Press("id:element-0.0")
 	app.WaitFor("id:comment-card", time.Second)
@@ -231,7 +230,7 @@ func TestSendingSavesWhatTheUserChanged(t *testing.T) {
 	if data, _ := os.ReadFile(path); strings.Contains(string(data), "Friendlier") {
 		t.Fatal("the comment was saved before a message was sent")
 	}
-	d.script(reply{steps: []step{{file: path, view: true}}, text: "Seen."})
+	d.script(reply{steps: []step{{view: true}}, text: "Seen."})
 	send(app, "What do you see?")
 	app.WaitFor("text:Seen.", 5*time.Second)
 	if data, _ := os.ReadFile(path); !strings.Contains(string(data), `comment="Friendlier"`) {
@@ -242,7 +241,7 @@ func TestSendingSavesWhatTheUserChanged(t *testing.T) {
 	}
 	// The agent hears of the selection, the comment and what draws nothing.
 	_, _, views := d.get()
-	for _, want := range []string{"selected element 0.0", `screen home, element 0.0: "Friendlier"`, "draw nothing: bg-nope"} {
+	for _, want := range []string{"design shop.scenra open", "selected element 0.0", `shop.scenra, element 0.0: "Friendlier"`, "shop.scenra: bg-nope"} {
 		if !strings.Contains(views[0], want) {
 			t.Fatalf("the view tells nothing of %q:\n%s", want, views[0])
 		}
@@ -250,18 +249,15 @@ func TestSendingSavesWhatTheUserChanged(t *testing.T) {
 }
 
 func TestAgentsHearOfFilesThatDoNotParse(t *testing.T) {
-	path := writeFlow(t, "plan.scenra", "node a \"Research\"\n")
+	path := writeFlow(t, "plan.scenra", "flow\nnode a \"Research\"\n")
+	other := filepath.Join(filepath.Dir(path), "other.scenra")
 	app, e, d := startAssistant(t)
-	app.Post(func() {
-		if err := e.OpenPath(path); err != nil {
-			t.Error(err)
-		}
-	})
+	openPath(t, app, e, path)
 	app.WaitFor("flow >> label:Research", time.Second)
-	d.script(reply{steps: []step{{file: path, text: "node a \"Research\nscreen\n"}, {file: path, view: true}}, text: "Oops."})
+	d.script(reply{steps: []step{{file: path, text: "flow\nnode a \"Research\nscreen\n"}, {file: other, text: "box\n"}, {view: true}}, text: "Oops."})
 	send(app, "Break it")
 	app.WaitFor("text:Oops.", 5*time.Second)
-	if _, _, views := d.get(); !strings.Contains(views[0], "does not parse") {
+	if _, _, views := d.get(); !strings.Contains(views[0], "do not parse") || !strings.Contains(views[0], "plan.scenra: line 2") || !strings.Contains(views[0], "other.scenra: line 1") {
 		t.Fatalf("views %q", views)
 	}
 	// The editor keeps the last version that parsed.
@@ -269,13 +265,9 @@ func TestAgentsHearOfFilesThatDoNotParse(t *testing.T) {
 }
 
 func TestCommentsAskTheAssistant(t *testing.T) {
-	path := writeFlow(t, "shop.scenra", "screen home \"Home\"\n  box class=\"flex-1 gap-4 p-6\"\n    text \"Welcome\"\n    text \"Mail\" comment=\"Smaller\"\n  end\n")
+	path := writeFlow(t, "shop.scenra", "design\nbox class=\"flex-1 gap-4 p-6\"\n  text \"Welcome\"\n  text \"Mail\" comment=\"Smaller\"\nend\n")
 	app, e, d := startAssistant(t)
-	app.Post(func() {
-		if err := e.OpenPath(path); err != nil {
-			t.Error(err)
-		}
-	})
+	openPath(t, app, e, path)
 	app.WaitFor("design >> text:Welcome", time.Second)
 	app.Find("id:comment-pin-0.1")
 	app.Find("id:resolve-comments")
@@ -298,7 +290,7 @@ func TestCommentsAskTheAssistant(t *testing.T) {
 
 	// Asking the assistant sends it the comment, which it resolves.
 	d.script(reply{steps: []step{{file: path,
-		text: "screen home \"Home\"\n  box class=\"flex-1 gap-4 p-6\"\n    text \"Hello there\" class=\"font-bold\"\n    text \"Mail\" comment=\"Smaller\"\n  end\n"}},
+		text: "design\nbox class=\"flex-1 gap-4 p-6\"\n  text \"Hello there\" class=\"font-bold\"\n  text \"Mail\" comment=\"Smaller\"\nend\n"}},
 		text: "Made it friendlier."})
 	waitComposer(app)
 	app.Press("id:comment-ask")
@@ -311,31 +303,48 @@ func TestCommentsAskTheAssistant(t *testing.T) {
 	app.Find("id:comment-pin-0.1")
 }
 
-func TestServerTellsOfFilesNotOpen(t *testing.T) {
+func TestServerTellsOfTheFolder(t *testing.T) {
 	srv, err := Listen()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { srv.Close() })
-	ask := func(file string) (string, bool) {
-		out, failed, err := mcp.CallTool(context.Background(), srv.Agent(), ToolView, map[string]any{"file": file})
+	ask := func() (string, bool) {
+		out, failed, err := mcp.CallTool(context.Background(), srv.Agent(), ToolView, map[string]any{})
 		if err != nil {
 			t.Fatal(err)
 		}
 		return out, failed
 	}
-	path := writeFlow(t, "plan.scenra", "screen a \"A\"\n  text \"x\" class=\"bg-nope\"\n")
-	if out, failed := ask(path); !failed || !strings.Contains(out, "no Scenra editor") {
+	if out, failed := ask(); !failed || !strings.Contains(out, "no Scenra editor") {
 		t.Fatalf("a call without an editor: %q", out)
 	}
-	nsgotest.Start(t, func(cx *core.Scope) core.Node {
-		srv.Attach(New(cx, Options{}))
+	dir := folderOfFiles(t, map[string]string{"a/plan.scenra": "design\ntext \"x\" class=\"bg-nope\"\n"})
+	var e *Editor
+	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+		e = New(cx, Options{})
+		srv.Attach(e)
 		return core.View{}
 	})
-	if out, failed := ask(path); failed || !strings.Contains(out, "not open in the editor") || !strings.Contains(out, "bg-nope") {
-		t.Fatalf("a file not open: %q", out)
+	// The app answers while the test drives it.
+	answer := func() (out string, failed bool) {
+		done := make(chan struct{})
+		go func() { out, failed = ask(); close(done) }()
+		app.WaitUntil(5*time.Second, func() bool {
+			select {
+			case <-done:
+				return true
+			default:
+				return false
+			}
+		})
+		return out, failed
 	}
-	if out, failed := ask("plan.scenra"); !failed {
-		t.Fatalf("a relative path: %q", out)
+	if out, failed := answer(); failed || !strings.Contains(out, "No folder is open") {
+		t.Fatalf("a call without a folder: %q", out)
+	}
+	openPath(t, app, e, dir)
+	if out, failed := answer(); failed || !strings.Contains(out, "no file open") || !strings.Contains(out, "a/plan.scenra: bg-nope") {
+		t.Fatalf("a folder with no file open: %q", out)
 	}
 }

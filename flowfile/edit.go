@@ -12,7 +12,7 @@ import (
 // cannot; d is unchanged then. Clone a document others hold first.
 
 // AddNode adds n, or fills in the node with its ID.
-func (d *Doc) AddNode(n Node) error {
+func (d *Flow) AddNode(n Node) error {
 	if err := checkNode(n); err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ type NodePatch struct {
 }
 
 // UpdateNode changes the node with id.
-func (d *Doc) UpdateNode(id string, p NodePatch) error {
+func (d *Flow) UpdateNode(id string, p NodePatch) error {
 	i := d.node(id)
 	if i < 0 {
 		return fmt.Errorf("no node %q", id)
@@ -77,7 +77,7 @@ func (d *Doc) UpdateNode(id string, p NodePatch) error {
 }
 
 // RemoveNode removes the node with id and its edges.
-func (d *Doc) RemoveNode(id string) error {
+func (d *Flow) RemoveNode(id string) error {
 	i := d.node(id)
 	if i < 0 {
 		return fmt.Errorf("no node %q", id)
@@ -89,7 +89,7 @@ func (d *Doc) RemoveNode(id string) error {
 
 // AddEdge adds e between nodes that exist, or replaces the label and
 // dashing of the edge between them.
-func (d *Doc) AddEdge(e Edge) error {
+func (d *Flow) AddEdge(e Edge) error {
 	for _, id := range []string{e.From, e.To} {
 		if d.node(id) < 0 {
 			return fmt.Errorf("no node %q; add it first", id)
@@ -107,7 +107,7 @@ func (d *Doc) AddEdge(e Edge) error {
 }
 
 // RemoveEdge removes the edge from one node to another.
-func (d *Doc) RemoveEdge(from, to string) error {
+func (d *Flow) RemoveEdge(from, to string) error {
 	i := d.edge(from, to)
 	if i < 0 {
 		return fmt.Errorf("no edge from %q to %q", from, to)
@@ -116,7 +116,7 @@ func (d *Doc) RemoveEdge(from, to string) error {
 	return nil
 }
 
-func (d *Doc) edge(from, to string) int {
+func (d *Flow) edge(from, to string) int {
 	return slices.IndexFunc(d.Edges, func(e Edge) bool { return e.From == from && e.To == to })
 }
 
@@ -133,7 +133,7 @@ func checkNode(n Node) error {
 	return nil
 }
 
-// Element paths name an element of an interface by its index among its
+// Element paths name an element of a design by its index among its
 // siblings at each level, from 0 and joined by dots: "1.0" is the first
 // element the second one holds.
 
@@ -208,26 +208,24 @@ func ReplaceElement(els []Element, path string, with []Element) ([]Element, erro
 	return out, nil
 }
 
-// Comment is a user's comment on an element of a screen's interface.
-type Comment struct{ Screen, Path, Text string }
+// Comment is a user's comment on an element of a design.
+type Comment struct{ Path, Text string }
 
-// Comments are the comments on p's interfaces, screen by screen and in
-// the order their elements are written.
-func (p Project) Comments() []Comment {
+// Comments are the comments on f's design, in the order their elements
+// are written.
+func (f File) Comments() []Comment {
 	var out []Comment
-	var walk func(screen string, els []Element, parent []int)
-	walk = func(screen string, els []Element, parent []int) {
+	var walk func(els []Element, parent []int)
+	walk = func(els []Element, parent []int) {
 		for i, el := range els {
 			path := append(slices.Clone(parent), i)
 			if text := el.Attr("comment"); text != "" {
-				out = append(out, Comment{screen, FormatPath(path), text})
+				out = append(out, Comment{FormatPath(path), text})
 			}
-			walk(screen, el.Children, path)
+			walk(el.Children, path)
 		}
 	}
-	for _, s := range p.Screens {
-		walk(s.ID, s.UI, nil)
-	}
+	walk(f.UI, nil)
 	return out
 }
 

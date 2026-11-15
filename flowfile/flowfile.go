@@ -1,46 +1,41 @@
-// Package flowfile reads and writes flow files: plain text documents that
-// describe an app's screens line by line, each a simple interface and the
-// flow charts of what happens on it.
+// Package flowfile reads and writes Scenra files: plain text documents
+// that each hold one design of an app's screen or one flow chart, line by
+// line. A folder of them is a project.
 //
 //	# A comment runs to the end of the line; indentation is free.
-//	title "Shop"
-//
-//	screen signin "Sign in" device=phone   # or tablet, desktop
-//	  box class="flex-1 gap-4 p-6"
-//	    text "Welcome back" class="text-2xl font-bold" comment="Friendlier"
-//	    box class="flex-row items-center gap-2 rounded-xl border border-border px-3 h-11"
-//	      icon mail class="size-4 text-muted-foreground"
-//	      text "you@example.com" class="text-muted-foreground"
-//	    end
-//	    box class="h-11 items-center justify-center rounded-xl bg-blue-600"
-//	      text "Sign in" class="font-semibold text-white"
-//	    end
-//	    image "A cup of coffee" class="h-40 rounded-2xl"
-//	    svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
+//	design device=phone              # or tablet, desktop
+//	box class="flex-1 gap-4 p-6"
+//	  text "Welcome back" class="text-2xl font-bold" comment="Friendlier"
+//	  box class="flex-row items-center gap-2 rounded-xl border border-border px-3 h-11"
+//	    icon mail class="size-4 text-muted-foreground"
+//	    text "you@example.com" class="text-muted-foreground"
 //	  end
+//	  box class="h-11 items-center justify-center rounded-xl bg-blue-600"
+//	    text "Sign in" class="font-semibold text-white"
+//	  end
+//	  image "A cup of coffee" class="h-40 rounded-2xl"
+//	  svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
+//	end
 //
-//	  flow login "Signing in"
-//	    direction right              # or down
-//	    node start "Tap Sign in" kind=start
-//	    node check "Check password" kind=decision note="Lock after 5 tries"
-//	    node home "Show home" kind=end status=done
-//	    start -> check
-//	    check -> home "valid"
-//	    check ..> start "invalid"    # a dashed edge
-//	    a -> b -> c                  # a chain of edges
+//	flow direction=right             # or down
+//	node start "Tap Sign in" kind=start
+//	node check "Check password" kind=decision note="Lock after 5 tries"
+//	node home "Show home" kind=end status=done
+//	start -> check
+//	check -> home "valid"
+//	check ..> start "invalid"        # a dashed edge
+//	a -> b -> c                      # a chain of edges
 //
-// A screen's interface comes before its flows: one element a line, and a
-// box holds the lines up to its end. The interface is a few primitives,
-// listed in Elements, each shaped by Tailwind CSS classes, so a design can
-// look like anything rather than like the controls of one toolkit. Any
-// element may carry a comment, a change the user asks the assistant for,
-// which stays until the assistant resolves it. Screen
-// and flow IDs are unique in the file. An edge may name nodes no line
-// declares; they take their ID as their label.
+// A file's first line says what it holds. A design is one element a line,
+// and a box holds the lines up to its end. The interface is a few
+// primitives, listed in Elements, each shaped by Tailwind CSS classes, so
+// a design can look like anything rather than like the controls of one
+// toolkit. Any element may carry a comment, a change the user asks the
+// assistant for, which stays until the assistant resolves it. An edge may
+// name nodes no line declares; they take their ID as their label.
 //
-// A file without screens is a single flow, which reads as screen main
-// with flow main. Format writes a project back in the canonical form,
-// without the # comments.
+// Format writes a file back in the canonical form, without the #
+// comments.
 package flowfile
 
 import (
@@ -80,9 +75,8 @@ type Edge struct {
 	Dashed bool   `json:"dashed,omitempty"`
 }
 
-// Doc is a flow file's content.
-type Doc struct {
-	Title     string
+// Flow is a flow chart: its direction, nodes and edges.
+type Flow struct {
 	Direction Direction
 	Nodes     []Node
 	Edges     []Edge
@@ -109,24 +103,6 @@ func ValidID(id string) bool {
 	return true
 }
 
-// Parse reads the flow of a flow file without screens, as the text of a
-// single chart.
-func Parse(src string) (Doc, error) {
-	var d Doc
-	err := eachLine(src, func(toks []token) string {
-		if head := toks[0]; !head.quoted && head.text == "title" {
-			d.Title = joined(toks[1:])
-			return ""
-		}
-		return d.line(toks)
-	})
-	if err != nil {
-		return Doc{}, err
-	}
-	d.fillLabels()
-	return d, nil
-}
-
 // eachLine runs fn on the words of each line of src that has some, and
 // stops at the first that fn says is wrong.
 func eachLine(src string, fn func(toks []token) string) error {
@@ -145,29 +121,10 @@ func eachLine(src string, fn func(toks []token) string) error {
 	return nil
 }
 
-func joined(toks []token) string {
-	parts := make([]string, 0, len(toks))
-	for _, t := range toks {
-		parts = append(parts, t.text)
-	}
-	return strings.Join(parts, " ")
-}
-
-// line reads a direction, a node or edges into d, and returns what is
-// wrong with it.
-func (d *Doc) line(toks []token) string {
+// line reads a node or edges into d, and returns what is wrong with it.
+func (d *Flow) line(toks []token) string {
 	head := toks[0]
 	switch {
-	case !head.quoted && head.text == "direction":
-		if len(toks) != 2 {
-			return "direction takes down or right"
-		}
-		switch dir := Direction(toks[1].text); dir {
-		case Down, Right:
-			d.Direction = dir
-		default:
-			return fmt.Sprintf("unknown direction %q; use down or right", toks[1].text)
-		}
 	case !head.quoted && head.text == "node":
 		if len(toks) < 2 || toks[1].quoted || !ValidID(toks[1].text) {
 			return "node needs an ID of letters, digits, _, - or ."
@@ -211,7 +168,7 @@ func (d *Doc) line(toks []token) string {
 }
 
 // fillLabels gives nodes without a label their ID.
-func (d *Doc) fillLabels() {
+func (d *Flow) fillLabels() {
 	for i := range d.Nodes {
 		if d.Nodes[i].Label == "" {
 			d.Nodes[i].Label = d.Nodes[i].ID
@@ -221,13 +178,13 @@ func (d *Doc) fillLabels() {
 
 // parseEdges reads a chain of edges, a -> b ..> c "label", and returns
 // what is wrong with it.
-func (d *Doc) parseEdges(toks []token) string {
+func (d *Flow) parseEdges(toks []token) string {
 	label := ""
 	if last := toks[len(toks)-1]; last.quoted && len(toks) > 3 {
 		label, toks = last.text, toks[:len(toks)-1]
 	}
 	if len(toks) < 3 || len(toks)%2 == 0 {
-		return fmt.Sprintf("unexpected %q; a line is a title, a direction, a node or edges such as a -> b", toks[0].text)
+		return fmt.Sprintf("unexpected %q; a line of a flow is a node or edges such as a -> b", toks[0].text)
 	}
 	for i := 0; i+2 < len(toks); i += 2 {
 		from, arrow, to := toks[i], toks[i+1], toks[i+2]
@@ -251,12 +208,12 @@ func (d *Doc) parseEdges(toks []token) string {
 	return ""
 }
 
-func (d *Doc) node(id string) int {
+func (d *Flow) node(id string) int {
 	return slices.IndexFunc(d.Nodes, func(n Node) bool { return n.ID == id })
 }
 
 // Node returns the node with id.
-func (d Doc) Node(id string) (Node, bool) {
+func (d Flow) Node(id string) (Node, bool) {
 	if i := d.node(id); i >= 0 {
 		return d.Nodes[i], true
 	}
@@ -264,33 +221,18 @@ func (d Doc) Node(id string) (Node, bool) {
 }
 
 // Clone returns a copy of d that shares nothing with it.
-func (d Doc) Clone() Doc {
+func (d Flow) Clone() Flow {
 	d.Nodes, d.Edges = slices.Clone(d.Nodes), slices.Clone(d.Edges)
 	return d
 }
 
-// Format writes d as a flow file.
-func (d Doc) Format() string {
-	var b strings.Builder
-	if d.Title != "" {
-		fmt.Fprintf(&b, "title %s\n", quote(d.Title))
-	}
-	d.body(&b, "", b.Len() > 0)
-	return b.String()
-}
-
-// body writes d's direction, nodes and edges, each line after indent,
-// and a blank line first when apart says.
-func (d Doc) body(b *strings.Builder, indent string, apart bool) {
-	if d.Direction != "" && d.Direction != Down {
-		fmt.Fprintf(b, "%sdirection %s\n", indent, d.Direction)
-		apart = true
-	}
-	if apart && len(d.Nodes) > 0 {
+// body writes d's nodes and edges.
+func (d Flow) body(b *strings.Builder) {
+	if len(d.Nodes) > 0 {
 		b.WriteByte('\n')
 	}
 	for _, n := range d.Nodes {
-		fmt.Fprintf(b, "%snode %s %s", indent, n.ID, quote(n.Label))
+		fmt.Fprintf(b, "node %s %s", n.ID, quote(n.Label))
 		if n.Kind != "" && n.Kind != "task" {
 			fmt.Fprintf(b, " kind=%s", n.Kind)
 		}
@@ -302,7 +244,7 @@ func (d Doc) body(b *strings.Builder, indent string, apart bool) {
 		}
 		b.WriteByte('\n')
 	}
-	if len(d.Nodes) > 0 && len(d.Edges) > 0 {
+	if len(d.Edges) > 0 {
 		b.WriteByte('\n')
 	}
 	for _, e := range d.Edges {
@@ -310,7 +252,7 @@ func (d Doc) body(b *strings.Builder, indent string, apart bool) {
 		if e.Dashed {
 			arrow = "..>"
 		}
-		fmt.Fprintf(b, "%s%s %s %s", indent, e.From, arrow, e.To)
+		fmt.Fprintf(b, "%s %s %s", e.From, arrow, e.To)
 		if e.Label != "" {
 			fmt.Fprintf(b, " %s", quote(e.Label))
 		}

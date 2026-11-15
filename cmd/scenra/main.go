@@ -1,13 +1,15 @@
-// Command scenra is a desktop app designer with an AI assistant: flow
-// files open in tabs, each listing its screens' designs and flow charts on
-// the left, and on the right a conversation with a coding agent, such as
-// Claude Code or Codex, run through Agio, which edits the file as the
-// scenra skill among the app's resources teaches. It is scenraview's
-// Window with the app's menu, settings and usage statistics.
+// Command scenra is a desktop app designer with an AI assistant: a folder
+// of Scenra files, each a design or a flow chart, as a tree on the left,
+// the files chosen in tabs, and on the right a conversation with a coding
+// agent, such as Claude Code or Codex, run through Agio, which edits the
+// folder's files as the scenra skill among the app's resources teaches.
+// It is scenraview's Window with the app's menu, settings and usage
+// statistics.
 package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/nsgo-dev/nsgo"
 	"github.com/nsgo-dev/nsgo/core"
@@ -30,7 +32,7 @@ func main() {
 var shown *scenraview.Editor
 
 // Root is the app's window: the open documents' tabs in its title bar
-// over the entries of the one shown, the entry open and the assistant.
+// over the folder's files, the file shown and the assistant.
 func Root(cx *core.Scope) core.Node {
 	home, _ := os.UserHomeDir()
 	return root(cx, host.Options{Dir: home})
@@ -55,7 +57,8 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 	}
 	shown = e
 	stats.start(e)
-	// Flow files opened from the Finder, or named on the command line.
+	// Scenra files or folders opened from the Finder, or named on the
+	// command line.
 	desktop.OnOpenFiles(cx, func(paths []string) {
 		for _, path := range paths {
 			if err := e.OpenPath(path); err != nil {
@@ -78,19 +81,22 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		desktop.SetTitleBar(cx, desktop.TitleBarHidden, scenraview.HeaderHeight)
 		cx.Effect(func() {
 			title := e.Name()
-			if e.Empty() {
+			switch {
+			case e.Empty() && e.Folder() != "":
+				title = filepath.Base(e.Folder())
+			case e.Empty():
 				title = locales.For(cx).AppName()
-			} else if e.Edited() {
+			case e.Edited():
 				title += " — " + words.For(cx).Edited()
 			}
 			desktop.SetTitle(cx, title)
 		})
 		cx.Effect(func() { desktop.SetApplicationMenu(cx, menu(cx, e, settingsOpen)) })
 	} else {
-		cx.OnKey("mod+n", e.NewFile)
-		cx.OnKey("mod+o", e.Open)
+		cx.OnKey("mod+n", e.NewDesign)
+		cx.OnKey("mod+shift+n", e.NewFlow)
+		cx.OnKey("mod+o", e.OpenFolder)
 		cx.OnKey("mod+s", e.Save)
-		cx.OnKey("mod+shift+s", e.SaveAs)
 		cx.OnKey("mod+w", e.CloseShown)
 	}
 
@@ -113,13 +119,13 @@ func menu(cx *core.Scope, e *scenraview.Editor, settingsOpen *core.Signal[bool])
 			{Role: desktop.MenuQuit},
 		}},
 		{Label: tr.FileMenu(), Items: []desktop.MenuItem{
-			{Label: w.NewFlow(), Shortcut: "mod+n", OnSelect: e.NewFile},
-			{Label: w.Open(), Shortcut: "mod+o", OnSelect: e.Open},
+			{Label: w.NewDesign(), Shortcut: "mod+n", Disabled: e.Folder() == "", OnSelect: e.NewDesign},
+			{Label: w.NewFlow(), Shortcut: "mod+shift+n", Disabled: e.Folder() == "", OnSelect: e.NewFlow},
+			{Label: w.OpenFolder(), Shortcut: "mod+o", OnSelect: e.OpenFolder},
 			{Separator: true},
 			{Label: w.Save(), Shortcut: "mod+s", OnSelect: e.Save},
-			{Label: w.SaveAs(), Shortcut: "mod+shift+s", OnSelect: e.SaveAs},
 			{Separator: true},
-			{Label: w.NewChat(), Shortcut: "mod+shift+n", OnSelect: e.NewChat},
+			{Label: w.NewChat(), Shortcut: "mod+alt+n", OnSelect: e.NewChat},
 			{Separator: true},
 			{Label: w.CloseTab(), Shortcut: "mod+w", OnSelect: e.CloseShown},
 		}},

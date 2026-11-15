@@ -5,58 +5,57 @@ description: Design app screens and draw flow charts in Scenra files (.scenra), 
 
 # Scenra files
 
-A Scenra file is plain text describing an app's screens: each screen has a design, a draft of how it looks, and flow charts of what happens on it, such as what the app does when the user presses its main button. The user sees the file drawn in the Scenra editor: the screens on the left, the open design or flow in the middle. When the user only wants a flow chart, draw flows and leave the design empty.
+Scenra files (`.scenra`) are plain text, and each holds one thing: a design, a draft of how one screen of an app looks, or a flow chart, such as what the app does when the user presses a screen's main button. The user opens a folder in the Scenra editor, which lists the folder's Scenra files as a tree on the left and draws the one open in the middle. A project is a folder of them: give each screen a design file and each process a flow file, named after it, such as `sign-in.scenra` and `flows/signing-in.scenra`, and group them in folders as the app grows. When the user only wants a flow chart, make flow files only.
 
-## Working on a file
+## Working on files
 
-1. Before you change the file, call the `get_view` tool of the `scenra` MCP server with the file's absolute path. It says what the user is looking at and has selected, lists their comments and the file's problems. Work on what is selected when a request may be about it, such as "make this bigger".
-2. Read the file and edit it with your own file tools. Change only what the request needs, keep the IDs that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads the file as you write it, and the user cannot edit it while you work.
-3. After you write it, call `get_view` again: it reports whether the file parses and the classes that draw nothing. Fix what it reports.
+1. Before you change files, call the `get_view` tool of the `scenra` MCP server. It names the open folder and the file the user is looking at and what they selected, lists their comments and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger".
+2. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads open files as you write them, opens the files you make, and the user cannot edit them while you work.
+3. After you write them, call `get_view` again: it reports the files that do not parse and the classes that draw nothing. Fix what it reports.
 4. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
 
-The editor saves the file in its canonical form, which drops `#` comments, so do not keep notes in them.
+The editor saves files in their canonical form, which drops `#` comments, so do not keep notes in them.
 
 When a design or flow is about code at hand, read the code first and draw what it actually does, naming the files behind a step in its note when that helps.
 
 ## Format
 
+A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. A file holds one design or one flow, never both and never two.
+
 ```
 # A comment runs to the end of the line; indentation is free.
-title "Shop"
-
-screen signin "Sign in" device=phone
-  box class="flex-1 gap-4 bg-zinc-50 p-6 pt-16"
-    text "Welcome back" class="text-3xl font-bold text-zinc-900"
-    text "Sign in to order ahead." class="text-zinc-500"
-    box class="h-12 flex-row items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4"
-      icon mail class="size-4 text-zinc-400"
-      text "you@example.com" class="text-zinc-400"
-    end
-    box class="h-12 items-center justify-center rounded-xl bg-amber-600 shadow-md"
-      text "Sign in" class="font-semibold text-white"
-    end
-    image "Latte art seen from above" class="h-40 rounded-2xl"
-    svg "<svg viewBox='0 0 120 40'><path d='M0 32 L30 20 L60 26 L90 8 L120 14' stroke='#d97706' stroke-width='3' fill='none'/></svg>" class="h-16 w-full"
+design device=phone
+box class="flex-1 gap-4 bg-zinc-50 p-6 pt-16"
+  text "Welcome back" class="text-3xl font-bold text-zinc-900"
+  text "Sign in to order ahead." class="text-zinc-500"
+  box class="h-12 flex-row items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4"
+    icon mail class="size-4 text-zinc-400"
+    text "you@example.com" class="text-zinc-400"
   end
-
-  flow login "Signing in"
-    direction right
-    node start "Tap Sign in" kind=start
-    node check "Check password" kind=decision note="Lock after 5 tries"
-    node home "Show home" kind=end status=done
-    start -> check
-    check -> home "valid"
-    check ..> start "invalid"
-    a -> b -> c
+  box class="h-12 items-center justify-center rounded-xl bg-amber-600 shadow-md"
+    text "Sign in" class="font-semibold text-white"
+  end
+  image "Latte art seen from above" class="h-40 rounded-2xl"
+  svg "<svg viewBox='0 0 120 40'><path d='M0 32 L30 20 L60 26 L90 8 L120 14' stroke='#d97706' stroke-width='3' fill='none'/></svg>" class="h-16 w-full"
+end
 ```
 
-- `title` names the whole project, such as the app.
-- `screen <id> "<title>"` starts a screen, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760). Its interface comes before its flows: one element a line, and a `box` holds the lines up to its `end`.
-- `flow <id> "<title>"` starts a flow chart of the screen above it. `direction down` lays it out top to bottom, `direction right` left to right.
-- `node <id> "<label>"` is a step, with optional `note="…"`, `kind=` task (the default), start, end, decision, data or note, and `status=` todo, doing, done, blocked or skipped, when the chart tracks progress; skipped fades the step.
+```
+flow direction=right
+node start "Tap Sign in" kind=start
+node check "Check password" kind=decision note="Lock after 5 tries"
+node home "Show home" kind=end status=done
+start -> check
+check -> home "valid"
+check ..> start "invalid"
+a -> b -> c
+```
+
+- A design is one element a line, and a `box` holds the lines up to its `end`.
+- `node <id> "<label>"` is a step of a flow, with optional `note="…"`, `kind=` task (the default), start, end, decision, data or note, and `status=` todo, doing, done, blocked or skipped, when the chart tracks progress; skipped fades the step.
 - `a -> b "label"` connects nodes, `a ..> b` dashed for optional or indirect links, and `a -> b -> c` chains them. An edge may name nodes no line declares; they take their ID as their label.
-- IDs are letters, digits, `_`, `-` or `.`. Screen and flow IDs are unique in the file.
-- A file without screens is a single flow, which reads as screen `main` with flow `main`.
+- Node IDs are letters, digits, `_`, `-` or `.`, unique in their flow.
+- The file's name is its title: there is no title line.
 
 Use `kind=start` and `kind=end` for entry and exit points and `kind=decision` for branches, with the answers as edge labels.
 
@@ -74,7 +73,7 @@ Draw any interface with them, as a designer draws in Figma: buttons, fields, swi
 
 Layout is flexbox: a box is a column unless flex-row, children stretch across it, flex-1 fills the rest, and absolute with top-*, left-*, right-* or bottom-* places a box over its parent, as a badge or a floating button. Classes cover sizes (w-*, h-*, size-*, w-full, w-1/2), spacing (p-*, gap-*, m-*), colors (bg-*, text-*, border-*, with /opacity such as bg-black/40, and any value as bg-[#0f172a]), the palette (zinc, slate, blue, amber, emerald, rose and the others, 50 to 950), corners (rounded-*, rounded-full), borders, shadows (shadow-sm to shadow-2xl), gradients (bg-linear-to-br from-indigo-500 to-pink-500), opacity, overflow-hidden, text (text-xs to text-6xl, font-medium, font-bold, leading-*, tracking-*, text-center, truncate, line-clamp-2, uppercase) and theme colors that follow light and dark mode (bg-background, text-foreground, bg-card, bg-primary, text-primary-foreground, bg-muted, text-muted-foreground, border-border).
 
-The screen is the device's size and clips what overflows; give the main box flex-1 to fill it, and draw the status bar, navigation bars and tab bars yourself where the app has them.
+The design is the device's size and clips what overflows; give the main box flex-1 to fill it, and draw the status bar, navigation bars and tab bars yourself where the app has them.
 
 An icon takes the name of any Lucide icon (lucide.dev), by its current name or an older one such as home or alert-circle; common ones are house, search, bell, settings, user, users, circle-user, mail, message-circle, message-square, phone, send, inbox, heart, star, bookmark, share-2, link, paperclip, image, camera, video, mic, music, play, pause, calendar, clock, map-pin, navigation, compass, globe, shopping-cart, shopping-bag, store, credit-card, wallet, gift, tag, package, truck, file, file-text, folder, download, upload, cloud, plus, minus, x, check, pencil, trash, copy, funnel, sliders-horizontal, list, layout-grid, layout-dashboard, menu, ellipsis, ellipsis-vertical, chevron-right, chevron-left, chevron-down, chevron-up, arrow-right, arrow-left, arrow-up, arrow-down, external-link, refresh-cw, rotate-ccw, log-in, log-out, lock, key, shield, eye, eye-off, info, circle-alert, triangle-alert, circle-check, circle-x, circle-question-mark, chart-bar, chart-line, chart-pie, activity, trending-up, trending-down, zap, sparkles, flame, award, trophy, target, sun, moon, wifi, battery, smartphone, monitor, qr-code, scan, book, briefcase, building, coffee, utensils, car, plane, bike, dumbbell, headphones, graduation-cap. Draw a logo, a chart or an illustration with svg.
 
