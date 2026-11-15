@@ -92,6 +92,8 @@ const (
 	textSaved
 	textAssistant
 	textNewChat
+	textChats
+	textRemoveChat
 	textEmptyTitle
 	textEmptyDetail
 	textCancel
@@ -143,6 +145,8 @@ var keyOfText = [numTexts]string{
 	"saved",
 	"assistant",
 	"newChat",
+	"chats",
+	"removeChat",
 	"emptyTitle",
 	"emptyDetail",
 	"cancel",
@@ -192,6 +196,8 @@ var textsEn = i18n.NewTexts(""+
 	"Saved"+
 	"Assistant"+
 	"New Chat"+
+	"Conversations"+
+	"Delete Conversation"+
 	"Let's design an app together"+
 	"Describe an app or a process, and the assistant asks what it needs and draws its designs and flows in this folder."+
 	"Cancel"+
@@ -238,6 +244,8 @@ var textsEn = i18n.NewTexts(""+
 		5,
 		9,
 		8,
+		13,
+		19,
 		28,
 		114,
 		6,
@@ -287,6 +295,8 @@ var textsZhHans = i18n.NewTexts(""+
 	"已保存"+
 	"助手"+
 	"新对话"+
+	"对话"+
+	"删除对话"+
 	"一起来设计应用"+
 	"描述一个应用或流程，助手会询问所需的细节，并在这个文件夹中画出它的设计和流程。"+
 	"取消"+
@@ -333,6 +343,8 @@ var textsZhHans = i18n.NewTexts(""+
 		9,
 		6,
 		9,
+		6,
+		12,
 		21,
 		117,
 		6,
@@ -714,6 +726,20 @@ func NewChat(cx *core.Scope) string { return For(cx).NewChat() }
 
 // NewChat is the package's NewChat in the language of msgs.
 func (msgs Messages) NewChat() string { return msgs.text(textNewChat) }
+
+// Chats says "Conversations"
+// in the language the app shows under cx.
+func Chats(cx *core.Scope) string { return For(cx).Chats() }
+
+// Chats is the package's Chats in the language of msgs.
+func (msgs Messages) Chats() string { return msgs.text(textChats) }
+
+// RemoveChat says "Delete Conversation"
+// in the language the app shows under cx.
+func RemoveChat(cx *core.Scope) string { return For(cx).RemoveChat() }
+
+// RemoveChat is the package's RemoveChat in the language of msgs.
+func (msgs Messages) RemoveChat() string { return msgs.text(textRemoveChat) }
 
 // EmptyTitle says "Let's design an app together"
 // in the language the app shows under cx.

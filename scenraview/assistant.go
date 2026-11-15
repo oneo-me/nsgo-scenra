@@ -1,7 +1,10 @@
 package scenraview
 
 import (
-	"path/filepath"
+	"encoding/json"
+	"slices"
+	"strings"
+	"time"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
@@ -13,30 +16,67 @@ import (
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
-// assistant gives the open folder a conversation of Options.Agents about
-// it, which starts its agent with the first message. The agent edits the
-// folder's files itself, as the app's skill teaches, and asks the app's
-// Server what the user sees.
+// assistant gives the open folder conversations of Options.Agents about
+// it, one shown at a time, each starting its agent with its first message.
+// The agent edits the folder's files itself, as the app's skill teaches,
+// and asks the app's Server what the user sees. The conversations whose
+// agents started a session are kept by folder, so opening the folder again
+// resumes them.
 type assistant struct {
 	cx *core.Scope
 	e  *Editor
 	m  *chatview.Model
-	// agent is the ID of the conversation, "" until there is one;
+	// agent is the ID of the conversation shown, "" until there is one;
 	// creating says one is being made.
 	agent    *core.Signal[string]
 	creating bool
+	// dir is the folder whose conversations the backend holds, and
+	// restoring how many of its saved ones are still being resumed.
+	dir       string
+	restoring int
+	// saved are the conversations kept by folder, newest first, which key,
+	// when set, keeps in the storage; resumed are the cursors the
+	// conversations resumed this run were saved with, by ID.
+	saved   map[string][]savedChat
+	key     string
+	resumed map[string]string
+	// gone are the conversations being removed, which are no longer kept.
+	gone map[string]bool
+}
+
+// savedChat is what resumes a conversation: its agent's session and
+// choices.
+type savedChat struct {
+	Title   string    `json:"title,omitempty"`
+	Model   string    `json:"model"`
+	Effort  string    `json:"effort,omitempty"`
+	Tier    string    `json:"tier,omitempty"`
+	Cursor  string    `json:"cursor"`
+	Created time.Time `json:"created,omitzero"`
+	Updated time.Time `json:"updated,omitzero"`
 }
 
 func newAssistant(cx *core.Scope, e *Editor) *assistant {
-	a := &assistant{cx: cx, e: e, m: e.opts.Agents, agent: core.NewSignal(cx, "")}
+	a := &assistant{cx: cx, e: e, m: e.opts.Agents, agent: core.NewSignal(cx, ""),
+		saved: map[string][]savedChat{}, resumed: map[string]string{}, gone: map[string]bool{}}
 	if a.m == nil {
 		return a
 	}
-	// The open folder gets its conversation.
-	cx.Effect(func() {
-		if dir := e.folder.Get(); dir != "" && a.agent.Get() == "" {
-			cx.Untrack(func() { a.create(dir) })
+	if e.opts.Remember != "" {
+		a.key = e.opts.Remember + ".chats"
+		if data, ok := cx.Storage().GetItem(a.key); ok {
+			json.Unmarshal([]byte(data), &a.saved)
 		}
+	}
+	// The open folder gets its conversations.
+	cx.Effect(func() {
+		dir := e.folder.Get()
+		cx.Untrack(func() { a.open(dir) })
+	})
+	// What resumes them follows the backend.
+	cx.Effect(func() {
+		s := a.m.State()
+		cx.Untrack(func() { a.note(s) })
 	})
 	return a
 }
@@ -48,15 +88,164 @@ func prompt(dir string) string {
 Discuss the app with the user: ask about its screens, what each shows, the steps, decisions, actors and edge cases of what happens on them when they are unclear, suggest improvements, and draw as you agree. Reply in the user's language.`
 }
 
-// create starts the conversation about the folder dir, working in it.
-func (a *assistant) create(dir string) {
-	if a.creating {
+// open shows the conversations about the folder dir in place of the
+// previous folder's, whose agents stop: its saved ones resumed, the
+// newest shown, or a new one.
+func (a *assistant) open(dir string) {
+	if dir == a.dir {
+		return
+	}
+	for _, c := range a.chats() {
+		id := c.ID
+		a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
+	}
+	a.dir, a.restoring = dir, 0
+	a.agent.Set("")
+	if dir == "" {
+		return
+	}
+	saved := a.saved[dir]
+	if len(saved) == 0 {
+		a.create()
+		return
+	}
+	a.restoring = len(saved)
+	for _, s := range slices.Backward(saved) {
+		c := agio.Create{Dir: dir, Title: s.Title, SystemPrompt: prompt(dir), Model: s.Model, Effort: s.Effort, Tier: s.Tier,
+			Cursor: s.Cursor, Created: s.Created, Updated: s.Updated}
+		var id string
+		a.m.Do(func(b agio.Backend) (err error) {
+			id, err = b.Create(c)
+			return err
+		}, func(err error) {
+			if a.dir != dir {
+				if err == nil {
+					a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
+				}
+				return
+			}
+			if err == nil {
+				a.resumed[id] = s.Cursor
+			}
+			if a.restoring--; a.restoring == 0 {
+				a.showLatest()
+			}
+		})
+	}
+}
+
+// showLatest shows the folder's latest conversation, or a new one.
+func (a *assistant) showLatest() {
+	if chats := a.chats(); len(chats) > 0 {
+		a.agent.Set(chats[0].ID)
+		return
+	}
+	a.create()
+}
+
+// chats are the conversations about the open folder, the latest first,
+// as the backend has them now.
+func (a *assistant) chats() []*agio.Conversation {
+	if a.m == nil || a.dir == "" {
+		return nil
+	}
+	return folderChats(a.m.Backend().State(), a.dir)
+}
+
+// folderChats are s's conversations about the folder dir, the latest
+// first.
+func folderChats(s agio.State, dir string) []*agio.Conversation {
+	var chats []*agio.Conversation
+	for _, c := range s.Conversations {
+		if c.Dir == dir {
+			chats = append(chats, c)
+		}
+	}
+	slices.SortStableFunc(chats, func(x, y *agio.Conversation) int { return lastActive(y).Compare(lastActive(x)) })
+	return chats
+}
+
+// lastActive is when c last changed.
+func lastActive(c *agio.Conversation) time.Time {
+	if c.Updated.After(c.Created) {
+		return c.Updated
+	}
+	return c.Created
+}
+
+// chatTitle names c: its title, else its first message's first line, ""
+// before it has either.
+func chatTitle(c *agio.Conversation) string {
+	if c.Title != "" {
+		return c.Title
+	}
+	if len(c.Turns) == 0 {
+		return ""
+	}
+	line, _, _ := strings.Cut(strings.TrimSpace(c.Turns[0].Prompt), "\n")
+	if r := []rune(line); len(r) > 60 {
+		line = string(r[:60]) + "…"
+	}
+	return line
+}
+
+// note keeps what resumes the open folder's conversations whose agents
+// started a session, and those saved that could not be resumed, such as
+// while the agent is turned off.
+func (a *assistant) note(s agio.State) {
+	if a.dir == "" {
+		return
+	}
+	var kept []savedChat
+	live := map[string]bool{}
+	for _, c := range folderChats(s, a.dir) {
+		if a.gone[c.ID] {
+			continue
+		}
+		live[c.Cursor], live[a.resumed[c.ID]] = true, true
+		if c.Cursor != "" && c.Model != "" {
+			kept = append(kept, savedChat{Title: chatTitle(c), Model: c.Model, Effort: c.Effort, Tier: c.Tier,
+				Cursor: c.Cursor, Created: c.Created, Updated: c.Updated})
+		}
+	}
+	for _, c := range a.saved[a.dir] {
+		if !live[c.Cursor] {
+			kept = append(kept, c)
+		}
+	}
+	slices.SortStableFunc(kept, func(x, y savedChat) int { return y.Updated.Compare(x.Updated) })
+	a.keep(kept)
+}
+
+// keep saves chats as the open folder's.
+func (a *assistant) keep(chats []savedChat) {
+	if slices.Equal(chats, a.saved[a.dir]) {
+		return
+	}
+	if len(chats) == 0 {
+		delete(a.saved, a.dir)
+	} else {
+		a.saved[a.dir] = chats
+	}
+	if a.key == "" {
+		return
+	}
+	if data, err := json.Marshal(a.saved); err == nil {
+		a.cx.Storage().SetItem(a.key, string(data))
+	}
+}
+
+// create starts a conversation about the open folder, working in it, and
+// shows it.
+func (a *assistant) create() {
+	dir := a.dir
+	if a.m == nil || dir == "" || a.creating {
 		return
 	}
 	a.creating = true
-	a.m.Create(agio.Create{Dir: dir, Title: filepath.Base(dir), SystemPrompt: prompt(dir)}, func(id string) {
+	a.m.Create(agio.Create{Dir: dir, SystemPrompt: prompt(dir)}, func(id string) {
 		a.creating = false
-		if a.e.folder.GetUntracked() != dir {
+		if a.dir != dir {
 			a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
 			return
 		}
@@ -64,15 +253,38 @@ func (a *assistant) create(dir string) {
 	})
 }
 
-// remove forgets the conversation and stops its agent; the folder gets
-// another.
-func (a *assistant) remove() {
-	id := a.agent.GetUntracked()
-	if a.m == nil || id == "" {
+// newChat shows a new conversation, unless the one shown is still new.
+func (a *assistant) newChat() {
+	if a.m == nil || a.restoring > 0 {
 		return
 	}
-	a.agent.Set("")
-	a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
+	if c := a.m.Backend().State().Conversation(a.agent.GetUntracked()); c != nil && !c.Bound && len(c.Turns) == 0 {
+		return
+	}
+	a.create()
+}
+
+// show shows the conversation id.
+func (a *assistant) show(id string) { a.agent.Set(id) }
+
+// remove forgets the conversation id and stops its agent, showing the
+// latest of the others, or a new one.
+func (a *assistant) remove(id string) {
+	c := a.m.Backend().State().Conversation(id)
+	if c == nil {
+		return
+	}
+	a.keep(slices.DeleteFunc(slices.Clone(a.saved[a.dir]), func(s savedChat) bool {
+		return s.Cursor != "" && (s.Cursor == c.Cursor || s.Cursor == a.resumed[id])
+	}))
+	delete(a.resumed, id)
+	a.gone[id] = true
+	a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, func(error) {
+		delete(a.gone, id)
+		if a.agent.GetUntracked() == id {
+			a.showLatest()
+		}
+	})
 }
 
 // ask sends prompt to the conversation, saving the documents first; nil
@@ -147,7 +359,7 @@ func assistantPane(cx *core.Scope, a *assistant, titleBar bool) core.Node {
 	e := a.e
 	_, drag := chrome(cx, titleBar)
 	actions := []core.Node{ui.Spacer{},
-		ui.IconButton{Icon: lucide.MessageSquarePlus, Label: tr.NewChat(), OnPress: a.remove, TestID: "new-chat"}}
+		ui.IconButton{Icon: lucide.MessageSquarePlus, Label: tr.NewChat(), OnPress: a.newChat, TestID: "new-chat"}}
 	if open := e.opts.OpenSettings; open != nil {
 		actions = append(actions, ui.IconButton{Icon: lucide.Settings, Label: tr.Settings(), OnPress: open, TestID: "open-settings"})
 	}
@@ -160,7 +372,7 @@ func assistantPane(cx *core.Scope, a *assistant, titleBar bool) core.Node {
 		},
 		Children: append([]core.Node{
 			ui.Icon(lucide.Sparkles, 16, colors.Muted),
-			ui.Text(tr.Assistant(), 13, ui.Semibold, colors.Text),
+			chatPicker(cx, a),
 		}, actions...)}
 	placeholder := func(detail string, actions ...core.Node) core.Node {
 		return core.View{Style: core.Style{FlexGrow: 1, AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Padding: core.All(32), Gap: 10},
@@ -198,4 +410,54 @@ func assistantPane(cx *core.Scope, a *assistant, titleBar bool) core.Node {
 		}}
 	})
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{header, body}}
+}
+
+// chatPicker names the conversation shown and, from a menu, shows or
+// deletes another about the folder; the assistant's name while there are
+// none.
+func chatPicker(cx *core.Scope, a *assistant) core.Node {
+	tr := locales.For(cx)
+	colors := ui.ColorsOf(cx)
+	label := func(c *agio.Conversation) string {
+		if t := chatTitle(c); t != "" {
+			return t
+		}
+		return tr.NewChat()
+	}
+	// The items are built again only as the list or its names change.
+	key := core.NewMemo(cx, func() string {
+		if a.m == nil || a.e.folder.Get() == "" {
+			return ""
+		}
+		var b strings.Builder
+		for _, c := range folderChats(a.m.State(), a.e.folder.Get()) {
+			b.WriteString(c.ID + "\x00" + label(c) + "\x00")
+		}
+		return b.String()
+	})
+	return core.Dynamic(func(cx *core.Scope) core.Node {
+		if key.Get() == "" || a.agent.Get() == "" {
+			return ui.Text(tr.Assistant(), 13, ui.Semibold, colors.Text)
+		}
+		var items []core.Node
+		for _, c := range core.Untracked(cx, func() []*agio.Conversation { return folderChats(a.m.State(), a.e.folder.GetUntracked()) }) {
+			id := c.ID
+			items = append(items, ui.MenuItem{Text: label(c), TestID: "chat-" + id,
+				Checked: func() bool { return a.agent.Get() == id }, OnSelect: func() { a.show(id) },
+				Trailing: ui.IconButton{Icon: lucide.Trash, Label: tr.RemoveChat(), Size: 22, Tint: colors.Muted,
+					OnPress: func() { a.remove(id) }, TestID: "remove-chat-" + id}})
+		}
+		items = append(items, ui.MenuSeparator{},
+			ui.MenuItem{Text: tr.NewChat(), Icon: lucide.MessageSquarePlus, OnSelect: a.newChat, TestID: "chats-new"})
+		name := ui.Textf(func() string { return label(a.m.Conversation(a.agent.Get())) }, 13, ui.Semibold, colors.Text)
+		name.MaxLines = 1
+		name.TestID = "chat-title"
+		name.Style = name.Style.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)})
+		face := core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 4, MinWidth: core.Pt(0), FlexShrink: 1,
+			Padding: core.Symmetric(3, 6), CornerRadius: ui.RadiusControl},
+			StyleFunc: func() core.Style { return core.Style{Hover: &core.Style{Background: ui.Alpha(colors.Text(), .08)}} },
+			Children:  []core.Node{name, ui.Icon(lucide.ChevronDown, 14, colors.Muted)}}
+		return ui.Menu{Face: face, Label: tr.Chats(), Placement: core.PlaceBottom, Align: core.AlignStart, MaxHeight: 360,
+			Children: items, TestID: "chats"}
+	})
 }

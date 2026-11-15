@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -67,8 +68,12 @@ func (d *scripted) Catalog(context.Context, string) (agentio.Catalog, error) {
 func (d *scripted) Start(o agentio.StartOptions, onEvent func(agentio.Event), onExit func(error)) (agentio.Session, agentio.Info, error) {
 	d.mu.Lock()
 	d.started = append(d.started, o)
+	cursor := o.Cursor
+	if cursor == "" {
+		cursor = "session-" + strconv.Itoa(len(d.started))
+	}
 	d.mu.Unlock()
-	return &scriptedSession{d: d, o: o, emit: onEvent}, agentio.Info{Cursor: "session-1", Settings: o.Settings}, nil
+	return &scriptedSession{d: d, o: o, emit: onEvent}, agentio.Info{Cursor: cursor, Settings: o.Settings}, nil
 }
 
 func (d *scripted) History(string, string) ([]agentio.Event, error) { return nil, nil }
@@ -212,9 +217,47 @@ func TestAssistantDrawsInTheFolder(t *testing.T) {
 	app.Post(e.Undo)
 	app.WaitForGone("flow >> label:Ship order", time.Second)
 
-	// A new chat is another conversation.
+	// A new chat is another conversation, and the first stays a choice of
+	// the header's menu.
 	app.Press("id:new-chat")
 	app.WaitFor("text:Let's design an app together", 5*time.Second)
+	app.WaitUntil(5*time.Second, func() bool { return app.Find("id:chat-title").Text == "New Chat" })
+	app.Press("id:chats")
+	app.Press("text:Chart an order flow")
+	app.WaitFor("text:two steps", 5*time.Second)
+}
+
+func TestConversationsResumeWithTheFolder(t *testing.T) {
+	app, e, d := startAssistant(t)
+	dir := t.TempDir()
+	openPath(t, app, e, dir)
+	d.script(reply{text: "Sure."}, reply{text: "Done."})
+	send(app, "Sketch a sign-in screen")
+	app.WaitFor("text:Sure.", 5*time.Second)
+	app.Press("id:new-chat")
+	app.WaitUntil(5*time.Second, func() bool { return app.Find("id:chat-title").Text == "New Chat" })
+	send(app, "Sketch a menu")
+	app.WaitFor("text:Done.", 5*time.Second)
+	var stored string
+	app.WaitUntil(5*time.Second, func() bool {
+		stored, _ = app.Storage().GetItem("editor.chats")
+		return strings.Contains(stored, "session-1") && strings.Contains(stored, "session-2")
+	})
+
+	// Another start resumes both, the latest shown.
+	again, e2, d2 := startAssistant(t, nsgotest.Storage(map[string]string{keyFolder: dir, "editor.chats": stored}))
+	again.WaitUntil(5*time.Second, func() bool {
+		started, _, _ := d2.get()
+		return len(again.Query("id:chat-title")) > 0 && again.Find("id:chat-title").Text == "Sketch a menu" && len(started) == 0
+	})
+	again.Press("id:chats")
+	again.Find("text:Sketch a sign-in screen")
+	// Deleting one forgets it and shows the other.
+	again.Press("id:remove-chat-" + e2.a.agent.GetUntracked())
+	again.WaitUntil(5*time.Second, func() bool {
+		stored, _ := again.Storage().GetItem("editor.chats")
+		return again.Find("id:chat-title").Text == "Sketch a sign-in screen" && !strings.Contains(stored, "session-2")
+	})
 }
 
 func TestAScreenShowsOverTheComponentsMadeWithIt(t *testing.T) {

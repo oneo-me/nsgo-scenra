@@ -28,6 +28,8 @@ saveFailed: "Could not save the file: {error}"
 saved: Saved
 assistant: Assistant
 newChat: New Chat
+chats: Conversations
+removeChat: Delete Conversation
 emptyTitle: Let's design an app together
 emptyDetail: Describe an app or a process, and the assistant asks what it needs and draws its designs and flows in this folder.
 cancel: Cancel

@@ -261,7 +261,6 @@ func (e *Editor) openFolder(dir string) bool {
 	if !e.SaveChanges() {
 		return false
 	}
-	e.a.remove()
 	e.cx.Batch(func() {
 		e.active.Set(nil)
 		e.setFolder(dir)
@@ -570,5 +569,6 @@ func (e *Editor) ZoomIn()  { e.camera.ZoomIn() }
 func (e *Editor) ZoomOut() { e.camera.ZoomOut() }
 func (e *Editor) Fit()     { e.camera.Fit() }
 
-// NewChat starts a new conversation about the folder.
-func (e *Editor) NewChat() { e.a.remove() }
+// NewChat shows a new conversation about the folder, keeping the others
+// in the assistant's list.
+func (e *Editor) NewChat() { e.a.newChat() }

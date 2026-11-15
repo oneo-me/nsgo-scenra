@@ -1,6 +1,6 @@
 # Scenra architecture
 
-Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only, built from `scenraview`, which gives other NSGo apps the same support for Scenra files, as Agio's `chatview` does for conversations. The editor works in one folder, whose Scenra files the sidebar shows as a tree; each file is one design of a screen, one component designs share or one flow chart. One file at a time shows as the document, with its undo history, under a header naming it, beside the assistant running the window's height, whose one conversation is about the folder. The design and diagram draw it.
+Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only, built from `scenraview`, which gives other NSGo apps the same support for Scenra files, as Agio's `chatview` does for conversations. The editor works in one folder, whose Scenra files the sidebar shows as a tree; each file is one design of a screen, one component designs share or one flow chart. One file at a time shows as the document, with its undo history, under a header naming it, beside the assistant running the window's height, whose conversations, one shown at a time and chosen in its header, are about the folder. The design and diagram draw it.
 
 ## Code map
 
@@ -10,7 +10,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | `scenraview/` | The `Editor` an app opens a folder of Scenra files in, and its views: `Window`, or the `Header`, `Sidebar`, `Workspace` and `Assistant` it lays out. |
 | `scenraview/editor.go`, `folder.go`, `header.go`, `diagram.go` | The open folder and the files found in it, the document shown and its history, the header switching a design and its flow, and the flow chart. |
 | `scenraview/sidebar.go`, `mockup.go`, `icons.go`, `comments.go` | The tree of the folder's files and the new file dialog, the drawing of a design and the comments on its elements. |
-| `scenraview/assistant.go`, `files.go` | The conversation about the folder, run by an Agio backend, and the files read again as agents write them. |
+| `scenraview/assistant.go`, `files.go` | The folder's conversations, run by an Agio backend and kept to resume, and the files read again as agents write them. |
 | `scenraview/server.go`, `selection.go` | The MCP server telling agents what the user sees of a file. |
 | `scenraview/locales/` | The views' messages, which an app's catalogs may supply other languages of. |
 | `cmd/scenra/` | Scenra, the app: the window, menu, the agents it runs and their settings, opt-out usage statistics, `nsgo.yaml`, assets and its own `locales/`. |
@@ -37,7 +37,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 - The flow file names icons by their Lucide names, or older ones it maps to them, as `flowfile` cannot import NSGo. `tools/iconsgen`, run by `go generate` after updating NSGo, writes every name NSGo's Lucide package has into `flowfile` and the map from names to icons into `scenraview`.
 - One flow view follows the document shown instead of remounting per file, and the design covers it while a design shows.
 - The chart fits only once a change's batch is over: remounting a chart, or fitting it while it takes new data, trips NSGo's commit check on macOS.
-- The folder has one conversation, whose agent works in it with Agio's full access there, as a design and its flows are made together; opening another folder starts another.
+- A folder's conversations work in it with Agio's full access there, as a design and its flows are made together. Agio persists nothing, so the editor keeps by folder what resumes those whose agents started a session, and opening the folder again resumes them and shows the latest; leaving it stops their agents.
 - User-visible words live in `locales/`, in both languages.
 - Statistics never carry document content, messages or paths. `nsgo dev` builds and test binaries send none.
 
@@ -51,7 +51,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 
 ## Data and state
 
-Settings, the open folder, the path of the file shown and the install's random statistics ID live in NSGo's storage on the device. Documents live only in the folder's files.
+Settings, the open folder, the path of the file shown, each folder's conversations as their agents' sessions, choices and titles, and the install's random statistics ID live in NSGo's storage on the device; the transcripts stay in the agents' own sessions. Documents live only in the folder's files.
 
 ## Verification
 

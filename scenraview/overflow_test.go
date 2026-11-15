@@ -13,7 +13,7 @@ func TestLongConversationKeepsTheComposer(t *testing.T) {
 	for i := range 6 {
 		d.script(reply{text: strings.Repeat(long+"\n\n", 6)})
 		send(app, "Question")
-		app.WaitUntil(5*time.Second, func() bool { return len(app.Query("text:Question")) == i+1 && app.Exists("role:button Send") })
+		app.WaitUntil(5*time.Second, func() bool { return len(app.Query("id:conversation >> text:Question")) == i+1 && app.Exists("role:button Send") })
 		app.Settle()
 	}
 	// The transcript scrolls and the composer stays in the window.

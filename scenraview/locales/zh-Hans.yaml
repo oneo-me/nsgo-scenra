@@ -28,6 +28,8 @@ saveFailed: "无法保存文件：{error}"
 saved: 已保存
 assistant: 助手
 newChat: 新对话
+chats: 对话
+removeChat: 删除对话
 emptyTitle: 一起来设计应用
 emptyDetail: 描述一个应用或流程，助手会询问所需的细节，并在这个文件夹中画出它的设计和流程。
 cancel: 取消

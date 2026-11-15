@@ -8,6 +8,7 @@
 - Add folder workspaces whose plain-text `.scenra` files show as a tree and one at a time beside a full-height assistant, with a coffee shop example.
 - Let designs and components set their own `width=` and `height=`, which the assistant may change, instead of only their device's size.
 - Add components, shared pieces of designs kept in the folder's `components/` and drawn with `use`, which the assistant makes and the editor redraws as they change.
+- Keep each folder's conversations with the assistant, resumed when the folder opens again and switched or deleted from a menu atop the conversation.
 - Keep a screen's flow as `<name>-flow.scenra` beside its design `<name>.scenra`, and switch between the two from the header.
 - Open folders, or Scenra files with their folder, from the Finder on macOS or the command line, save files in place when another file, folder or the window takes their place, and reopen them at the next start.
 - Add macOS, Windows and Linux builds in English and Simplified Chinese, for desktops only.
