@@ -58,3 +58,4 @@ noDesign: "There is no design {name} to open."
 tapOpens: "Opens {design}"
 tapCloses: Closes this screen
 tapShows: "Shows {panel}"
+showTaps: Show What Can Be Tapped

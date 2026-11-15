@@ -116,6 +116,7 @@ func (e *Editor) reload(d *document) {
 		e.cx.Batch(func() {
 			d.broken.Set("")
 			d.doc.Set(f)
+			e.reloads.Update(func(n int) int { return n + 1 })
 		})
 		e.cx.Post(e.camera.Fit)
 		return
@@ -124,8 +125,11 @@ func (e *Editor) reload(d *document) {
 	if f.Format() == d.doc.GetUntracked().Format() {
 		return
 	}
-	d.change(f, e.a.group())
-	d.dirty.Set(false)
+	e.cx.Batch(func() {
+		d.change(f, e.a.group())
+		d.dirty.Set(false)
+		e.reloads.Update(func(n int) int { return n + 1 })
+	})
 }
 
 // saveQuietly writes the document shown to its file when the user

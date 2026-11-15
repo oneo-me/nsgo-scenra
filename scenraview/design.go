@@ -174,7 +174,9 @@ const peekDelay = 600 * time.Millisecond
 // follow: an outline marks the element the pointer is over, pressing an
 // element with a tap plays it, as do those it holds, and pressing another
 // selects it, as Alt does any, and pressing around it clears the
-// selection. Pins mark the elements the user commented on or noted, and
+// selection. What can be tapped glows a moment as a design shows or is
+// read again, and again from the toolbar. Pins mark the elements the
+// user commented on or noted, and
 // a card edits the comment and note of the element the pointer rests on
 // or selected, beside where it pressed or else beside the element; ask,
 // when set, sends the assistant a prompt about them.
@@ -213,6 +215,25 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			return true
 		})
 		cx.Post(func() { c.fit(false) })
+	})
+	// glow is the opacity of the layer marking the elements with a tap.
+	glow := core.NewAnimatedValue(cx, 0)
+	var glowing *core.AnimationRun
+	flash := func() {
+		if glowing != nil {
+			glowing.Stop()
+		}
+		glow.Set(0)
+		glowing = cx.StartAnimation(core.Sequence(
+			core.Timing(glow, 1, core.TimingConfig{Duration: 150 * time.Millisecond, Easing: core.BezierEasing(core.EaseOut)}),
+			core.Delay(900*time.Millisecond),
+			core.Timing(glow, 0, core.TimingConfig{Duration: 450 * time.Millisecond, Easing: core.BezierEasing(core.EaseIn)}),
+		), nil)
+	}
+	cx.Effect(func() {
+		shown.Get()
+		e.reloads.Get()
+		cx.Post(flash)
 	})
 	sel := selection{
 		selected: func() string { return e.cur().element.Get() },
@@ -277,6 +298,33 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		}
 		return ""
 	}, 1, "design-hovered")
+	// taps mark the elements with a tap that show while glow is up.
+	taps := func(s flowfile.File) core.Node {
+		return core.View{TestID: "design-taps", PointerEvents: core.PointerEventsNone,
+			Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
+				Animated: &core.AnimatedStyle{Opacity: glow}},
+			Children: []core.Node{core.Dynamic(func(*core.Scope) core.Node {
+				var out core.Group
+				for _, key := range sel.taps(s.UI, "", nil, nil) {
+					out = append(out, core.View{TestID: "design-tap-" + key, StyleFunc: func() core.Style {
+						sel.laidOut.Get()
+						b, ok := sel.bounds(key)
+						if !ok {
+							return core.Style{Display: core.DisplayNone}
+						}
+						w := core.Points(1.5 / c.zoomed.Get())
+						return core.Style{Position: core.Absolute, Left: core.Pt(b.Origin.X), Top: core.Pt(b.Origin.Y),
+							Width: core.Pt(b.Size.Width), Height: core.Pt(b.Size.Height), BorderWidth: w,
+							CornerRadius: core.Points(4 / c.zoomed.Get()), Background: colors.Accent().Faded(.18), BorderColor: colors.Accent()}
+					}})
+				}
+				return out
+			})}}
+	}
+	// hasTaps says an element of the design has a tap, in any panel.
+	hasTaps := func() bool {
+		return len(selection{parts: look.Get().parts}.taps(e.cur().doc.Get().UI, "", nil, nil)) > 0
+	}
 	// targetAt is the element of the design under a point of the view and
 	// the tap pressing there plays.
 	targetAt := func(p core.Point) (string, *flowfile.Tap) {
@@ -310,7 +358,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pt(0)}},
 			Animated:        &core.AnimatedStyle{TranslateX: c.x, TranslateY: c.y, Scale: c.zoom}},
 			OnLayout: c.measured,
-			Children: append(append([]core.Node{screenView(cx, s, sel)}, remarkPins(cx, s, sel, c.zoomed.Get)...), hover, selected)}
+			Children: append(append([]core.Node{screenView(cx, s, sel), taps(s)}, remarkPins(cx, s, sel, c.zoomed.Get)...), hover, selected)}
 	})
 	// comments counts the design's comments.
 	comments := func() int { return len(e.cur().doc.Get().Comments()) }
@@ -353,6 +401,9 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			tool(lucide.ZoomOut, tr.ZoomOut(), func() { c.zoomBy(1 / designZoomStep) }, "design-zoom-out"),
 			tool(lucide.ZoomIn, tr.ZoomIn(), func() { c.zoomBy(designZoomStep) }, "design-zoom-in"),
 			tool(lucide.Scan, tr.Fit(), func() { c.fit(true) }, "design-fit"),
+			core.Show{When: func() bool { return hasTaps() }, Then: func(*core.Scope) core.Node {
+				return tool(lucide.MousePointerClick, tr.ShowTaps(), flash, "design-show-taps")
+			}},
 			core.Show{When: func() bool { return ask != nil && comments() > 0 && !e.Working() }, Then: func(*core.Scope) core.Node {
 				return tool(lucide.MessagesSquare, tr.ResolveComments(), func() { ask(tr.ResolveCommentsPrompt(core.Untracked(cx, comments))) }, "resolve-comments")
 			}},

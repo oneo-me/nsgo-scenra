@@ -122,6 +122,7 @@ const (
 	textNotePlaceholder
 	textRemoveNote
 	textTapCloses
+	textShowTaps
 	numTexts
 )
 
@@ -179,6 +180,7 @@ var keyOfText = [numTexts]string{
 	"notePlaceholder",
 	"removeNote",
 	"tapCloses",
+	"showTaps",
 }
 
 // textsEn are the messages without arguments in en.
@@ -233,7 +235,8 @@ var textsEn = i18n.NewTexts(""+
 	"Note"+
 	"What should others know here?"+
 	"Remove Note"+
-	"Closes this screen",
+	"Closes this screen"+
+	"Show What Can Be Tapped",
 	[]uint16{
 		6,
 		8,
@@ -286,6 +289,7 @@ var textsEn = i18n.NewTexts(""+
 		29,
 		11,
 		18,
+		23,
 	})
 
 // textsZhHans are the messages without arguments in zh-Hans.
@@ -340,7 +344,8 @@ var textsZhHans = i18n.NewTexts(""+
 	"备注"+
 	"这里有什么需要说明的？"+
 	"删除备注"+
-	"关闭这个界面",
+	"关闭这个界面"+
+	"显示可点击的区域",
 	[]uint16{
 		9,
 		12,
@@ -393,6 +398,7 @@ var textsZhHans = i18n.NewTexts(""+
 		33,
 		12,
 		18,
+		24,
 	})
 
 // texts returns the messages without arguments in lang, nil for a
@@ -1080,3 +1086,10 @@ func (msgs Messages) TapShows(panel string) string {
 		}
 	}
 }
+
+// ShowTaps says "Show What Can Be Tapped"
+// in the language the app shows under cx.
+func ShowTaps(cx *core.Scope) string { return For(cx).ShowTaps() }
+
+// ShowTaps is the package's ShowTaps in the language of msgs.
+func (msgs Messages) ShowTaps() string { return msgs.text(textShowTaps) }

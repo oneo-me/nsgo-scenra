@@ -53,7 +53,9 @@ func openPath(t *testing.T, app *nsgotest.App, e *Editor, path string) {
 			t.Error(err)
 		}
 	})
-	app.Settle()
+	// What can be tapped glows a moment, which a step would otherwise
+	// wait out with the clock.
+	app.Advance(2 * time.Second)
 }
 
 // startEditor starts an app of the Window, whose assistant's agent is
@@ -492,7 +494,7 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 			"    box tap=\"tab past\"\n      text \"Past tab\"\n    end\n" +
 			"  end\n" +
 			"  box panel=active\n    text \"Brewing now\"\n  end\n" +
-			"  box panel=past\n    text \"Yesterday\"\n  end\n" +
+			"  box panel=past\n    text \"Yesterday\" tap=close\n  end\n" +
 			"  box tap=\"open orders/detail\"\n    text \"Open detail\"\n  end\n" +
 			"  text \"Nowhere\" tap=\"open gone\"\n" +
 			"  use tab-bar\n" +
@@ -508,6 +510,20 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 	if app.Exists("design >> text:Yesterday") {
 		t.Fatal("a second panel shows")
 	}
+	// What can be tapped is marked, in the components used too, and the
+	// toolbar shows it again.
+	marked := func(want ...string) {
+		t.Helper()
+		var got []string
+		for _, v := range app.Find("id:design-taps").Children {
+			got = append(got, strings.TrimPrefix(v.Props.TestID, "design-tap-"))
+		}
+		if !slices.Equal(got, want) {
+			t.Fatalf("marked %v, want %v", got, want)
+		}
+	}
+	marked("0.0.0", "0.0.1", "0.3", "0.4", "0.5:0.0")
+	app.Press("id:design-show-taps")
 	selected := func(id string) bool { return app.Find("id:" + id).Props.Selected }
 	if !selected("element-0.0.0") || selected("element-0.0.1") {
 		t.Fatal("the first tab is not the selected one")
@@ -515,6 +531,7 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 	app.Press("design >> text:Past tab")
 	app.WaitFor("design >> text:Yesterday", time.Second)
 	app.WaitForGone("design >> text:Brewing now", time.Second)
+	marked("0.0.0", "0.0.1", "0.2.0", "0.3", "0.4", "0.5:0.0")
 	if !selected("element-0.0.1") || selected("element-0.0.0") {
 		t.Fatal("the tab shown is not the selected one")
 	}

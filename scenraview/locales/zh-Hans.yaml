@@ -58,3 +58,4 @@ noDesign: "没有可以打开的设计 {name}。"
 tapOpens: "打开 {design}"
 tapCloses: 关闭这个界面
 tapShows: "显示 {panel}"
+showTaps: 显示可点击的区域

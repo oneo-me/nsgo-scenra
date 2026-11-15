@@ -91,7 +91,10 @@ type Editor struct {
 	// trail is the designs whose taps opened the designs shown since,
 	// by path, which closing one returns through.
 	trail []string
-	a      *assistant
+	// reloads counts the times the file shown was read again as it
+	// changed, which shows its taps again.
+	reloads *core.Signal[int]
+	a       *assistant
 	// scanning is the folder the scan reads, shared with its goroutine,
 	// and rescan asks it to read the folder now.
 	mu       sync.Mutex
@@ -109,7 +112,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
 		parts:  core.NewSignalFunc(cx, components(nil), sameComponents),
 		active: core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
-		camera: &uiflow.State{}, toasts: toasts, rescan: make(chan struct{}, 1)}
+		camera: &uiflow.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), rescan: make(chan struct{}, 1)}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)
 	e.watch()

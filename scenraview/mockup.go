@@ -104,6 +104,30 @@ func (sel selection) hits(els []flowfile.Element, prefix string, parent []int, o
 	return nil
 }
 
+// taps are the keys of the elements of els with a tap that show, in the
+// components uses draw too, as hits finds them.
+func (sel selection) taps(els []flowfile.Element, prefix string, parent []int, using []string) []string {
+	var out []string
+	for i, el := range els {
+		path := append(slices.Clone(parent), i)
+		key := prefix + flowfile.FormatPath(path)
+		if !sel.play.showing(groupKey(prefix, parent), el) {
+			continue
+		}
+		if _, ok := el.Tap(); ok {
+			out = append(out, key)
+		}
+		if el.Kind == "use" {
+			if part, ok := sel.parts[el.Text]; ok && !slices.Contains(using, el.Text) {
+				out = append(out, sel.taps(part, key+":", nil, append(slices.Clone(using), el.Text))...)
+			}
+		} else {
+			out = append(out, sel.taps(el.Children, prefix, path, using)...)
+		}
+	}
+	return out
+}
+
 // target is what pressing the elements hit selects, the innermost
 // element of the design, and the innermost tap among them, if any.
 func target(hits []hit) (path string, tap *flowfile.Tap) {
