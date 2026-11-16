@@ -194,9 +194,6 @@ func ReplaceElement(els []Element, path string, with []Element) ([]Element, erro
 		if len(at) == 1 {
 			return slices.Concat(out[:n], with, out[n+1:]), true
 		}
-		if spec, _ := Spec(out[n].Kind); !spec.Holds {
-			return nil, false
-		}
 		children, ok := replace(out[n].Children, at[1:])
 		out[n].Children = children
 		return out, ok

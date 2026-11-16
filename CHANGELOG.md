@@ -9,7 +9,7 @@
 - Let designs and components set their own `width=` and `height=`, which the assistant may change, instead of only their device's size.
 - Add components, shared pieces of designs kept in the folder's `components/` and drawn with `use`, which the assistant makes and the editor redraws as they change.
 - Show the folder's own pictures, kept in its `assets/` and named by an image's `src=`, which the assistant copies there and the editor redraws as they change.
-- Let a use change the texts, icons, classes, pictures, taps and nested components of the elements its component names, as Figma's instances and Sketch's symbols do.
+- Let a use change the texts, icons, classes, pictures, taps and nested components of the elements its component names, as Figma's instances and Sketch's symbols do, and fill its component's slots with elements of its own, which components may pass on, reporting loops of components through their fills by the chain of uses.
 - Keep each folder's conversations with the assistant, resumed when the folder opens again and switched or deleted from a menu atop the conversation.
 - Play designs as the app would, opening screens, closing them and switching tabs with `tap` and `panel`, marking the tab shown with `selected:` classes, and flash what can be tapped as a design opens or reloads, and from the toolbar.
 - Show an element's comment card where the pointer rests instead of on press, and add notes beside comments, which the assistant reads and keeps true.

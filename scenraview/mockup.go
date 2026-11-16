@@ -27,25 +27,78 @@ type selection struct {
 	// the plane. A key is the index of the element's design, a slash and
 	// its path, and in a component the key of the use drawing it, a colon
 	// and its path in the component.
-	frames  map[string]core.Bounds
+	frames  map[string]frame
 	origins []core.Point
 	laidOut *core.Signal[int]
 	play    *player
 	// screen is the index of the design drawn.
 	screen int
-	// parts are the components a use draws. Inside one, owner is the
-	// path of the use, which its elements select, prefix the key of the
-	// use and a colon, and using the components it is in, which it cannot
-	// use again.
-	parts  components
-	owner  string
+	// parts are the components a use draws.
+	parts components
 	// assets are the pictures of the folder an image's src may name.
 	assets assets
-	prefix string
-	using  []string
+	scope
+	// holder is the key of the element whose view the elements drawn are
+	// in, "" at the top of a design.
+	holder string
 	// tapping is the tap of the element an element is in, which pressing
 	// it plays.
 	tapping *flowfile.Tap
+}
+
+// frame is where an element was laid out in the view of its holder, by
+// its key, which is not its parent's when a slot draws it.
+type frame struct {
+	core.Bounds
+	holder string
+}
+
+// scope is where elements are drawn: prefix starts their keys. Inside a
+// component, owner is the key of the design's use, which its elements
+// select, using the components drawn around them, which they cannot use
+// again, and slots the fills of the use drawing it.
+type scope struct {
+	prefix string
+	owner  string
+	using  []string
+	slots  *slots
+}
+
+// slots are the fills of the use at path in outer, which the slots of
+// its component draw in outer, where the fills are written.
+type slots struct {
+	path  []int
+	fills []flowfile.Element
+	outer scope
+}
+
+// inside returns what el, at path in sc, draws inside it: the elements,
+// the scope they are in and the path they are under there; ok is false
+// for a use of a missing component or of one it is in. A use draws its
+// component, and a slot what the use's fill of it holds, or else its
+// own.
+func (sc scope) inside(el flowfile.Element, path []int, parts components) (els []flowfile.Element, in scope, under []int, ok bool) {
+	switch el.Kind {
+	case "use":
+		part, ok := parts[el.Text]
+		if !ok || slices.Contains(sc.using, el.Text) {
+			return nil, sc, nil, false
+		}
+		key := sc.prefix + flowfile.FormatPath(path)
+		owner := sc.owner
+		if owner == "" {
+			owner = key
+		}
+		return flowfile.Instance(el, part), scope{prefix: key + ":", owner: owner, using: append(slices.Clone(sc.using), el.Text),
+			slots: &slots{path: path, fills: el.Children, outer: sc}}, nil, true
+	case "slot":
+		if sc.slots != nil {
+			if i := slices.IndexFunc(sc.slots.fills, func(f flowfile.Element) bool { return f.Text == el.Text }); i >= 0 {
+				return sc.slots.fills[i].Children, sc.slots.outer, append(slices.Clone(sc.slots.path), i), true
+			}
+		}
+	}
+	return el.Children, sc, path, true
 }
 
 // elementKey is the key of the element at path of the design at index
@@ -66,27 +119,23 @@ func screenPrefix(screen int) string { return strconv.Itoa(screen) + "/" }
 
 // bounds is the frame of the element at key in the plane of the designs.
 func (sel selection) bounds(key string) (core.Bounds, bool) {
-	screen, rest, ok := splitKey(key)
+	screen, _, ok := splitKey(key)
 	if !ok || screen >= len(sel.origins) {
 		return core.Bounds{}, false
 	}
-	b := core.Bounds{Origin: sel.origins[screen]}
-	prefix := screenPrefix(screen)
-	for _, part := range strings.Split(rest, ":") {
-		at, err := flowfile.ParsePath(part)
-		if err != nil {
+	f, ok := sel.frames[key]
+	if !ok {
+		return core.Bounds{}, false
+	}
+	b := f.Bounds
+	b.Origin.X += sel.origins[screen].X
+	b.Origin.Y += sel.origins[screen].Y
+	for f.holder != "" {
+		if f, ok = sel.frames[f.holder]; !ok {
 			return core.Bounds{}, false
 		}
-		for i := range at {
-			f, ok := sel.frames[prefix+flowfile.FormatPath(at[:i+1])]
-			if !ok {
-				return core.Bounds{}, false
-			}
-			b.Origin.X += f.Origin.X
-			b.Origin.Y += f.Origin.Y
-			b.Size = f.Size
-		}
-		prefix += part + ":"
+		b.Origin.X += f.Origin.X
+		b.Origin.Y += f.Origin.Y
 	}
 	return b, true
 }
@@ -97,27 +146,24 @@ type hit struct {
 	el  flowfile.Element
 }
 
-// hits are the elements of els at p, from the outermost to the
-// innermost, in the design's coordinates with els's parent at origin:
-// the one drawn last where several overlap, and into the components
-// uses draw. Children are looked in where they reach outside their
-// parent, as positioned ones can, and hidden panels are passed over.
-func (sel selection) hits(els []flowfile.Element, prefix string, parent []int, origin, p core.Point, using []string) []hit {
+// hits are the elements of els, under parent in sc, at p, from the
+// outermost to the innermost, in the design's coordinates with their
+// holder at origin: the one drawn last where several overlap, and into
+// what uses and slots draw. Children are looked in where they reach
+// outside their parent, as positioned ones can, and hidden panels are
+// passed over.
+func (sel selection) hits(els []flowfile.Element, sc scope, parent []int, origin, p core.Point) []hit {
 	for i := len(els) - 1; i >= 0; i-- {
 		path := append(slices.Clone(parent), i)
-		key := prefix + flowfile.FormatPath(path)
+		key := sc.prefix + flowfile.FormatPath(path)
 		f, ok := sel.frames[key]
-		if !ok || !sel.play.showing(groupKey(prefix, parent), els[i]) {
+		if !ok || !sel.play.showing(groupKey(sc.prefix, parent), els[i]) {
 			continue
 		}
 		at := core.Point{X: origin.X + f.Origin.X, Y: origin.Y + f.Origin.Y}
 		var inner []hit
-		if el := els[i]; el.Kind == "use" {
-			if part, ok := sel.parts[el.Text]; ok && !slices.Contains(using, el.Text) {
-				inner = sel.hits(flowfile.Instance(el, part), key+":", nil, at, p, append(slices.Clone(using), el.Text))
-			}
-		} else {
-			inner = sel.hits(el.Children, prefix, path, at, p, using)
+		if kids, in, under, ok := sc.inside(els[i], path, sel.parts); ok {
+			inner = sel.hits(kids, in, under, at, p)
 		}
 		if inner != nil {
 			return append([]hit{{key, els[i]}}, inner...)
@@ -129,25 +175,20 @@ func (sel selection) hits(els []flowfile.Element, prefix string, parent []int, o
 	return nil
 }
 
-// taps are the keys of the elements of els with a tap that show, in the
-// components uses draw too, as hits finds them.
-func (sel selection) taps(els []flowfile.Element, prefix string, parent []int, using []string) []string {
+// taps are the keys of the elements of els, under parent in sc, with a
+// tap that show, in what uses and slots draw too, as hits finds them.
+func (sel selection) taps(els []flowfile.Element, sc scope, parent []int) []string {
 	var out []string
 	for i, el := range els {
 		path := append(slices.Clone(parent), i)
-		key := prefix + flowfile.FormatPath(path)
-		if !sel.play.showing(groupKey(prefix, parent), el) {
+		if !sel.play.showing(groupKey(sc.prefix, parent), el) {
 			continue
 		}
 		if _, ok := el.Tap(); ok {
-			out = append(out, key)
+			out = append(out, sc.prefix+flowfile.FormatPath(path))
 		}
-		if el.Kind == "use" {
-			if part, ok := sel.parts[el.Text]; ok && !slices.Contains(using, el.Text) {
-				out = append(out, sel.taps(flowfile.Instance(el, part), key+":", nil, append(slices.Clone(using), el.Text))...)
-			}
-		} else {
-			out = append(out, sel.taps(el.Children, prefix, path, using)...)
+		if kids, in, under, ok := sc.inside(el, path, sel.parts); ok {
+			out = append(out, sel.taps(kids, in, under)...)
 		}
 	}
 	return out
@@ -199,25 +240,24 @@ func newPlayer(cx *core.Scope, file func() string) *player {
 func (pl *player) scan(screens []flowfile.Screen, parts components) {
 	pl.panels = map[string][]string{}
 	pl.ids = nil
-	var walk func(els []flowfile.Element, prefix string, parent []int, using []string)
-	walk = func(els []flowfile.Element, prefix string, parent []int, using []string) {
+	var walk func(els []flowfile.Element, sc scope, parent []int)
+	walk = func(els []flowfile.Element, sc scope, parent []int) {
 		for i, el := range els {
 			path := append(slices.Clone(parent), i)
 			if name := el.Attr("panel"); name != "" {
-				g := groupKey(prefix, parent)
+				g := groupKey(sc.prefix, parent)
 				if !slices.Contains(pl.panels[g], name) {
 					pl.panels[g] = append(pl.panels[g], name)
 				}
 			}
-			if part, ok := parts[el.Text]; el.Kind == "use" && ok && !slices.Contains(using, el.Text) {
-				walk(flowfile.Instance(el, part), prefix+flowfile.FormatPath(path)+":", nil, append(slices.Clone(using), el.Text))
+			if kids, in, under, ok := sc.inside(el, path, parts); ok {
+				walk(kids, in, under)
 			}
-			walk(el.Children, prefix, path, using)
 		}
 	}
 	for i, s := range screens {
 		pl.ids = append(pl.ids, s.ID)
-		walk(s.UI, screenPrefix(i), nil, nil)
+		walk(s.UI, scope{prefix: screenPrefix(i)}, nil)
 	}
 }
 
@@ -317,12 +357,14 @@ func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selectio
 // of a picture the folder lacks, an SVG NSGo cannot read, or a use of a component that is
 // missing or in which it is, draws a placeholder. A use draws its
 // component with what it changes, and the elements of a component
-// select the use.
+// select the use; a slot draws what the use's fill of it holds, which
+// selects itself, or else its own, and in the component's own file an
+// empty slot shows where it is.
 func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) core.Node {
 	class := el.Attr("class")
 	key := sel.prefix + flowfile.FormatPath(path)
 	layout := func(b core.Bounds) {
-		sel.frames[key] = b
+		sel.frames[key] = frame{b, sel.holder}
 		sel.laidOut.Update(func(n int) int { return n + 1 })
 	}
 	id, testID := key, "element-"+key
@@ -356,10 +398,27 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 			OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide,
 			Children: []core.Node{core.Icon{SVG: icon(), Class: "size-8 text-muted-foreground"}}}
 	}
+	// children draws what the element draws inside it, unless it cannot.
+	children := func() ([]core.Node, bool) {
+		els, in, under, ok := sel.inside(el, path, sel.parts)
+		inner := sel
+		inner.scope, inner.holder = in, key
+		return elements(cx, els, under, inner), ok
+	}
 	switch el.Kind {
 	case "box":
+		kids, _ := children()
 		return core.View{Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
-			Children: elements(cx, el.Children, path, sel)}
+			Children: kids}
+	case "slot":
+		kids, _ := children()
+		if len(kids) == 0 && sel.slots == nil {
+			// The component's own file shows where its empty slots are.
+			kids = []core.Node{core.Icon{SVG: lucide.SquareDashed(), Class: "size-5 text-muted-foreground"}}
+			class = "min-h-10 items-center justify-center rounded-lg border border-dashed border-border " + class
+		}
+		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
+			Children: kids}
 	case "text":
 		return core.Text{Content: el.Text, Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "icon":
@@ -386,55 +445,58 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		}
 		return core.SVGView{SVG: doc, Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "use":
-		els, ok := sel.parts[el.Text]
-		if !ok || slices.Contains(sel.using, el.Text) {
+		kids, ok := children()
+		if !ok {
 			return placeholder(lucide.Component)
 		}
-		inner := sel
-		inner.owner = id
-		inner.prefix = key + ":"
-		inner.using = append(slices.Clone(sel.using), el.Text)
 		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
-			Children: elements(cx, flowfile.Instance(el, els), nil, inner)}
+			Children: kids}
 	}
 	return core.Group{}
 }
 
 // componentProblems are what is wrong with the components els use: those
-// missing from the folder, those used inside themselves, and what uses
+// missing from the folder, those used inside themselves, directly or
+// through others, the fills of slots they do not have and what uses
 // change in them that is not there. self is the name of the component
-// els are, "" for a design.
+// els are, "" for a design, whose slots are checked too.
 func componentProblems(els []flowfile.Element, self string, parts components) []string {
 	var out []string
-	var visit func(name string, using []string) bool
-	visit = func(name string, using []string) bool {
-		if slices.Contains(using, name) {
-			return false
+	// loop is the chain of uses from name back to a component of using,
+	// nil when there is none.
+	var loop func(name string, using []string) []string
+	loop = func(name string, using []string) []string {
+		using = append(slices.Clone(using), name)
+		if slices.Index(using, name) < len(using)-1 {
+			return using[slices.Index(using, name):]
 		}
 		for _, n := range flowfile.Uses(parts[name]) {
-			if !visit(n, slices.Concat(using, []string{name})) {
-				return false
+			if chain := loop(n, using); chain != nil {
+				return chain
 			}
 		}
-		return true
+		return nil
 	}
 	var using []string
 	if self != "" {
 		using = []string{self}
+		out = append(out, flowfile.SlotProblems(els)...)
 	}
 	for _, name := range flowfile.Uses(els) {
 		if _, ok := parts[name]; !ok {
 			out = append(out, fmt.Sprintf("use %q: there is no %s", name, flowfile.ComponentPath(name)))
-		} else if !visit(name, using) {
-			out = append(out, fmt.Sprintf("use %q: components use each other in a loop", name))
+		} else if chain := loop(name, using); chain != nil {
+			out = append(out, fmt.Sprintf("use %q: components use each other in a loop, %s; take a use out of it", name, strings.Join(chain, " uses ")))
 		}
+	}
+	find := func(name string) ([]flowfile.Element, bool) {
+		part, ok := parts[name]
+		return part, ok
 	}
 	walk(els, func(el flowfile.Element) {
 		if el.Kind == "use" {
-			out = append(out, flowfile.OverrideProblems(el, func(name string) ([]flowfile.Element, bool) {
-				part, ok := parts[name]
-				return part, ok
-			})...)
+			out = append(out, flowfile.FillProblems(el, find)...)
+			out = append(out, flowfile.OverrideProblems(el, find)...)
 		}
 	})
 	return out

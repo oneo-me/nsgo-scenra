@@ -310,6 +310,68 @@ func TestOverrides(t *testing.T) {
 	}
 }
 
+func TestSlots(t *testing.T) {
+	card, err := ParseUI("box class=\"p-4\"\n  slot header\n    text \"Title\"\n  end\n  slot\n  end\n  use row\n    fill trailing\n      slot actions\n      end\n    end\n  end\nend\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := Slots(card); !slices.Equal(got, []string{"header", "", "actions"}) {
+		t.Fatalf("slots %v", got)
+	}
+	src := "use \"card\" class=\"m-2\"\n  fill \"header\" note=\"Varies\"\n    text \"Latte\"\n  end\n  fill\n    use \"card\"\n  end\nend\nuse \"card\"\n"
+	use, err := ParseUI(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := FormatUI(use); got != src {
+		t.Fatalf("formatted as\n%s", got)
+	}
+	if len(use) != 2 || len(use[0].Children) != 2 || use[0].Children[1].Children[0].Kind != "use" {
+		t.Fatalf("read %+v", use)
+	}
+	nested, _ := ParseUI("use a\n  fill\n    use b\n      fill\n        text x\n      end\n    end\n  end\nend\n")
+	if inner := nested[0].Children[0].Children; len(inner) != 1 || len(inner[0].Children) != 1 {
+		t.Fatalf("a use in a fill read as %+v", inner)
+	}
+	if got := Uses(use); !slices.Equal(got, []string{"card"}) {
+		t.Fatalf("uses %v", got)
+	}
+	parts := map[string][]Element{"card": card}
+	find := func(name string) ([]Element, bool) { p, ok := parts[name]; return p, ok }
+	if p := FillProblems(use[0], find); len(p) != 0 {
+		t.Fatalf("problems %v", p)
+	}
+	bad, _ := ParseUI("use card\n  fill footer\n  end\nend\n")
+	if p := FillProblems(bad[0], find); len(p) != 1 || !strings.Contains(p[0], "the fill of slot footer fills nothing") || !strings.Contains(p[0], "it has slot header, the default slot, slot actions") {
+		t.Fatalf("problems %v", p)
+	}
+	twice, _ := ParseUI("slot a\nend\nbox\n  slot a\n  end\nend\n")
+	if p := SlotProblems(twice); len(p) != 1 || !strings.Contains(p[0], "slot a is written twice") {
+		t.Fatalf("problems %v", p)
+	}
+	for src, want := range map[string]string{
+		"fill x\nend":                                "fill fills a slot of the component a use draws",
+		"text a\nfill x\nend":                        "put it right after the use",
+		"use a\n  fill x\n  end\nend\nfill y\nend":   "put it right after the use",
+		"use a\n  fill x\n  end\n  text b\nend":      "a use holds only fill lines",
+		"use a\n  fill x\n  end\n  fill x\n  end\nend": "the use fills slot x twice",
+		"use a\n  fill\n  end\n  fill\n  end\nend":     "the use fills the default slot twice",
+		"use a\n  fill x class=p-2\n  end\nend":       "fill takes no attribute \"class\"",
+		"use a\n  fill x\n  end":                      "use has no end",
+		"slot \"a b\"\nend":                           "is not a name",
+	} {
+		if _, err := ParseUI(src); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: %v, want %q", src, err, want)
+		}
+	}
+	if _, err := Parse("design\nslot\nend\n"); err == nil || !strings.Contains(err.Error(), "a design has no slots") {
+		t.Errorf("a design's slot: %v", err)
+	}
+	if _, err := Parse("component\nslot\nend\n"); err != nil {
+		t.Errorf("a component's slot: %v", err)
+	}
+}
+
 func TestImagesNameThePicturesOfTheAssetsFolder(t *testing.T) {
 	for src, want := range map[string]string{"assets/a.png": "assets/a.png", "./assets/b/c.JPG": "assets/b/c.JPG", "https://x.io/a.png": "", "data:image/png;base64,AA": ""} {
 		if got, _ := AssetPath(src); got != want {

@@ -156,8 +156,14 @@ var Elements = []ElementSpec{
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
 	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the one src names, a file of the assets folder such as assets/latte.jpg or a URL, or a placeholder; size it with classes"},
 	{Kind: "svg", Doc: "any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox"},
-	{Kind: "use", Doc: "the component its text names, a file of the components folder, drawn as a box with its classes holding the component's elements"},
+	{Kind: "use", Doc: "the component its text names, a file of the components folder, drawn as a box with its classes holding the component's elements; fill lines right after it, up to its end, fill the component's slots"},
+	{Kind: "slot", Holds: true, Doc: "in a component, a box holding what a use's fill of the name its text gives holds, the default slot without one, or else what the slot holds"},
+	{Kind: "fill", Holds: true, Doc: "inside a use, what the slot of its component the text names draws, the default slot without one"},
 }
+
+// fillAttrs are the only attributes a fill takes: it is drawn as what it
+// holds, in its slot.
+var fillAttrs = []string{"comment", "note"}
 
 // commonAttrs are the attributes every element takes: the name a use of
 // the component it is in changes it by, the classes that shape it, what pressing it does and the tab panel it is, a user's
@@ -188,9 +194,19 @@ func kinds() string {
 }
 
 // uiReader reads element lines, holding the containers still open.
+// design is set for a design's lines, which take no slots.
 type uiReader struct {
-	out  []Element
-	open []Element
+	out    []Element
+	open   []Element
+	design bool
+}
+
+// level is the elements read so far where the next line goes.
+func (r *uiReader) level() *[]Element {
+	if n := len(r.open); n > 0 {
+		return &r.open[n-1].Children
+	}
+	return &r.out
 }
 
 func (r *uiReader) add(el Element) {
@@ -217,6 +233,23 @@ func (r *uiReader) line(toks []token) string {
 	if head.quoted || !ok {
 		return fmt.Sprintf("unknown element %q; use one of %s", head.text, kinds())
 	}
+	inUse := len(r.open) > 0 && r.open[len(r.open)-1].Kind == "use"
+	switch {
+	case spec.Kind == "slot" && r.design:
+		return "a design has no slots; put slots in a component, which uses fill"
+	case spec.Kind == "fill" && !inUse:
+		// A fill opens the use it follows.
+		level := r.level()
+		n := len(*level)
+		if n == 0 || (*level)[n-1].Kind != "use" || len((*level)[n-1].Children) > 0 {
+			return "fill fills a slot of the component a use draws; put it right after the use, which then takes an end"
+		}
+		use := (*level)[n-1]
+		*level = (*level)[:n-1]
+		r.open = append(r.open, use)
+	case spec.Kind != "fill" && inUse:
+		return fmt.Sprintf("a use holds only fill lines; end the use before %s", spec.Kind)
+	}
 	el := Element{Kind: spec.Kind}
 	for _, t := range toks[1:] {
 		key, value, isAttr := t.attr()
@@ -225,6 +258,8 @@ func (r *uiReader) line(toks []token) string {
 			el.Text = t.text
 		case !isAttr:
 			return fmt.Sprintf("unexpected %q; quote text with spaces, and write attributes as key=value", t.text)
+		case spec.Kind == "fill" && !slices.Contains(fillAttrs, key):
+			return fmt.Sprintf("fill takes no attribute %q; use %s, and shape what it holds", key, strings.Join(fillAttrs, ", "))
 		case spec.Kind == "use" && !slices.Contains(commonAttrs, key):
 			if _, msg := parseOverride(key, value); msg != "" {
 				return msg
@@ -244,6 +279,9 @@ func (r *uiReader) line(toks []token) string {
 	}
 	if el.Kind == "icon" {
 		el.Text, _ = IconName(el.Text)
+	}
+	if el.Kind == "fill" && slices.ContainsFunc(r.open[len(r.open)-1].Children, func(f Element) bool { return f.Text == el.Text }) {
+		return fmt.Sprintf("the use fills %s twice; put what it holds in one fill", slotName(el.Text))
 	}
 	if spec.Holds {
 		r.open = append(r.open, el)
@@ -283,6 +321,10 @@ func checkElement(el Element) string {
 	case "use":
 		if !ValidComponentName(el.Text) {
 			return fmt.Sprintf("%q names no component; use the path of a file in %s/ without .scenra, such as tab-bar", el.Text, ComponentsDir)
+		}
+	case "slot", "fill":
+		if el.Text != "" && (!ValidID(el.Text) || strings.Contains(el.Text, ".")) {
+			return fmt.Sprintf("%s %q is not a name of letters, digits, _ or -", el.Kind, el.Text)
 		}
 	}
 	return ""
@@ -345,7 +387,7 @@ func Parse(src string) (File, error) {
 		}
 		els, msg := ui.done()
 		f.Screens[len(f.Screens)-1].UI = els
-		ui = uiReader{}
+		ui = uiReader{design: f.Kind == Design}
 		return msg
 	}
 	err := eachLine(src, func(toks []token) string {
@@ -357,7 +399,9 @@ func Parse(src string) (File, error) {
 		}
 		switch {
 		case lines == 1:
-			return f.header(toks, true)
+			msg := f.header(toks, true)
+			ui.design = f.Kind == Design
+			return msg
 		case word == string(f.Kind) && f.Kind == Component:
 			return "a component file holds one component; put another in a file of its own"
 		case word == string(f.Kind):
@@ -604,7 +648,7 @@ func formatUI(b *strings.Builder, els []Element, indent string) {
 			}
 		}
 		b.WriteByte('\n')
-		if spec, _ := Spec(el.Kind); spec.Holds {
+		if spec, _ := Spec(el.Kind); spec.Holds || len(el.Children) > 0 {
 			formatUI(b, el.Children, indent+"  ")
 			b.WriteString(indent + "end\n")
 		}

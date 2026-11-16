@@ -123,9 +123,9 @@ box class="flex-1 bg-zinc-50"
 end
 ```
 
-- A use is one element: a box with its classes holding the component's elements, so place and size it with classes as any box. It holds nothing itself and takes no end.
+- A use is one element: a box with its classes holding the component's elements, so place and size it with classes as any box. It takes no end unless it fills slots.
 - Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
-- Components may use other components, never themselves, directly or through others.
+- Components may use other components, and fill their slots with them, never themselves, directly or through others, as `a` using `b` whose fill uses `a`.
 - Write a component as a whole, the same on every screen. A tab bar marks the screen shown by itself when its items open the screens, as Interactions shows.
 - `get_view` lists the components there are and reports uses of missing ones, loops and changes that reach nothing.
 
@@ -157,6 +157,40 @@ use menu-item title="Mocha" tag.class="hidden"
 - `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.src="…"` replaces an image's picture and `<name>.tap="…"` an element's tap.
 - `<a>/<b>="…"` changes the elements named b of the component the use named a draws, and so on down.
 - Every element of a name changes, so give one name to several elements that show one value. Name the elements that vary between uses, and keep the component's own values realistic: they show where a use changes nothing.
+
+### Slots
+
+A component leaves room for what each use puts in it with `slot`, as Vue's slots do: a box shaped by its classes, holding up to its `end` what it shows when a use fills nothing there. `slot <name>` names it; `slot` alone is the default slot. A use fills them with `fill <name>`, or `fill` for the default slot, each right after the use and holding any elements up to its `end`, and the use then takes an `end` after its fills:
+
+```
+# components/card.scenra
+component
+box class="gap-3 rounded-2xl bg-white p-4 shadow-sm"
+  slot header class="flex-row items-center gap-2"
+    text "Title" class="font-semibold"
+  end
+  slot class="gap-2"
+  end
+end
+```
+
+```
+use card class="mx-5"
+  fill header
+    icon coffee class="size-5 text-amber-700"
+    text "Your order" class="font-semibold"
+  end
+  fill
+    use menu-item title="Latte"
+    use menu-item title="Mocha"
+  end
+end
+```
+
+- Use a slot where uses differ by more than values, such as a card's body, a sheet's content or a bar's actions; change values by names instead.
+- What a fill holds belongs to the file using the component: it is selected, commented and noted there, and its paths run through the use and the fill, so `0.1.0` is the first element of the second fill of the use at `0`.
+- A fill inside a component may hold that component's own slot, passing on what its uses fill.
+- A fill takes only `comment=` and `note=`; a design has no slots. `get_view` reports fills of slots a component does not have and slots of one name written twice.
 
 ## Interactions
 

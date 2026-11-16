@@ -44,6 +44,24 @@
 //
 //	use tab-bar home=store home.class="text-amber-600"   # see Instance
 //
+//	component                        # in components/card.scenra
+//	box class="gap-2 p-4"
+//	  slot header                    # a use's fill header draws here
+//	    text "Title"                 # unless it fills nothing
+//	  end
+//	  slot                           # the default slot
+//	  end
+//	end
+//
+//	use card                         # fills end before the use's end
+//	  fill header
+//	    text "Your order"
+//	  end
+//	  fill
+//	    use menu-item
+//	  end
+//	end
+//
 //	flow sign-in name="Sign in" direction=right   # or down
 //	node start "Tap Sign in" kind=start
 //	node check "Check password" kind=decision note="Lock after 5 tries"
@@ -72,7 +90,9 @@
 // the project, so any design or component uses it by its path there; a
 // use is one element, a box holding the component, whatever it holds,
 // and may change the texts, classes, pictures and taps of the elements
-// the component names, as Figma's instances and Sketch's symbols do.
+// the component names, as Figma's instances and Sketch's symbols do,
+// and fill the component's slots with elements of its own, which it
+// holds in fills up to its end.
 // An image shows a picture of the assets folder at the top of the
 // project, named by its path there, or one at a URL, and else a
 // placeholder its text describes.

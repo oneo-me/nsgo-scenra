@@ -125,7 +125,7 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 		}
 		return []string{f.path + ": " + f.broken}
 	})
-	section("Components that are missing or used in a loop, and what uses change in them that is not there:", func(f fileView) []string {
+	section("Components that are missing or used in a loop, and what uses change or fill in them that is not there:", func(f fileView) []string {
 		self, _ := flowfile.ComponentName(f.path)
 		var out []string
 		for _, s := range f.file.Screens {

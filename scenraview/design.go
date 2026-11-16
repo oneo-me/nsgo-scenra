@@ -194,7 +194,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				play.showTab(t.Target, screen)
 			}
 		},
-		frames:  map[string]core.Bounds{},
+		frames:  map[string]frame{},
 		laidOut: core.NewSignal(cx, 0),
 		play:    play,
 	}
@@ -242,7 +242,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	allTaps := func(sel selection, f flowfile.File) []string {
 		var out []string
 		for i, s := range f.Screens {
-			out = append(out, sel.taps(s.UI, screenPrefix(i), nil, nil)...)
+			out = append(out, sel.taps(s.UI, scope{prefix: screenPrefix(i)}, nil)...)
 		}
 		return out
 	}
@@ -283,7 +283,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			}
 			b := screenBounds(s, i, sel.origins[i], measured)
 			if at.X >= b.Origin.X && at.Y >= b.Origin.Y && at.X < b.Origin.X+b.Size.Width && at.Y < b.Origin.Y+b.Size.Height {
-				path, tap := target(sel.hits(s.Screens[i].UI, screenPrefix(i), nil, sel.origins[i], at, nil))
+				path, tap := target(sel.hits(s.Screens[i].UI, scope{prefix: screenPrefix(i)}, nil, sel.origins[i], at))
 				return path, tap, i
 			}
 		}

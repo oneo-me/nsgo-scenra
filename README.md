@@ -39,7 +39,7 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 - Resting the pointer on an element shows its comment and note: a comment asks the assistant for a change, and a note records what the design cannot show.
 - The assistant works on what you select, resolves your comments, keeps the notes true, and works in the open folder, so it can chart how the code there works.
 - Sending a message saves your changes; while the assistant works the files stay as it leaves them, and each of its turns undoes as one step.
-- Pieces screens share, such as a tab bar, are components in the folder's `components/`, which designs draw with `use`, so changing one changes every screen; as with Figma's instances, a use can change the texts, icons, styles and taps of the elements its component names.
+- Pieces screens share, such as a tab bar, are components in the folder's `components/`, which designs draw with `use`, so changing one changes every screen; as with Figma's instances, a use can change the texts, icons, styles and taps of the elements its component names, and fill the slots it leaves with elements of its own, components inside included.
 - Pictures a design shows live in the folder's `assets/`, where the assistant copies the ones you give it, and images name them with `src="assets/…"`.
 - Designs are plain-text `.scenra` files you can read, diff and edit by hand.
 - Runs on macOS, Windows and Linux, in English and Simplified Chinese.

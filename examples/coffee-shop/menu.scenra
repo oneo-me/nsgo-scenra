@@ -40,10 +40,11 @@ box class="flex-1 bg-zinc-50"
         end
       end
     end
-    text "Today" class="text-xs font-semibold uppercase tracking-wider text-zinc-500"
-    box class="rounded-2xl bg-white px-4 shadow-sm"
-      use menu-item class="border-b border-zinc-100"
-      use menu-item title="Cold brew" detail="Steeped for 18 hours" price="$4.00" icon=zap icon.class="text-sky-700" badge.class="bg-sky-100"
+    use section title="Today"
+      fill
+        use menu-item class="border-b border-zinc-100"
+        use menu-item title="Cold brew" detail="Steeped for 18 hours" price="$4.00" icon=zap icon.class="text-sky-700" badge.class="bg-sky-100"
+      end
     end
   end
   use tab-bar

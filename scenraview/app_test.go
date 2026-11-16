@@ -338,16 +338,16 @@ func TestImagesShowThePicturesOfTheAssetsFolder(t *testing.T) {
 	app, e := startEditor(t)
 	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
 	picture := func(sel string) string { return string(app.Find(sel).Image.Source.Data) }
-	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0") == "latte" })
-	if got := picture("id:element-2:0"); got != "mocha" {
+	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0/0") == "latte" })
+	if got := picture("id:element-0/2:0"); got != "mocha" {
 		t.Fatalf("the use shows %q", got)
 	}
-	if app.Find("id:element-1").Image.Source.Data != nil {
+	if app.Find("id:element-0/1").Image.Source.Data != nil {
 		t.Fatal("a missing picture shows")
 	}
 	// Changing a picture redraws the designs showing it.
 	os.WriteFile(filepath.Join(dir, "assets", "latte.png"), []byte("latte art"), 0o644)
-	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0") == "latte art" })
+	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0/0") == "latte art" })
 }
 
 func TestAUseChangesTheNamedElementsOfItsComponent(t *testing.T) {
@@ -362,12 +362,12 @@ func TestAUseChangesTheNamedElementsOfItsComponent(t *testing.T) {
 	})
 	app, e := startEditor(t)
 	openPath(t, app, e, filepath.Join(dir, "menu.scenra"))
-	app.WaitFor("id:element-0.0 >> text:Latte", 5*time.Second)
-	app.Find("id:element-0.0 >> text:$4.20")
-	app.Find("id:element-0.0 >> text:New")
-	app.Find("id:element-0.1 >> text:Cold brew")
-	app.Find("id:element-0.1 >> text:$0")
-	app.Find("id:element-0.1 >> text:Hot")
+	app.WaitFor("id:element-0/0.0 >> text:Latte", 5*time.Second)
+	app.Find("id:element-0/0.0 >> text:$4.20")
+	app.Find("id:element-0/0.0 >> text:New")
+	app.Find("id:element-0/0.1 >> text:Cold brew")
+	app.Find("id:element-0/0.1 >> text:$0")
+	app.Find("id:element-0/0.1 >> text:Hot")
 	// A tap a use gives its component plays.
 	app.Press("design >> text:Latte")
 	app.WaitFor("design >> text:Detail", time.Second)
@@ -380,6 +380,58 @@ func TestAUseChangesTheNamedElementsOfItsComponent(t *testing.T) {
 	if !strings.Contains(view, `menu.scenra: use "item": nope="x" names nothing: no element of components/item.scenra has name=nope`) {
 		t.Fatalf("the view tells nothing of the override of no element:\n%s", view)
 	}
+}
+
+func TestAUseFillsTheSlotsOfItsComponent(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra": "design\n" +
+			"use card class=\"m-4\"\n  fill header\n    text \"Latte\"\n  end\n" +
+			"  fill\n    use pill\n      fill\n        text \"Hot\"\n      end\n    end\n  end\n  fill footer\n  end\nend\n" +
+			"use card\n",
+		"components/card.scenra":  "component\nbox class=\"gap-2\"\n  slot header\n    text \"Untitled\"\n  end\n  use frame\n    fill\n      slot\n      end\n    end\n  end\nend\n",
+		"components/frame.scenra": "component\nbox class=\"p-2\"\n  slot\n  end\nend\n",
+		"components/pill.scenra":  "component\nslot class=\"rounded-full\"\nend\n",
+		"components/c.scenra":     "component\nuse d\n",
+		"components/d.scenra":     "component\nuse pill\n  fill\n    use c\n  end\nend\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("id:element-0/0 >> text:Latte", 5*time.Second)
+	app.Find("id:element-0/0 >> text:Hot")
+	app.Find("id:element-0/1 >> text:Untitled")
+	// What a fill holds is the design's: it selects itself and is
+	// outlined where its slot draws it.
+	app.Press("design >> text:Hot")
+	if got := e.cur().element.GetUntracked(); got != "0/0.1.0.0.0" {
+		t.Fatalf("pressing what the fill holds selected %q", got)
+	}
+	app.Settle()
+	text, mark := app.Find("id:element-0/0.1.0.0.0").Frame, app.Find("id:design-selected").Frame
+	if mark.Size.Width != text.Size.Width+4 || mark.Size.Height != text.Size.Height+4 {
+		t.Fatalf("the text is at %v, its outline at %v", text, mark)
+	}
+	app.Press("design >> text:Untitled")
+	if got := e.cur().element.GetUntracked(); got != "0/1" {
+		t.Fatalf("pressing what the slot holds selected %q", got)
+	}
+	// Fills of no slot and loops through fills, the agent hears of.
+	view := ""
+	app.Post(func() { view = e.viewOf() })
+	app.Settle()
+	for _, want := range []string{
+		`home.scenra: use "card": the fill of slot footer fills nothing, as components/card.scenra has no such slot; it has slot header, the default slot`,
+		`components/c.scenra: use "d": components use each other in a loop, c uses d uses c`,
+	} {
+		if !strings.Contains(view, want) {
+			t.Errorf("the view tells nothing of %q:\n%s", want, view)
+		}
+	}
+	// A component in a loop still opens, and its own file shows its slots.
+	app.Press("id:files >> label:c")
+	app.WaitFor("id:element-0/0", time.Second)
+	app.Press("id:files >> label:card")
+	app.WaitFor("id:element-0/0.0 >> text:Untitled", time.Second)
+	app.Find("id:element-0/0.1:0.0")
 }
 
 func TestADesignIsDrawnAtTheSizeItSets(t *testing.T) {
@@ -490,7 +542,17 @@ func TestATabBarMarksTheScreenShown(t *testing.T) {
 }
 
 func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
-	files, _, _, _ := scan("../examples", nil)
+	files, parts, _, _ := scan("../examples/coffee-shop", nil)
+	for _, en := range files {
+		f, _ := readFile(filepath.Join("../examples/coffee-shop", en.path))
+		self, _ := flowfile.ComponentName(en.path)
+		for _, s := range f.Screens {
+			if p := componentProblems(s.UI, self, parts); len(p) > 0 {
+				t.Errorf("%s: %v", en.path, p)
+			}
+		}
+	}
+	files, _, _, _ = scan("../examples", nil)
 	if len(files) < 2 {
 		t.Fatalf("examples %v", files)
 	}
