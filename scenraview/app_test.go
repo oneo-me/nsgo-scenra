@@ -77,21 +77,24 @@ func openComponent(t *testing.T, app *nsgotest.App, e *Editor, dir, name string)
 	app.WaitFor("id:design", time.Second)
 }
 
-// treeNames are the names of the tree's rows, in order.
-func treeNames(app *nsgotest.App) []string {
+// fileNames are the names of the sidebar's files, in order.
+func fileNames(app *nsgotest.App) []string {
 	var names []string
-	for _, v := range app.Query("id:files >> role:treeitem") {
+	for _, v := range app.Query("id:files >> id:file") {
 		names = append(names, v.Props.Label)
 	}
 	return names
 }
 
-func TestShowsTheFolderAsATree(t *testing.T) {
+func TestShowsTheFolderInGroups(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"plan.scenra":             "flow\nnode a \"Research\" note=\"Read the docs\"\na -> b\n",
-		"screens/home.scenra":     "design\ntext \"Welcome\"\n",
-		"screens/broken.scenra":   "box\n",
-		"screens/cart.scenra":     "design name=\"Shopping cart\"\ntext \"Cart\"\n",
+		"home.scenra":             "design\ntext \"Welcome\"\n",
+		"broken.scenra":           "box\n",
+		"cart.scenra":             "design name=\"Shop/Shopping cart\"\ntext \"Cart\"\n",
+		"cart-flow.scenra":        "flow\nnode a \"Pay\"\n",
+		"deep.scenra":             "design name=\"A/B/Deep\"\n",
+		"screens/old.scenra":      "design\n",
 		".hidden/secret.scenra":   "flow\n",
 		"node_modules/pkg.scenra": "flow\n",
 		"notes.txt":               "design\n",
@@ -104,12 +107,16 @@ func TestShowsTheFolderAsATree(t *testing.T) {
 	if got := app.Find("id:header >> id:folder-name").Text; got != filepath.Base(dir) {
 		t.Fatalf("the header names the folder %q", got)
 	}
-	for _, name := range []string{"screens", "home", "broken", "Shopping cart"} {
-		app.Find("id:files >> label:" + name)
+	if got := fileNames(app); !slices.Equal(got, []string{"A/B/Deep", "broken", "home", "plan", "Shopping cart", "cart-flow"}) {
+		t.Fatalf("the sidebar lists %v", got)
 	}
-	for _, name := range []string{"secret", "pkg", "notes", "empty", "cart"} {
+	// A name's group holds the file, and its design's holds a flow.
+	app.Find("id:group-Shop >> label:Shopping cart")
+	app.Find("id:group-Shop >> label:cart-flow")
+	// Files in folders are not the project's.
+	for _, name := range []string{"old", "screens", "secret", "pkg", "notes", "empty", "cart"} {
 		if app.Exists("id:files >> label:" + name) {
-			t.Errorf("the tree shows %s", name)
+			t.Errorf("the sidebar shows %s", name)
 		}
 	}
 	// Choosing a file shows it in place of the one shown.
@@ -124,18 +131,18 @@ func TestShowsTheFolderAsATree(t *testing.T) {
 	// A file that names itself shows by that name.
 	app.Press("id:files >> label:Shopping cart")
 	app.WaitFor("design >> text:Cart", time.Second)
-	if got := shownName(app); got != "Shopping cart" {
+	if got := shownName(app); got != "Shop/Shopping cart" {
 		t.Fatalf("the header names %q", got)
 	}
 	app.Press("id:files >> label:home")
 	app.WaitFor("design >> text:Welcome", time.Second)
-	// A file another program makes shows in the tree.
-	os.WriteFile(filepath.Join(dir, "screens", "later.scenra"), []byte("flow\n"), 0o644)
+	// A file another program makes shows in the sidebar.
+	os.WriteFile(filepath.Join(dir, "later.scenra"), []byte("flow\n"), 0o644)
 	app.WaitFor("id:files >> label:later", 5*time.Second)
 
 	// The folder and the file shown open again at the next start.
 	stored, _ := app.Storage().GetItem(keyFile)
-	if stored != filepath.Join(dir, "screens", "home.scenra") {
+	if stored != filepath.Join(dir, "home.scenra") {
 		t.Fatalf("kept %q", stored)
 	}
 	again, _ := startEditor(t, nsgotest.Storage(map[string]string{keyFolder: dir, keyFile: stored}))
@@ -241,7 +248,7 @@ func TestHidingThePanelsLeavesTheWindowToTheWorkspace(t *testing.T) {
 	if got := app.Find("id:header").Frame.Size.Width; got != 1280 {
 		t.Fatalf("the header is %v wide, from %v", got, width)
 	}
-	// Making a file shows the tree it goes in, holding its dialog.
+	// Making a file shows the sidebar, holding its dialog.
 	app.Post(e.NewDesign)
 	app.WaitFor("id:new-file-dialog", time.Second)
 	app.Find("id:files >> label:home")
@@ -251,7 +258,7 @@ func TestHidingThePanelsLeavesTheWindowToTheWorkspace(t *testing.T) {
 }
 
 func TestMakesFilesInTheFolder(t *testing.T) {
-	dir := folderOfFiles(t, map[string]string{"flows/old.scenra": "flow\n"})
+	dir := folderOfFiles(t, map[string]string{"old.scenra": "flow\n"})
 	app, e := startEditor(t)
 	openPath(t, app, e, dir)
 	app.WaitFor("id:files >> label:old", time.Second)
@@ -308,13 +315,13 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 		t.Fatalf("the component: %q %v", data, err)
 	}
 	if app.Exists("id:files >> label:tab-bar") {
-		t.Fatal("the tree shows the component")
+		t.Fatal("the sidebar lists the component")
 	}
 	app.Find("id:sidebar-components")
-	// A flow goes in the folder selected.
-	app.Press(`id:files >> text:"flows"`)
+	// Every file goes at the top of the folder.
+	app.Press("id:files >> label:old")
 	create("new-flow", "checkout")
-	if data, err := os.ReadFile(filepath.Join(dir, "flows", "checkout-flow.scenra")); err != nil || string(data) != "flow\n" {
+	if data, err := os.ReadFile(filepath.Join(dir, "checkout-flow.scenra")); err != nil || string(data) != "flow\n" {
 		t.Fatalf("the flow: %q %v", data, err)
 	}
 	app.Find("id:files >> label:checkout-flow")
@@ -332,7 +339,7 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	app.Settle()
 	app.Post(e.Save)
 	app.Settle()
-	if data, _ := os.ReadFile(filepath.Join(dir, "flows", "checkout-flow.scenra")); string(data) != "flow direction=right\n" {
+	if data, _ := os.ReadFile(filepath.Join(dir, "checkout-flow.scenra")); string(data) != "flow direction=right\n" {
 		t.Fatalf("the file was not saved:\n%s", data)
 	}
 }
@@ -340,8 +347,8 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"home.scenra":                "design\nbox class=\"flex-1\"\n  text \"Welcome\"\n  use tab-bar class=\"mt-auto\"\n  use gone\nend\n",
-		"components/tab-bar.scenra":  "component width=fill\nbox class=\"flex-row\"\n  use nav/item\n  text \"Orders\"\nend\n",
-		"components/nav/item.scenra": "component\ntext \"Home tab\"\n",
+		"components/tab-bar.scenra":  "component width=fill\nbox class=\"flex-row\"\n  use nav-item\n  text \"Orders\"\nend\n",
+		"components/nav-item.scenra": "component\ntext \"Home tab\"\n",
 		"components/loop.scenra":     "component\nuse loop\n",
 	})
 	app, e := startEditor(t)
@@ -354,7 +361,7 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 		t.Fatalf("pressing inside the component selected %q", got)
 	}
 	// Editing a component redraws the designs using it.
-	os.WriteFile(filepath.Join(dir, "components", "nav", "item.scenra"), []byte("component\ntext \"Menu tab\"\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "components", "nav-item.scenra"), []byte("component\ntext \"Menu tab\"\n"), 0o644)
 	app.WaitFor("design >> text:Menu tab", 5*time.Second)
 	// A component opens on its own, at its device's width when it fills
 	// the width, and else as large as it needs.
@@ -364,7 +371,7 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 		t.Fatalf("the component is %v wide", w)
 	}
 	app.Find("id:component-0 >> id:component-outline")
-	openComponent(t, app, e, dir, "nav/item")
+	openComponent(t, app, e, dir, "nav-item")
 	app.WaitFor("design >> text:Menu tab", time.Second)
 	if w, text := app.Find("id:component-0").Frame.Size.Width, app.Find("id:element-0/0").Frame.Size.Width; w != text {
 		t.Fatalf("the component is %v wide around a text %v wide", w, text)
@@ -525,15 +532,15 @@ func TestADesignIsDrawnAtTheSizeItSets(t *testing.T) {
 	app.WaitUntil(5*time.Second, func() bool { return app.Find("id:design").Frame.Size.Width == 600 })
 }
 
-func TestTheTreeKeepsAFlowByItsDesign(t *testing.T) {
+func TestTheSidebarKeepsAFlowByItsDesign(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"sign-in.scenra": "design\n", "sign-in-flow.scenra": "flow\n", "sign-in-error.scenra": "design\n", "about.scenra": "design\n",
 	})
 	app, e := startEditor(t)
 	openPath(t, app, e, dir)
 	app.WaitFor("id:files >> label:sign-in-error", time.Second)
-	if got := treeNames(app); !slices.Equal(got, []string{"about", "sign-in", "sign-in-flow", "sign-in-error"}) {
-		t.Fatalf("the tree %v", got)
+	if got := fileNames(app); !slices.Equal(got, []string{"about", "sign-in", "sign-in-flow", "sign-in-error"}) {
+		t.Fatalf("the sidebar lists %v", got)
 	}
 }
 
@@ -720,11 +727,11 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 			"  end\n" +
 			"  box panel=active\n    text \"Brewing now\"\n  end\n" +
 			"  box panel=past\n    text \"Yesterday\" tap=close\n  end\n" +
-			"  box tap=\"open orders/detail\"\n    text \"Open detail\"\n  end\n" +
+			"  box tap=\"open order-detail\"\n    text \"Open detail\"\n  end\n" +
 			"  text \"Nowhere\" tap=\"open gone\"\n" +
 			"  use tab-bar\n" +
 			"end\n",
-		"orders/detail.scenra":      "design\nbox class=\"flex-1\"\n  text \"Back\" tap=close\n  use tab-bar\nend\n",
+		"order-detail.scenra":       "design\nbox class=\"flex-1\"\n  text \"Back\" tap=close\n  use tab-bar\nend\n",
 		"components/tab-bar.scenra": "component\nbox class=\"flex-row\"\n  box tap=\"open home\"\n    text \"Home item\"\n  end\nend\n",
 	})
 	app, e := startEditor(t)
@@ -768,7 +775,7 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 	// selected.
 	app.Press("design >> text:Open detail")
 	app.WaitFor("design >> text:Back", time.Second)
-	if got := shownName(app); got != "detail" {
+	if got := shownName(app); got != "order-detail" {
 		t.Fatalf("the tap opened %q", got)
 	}
 	app.Press("design >> text:Back")

@@ -104,9 +104,8 @@ type Editor struct {
 	// the document, which stays open beneath them.
 	showcase *core.Signal[bool]
 	// naming is the kind of file the new file dialog makes, "" while it
-	// is closed, and into the folder it goes in, relative to the open one.
+	// is closed.
 	naming *core.Signal[flowfile.Kind]
-	into   string
 	// camera shows the flows of the file shown, and charts their
 	// diagrams' states by index.
 	camera *camera.State
@@ -466,8 +465,8 @@ func (e *Editor) tapClose() {
 }
 
 // NewDesign and NewFlow ask for the name of a new design or flow, which
-// they make in the folder the sidebar has selected and open; NewComponent
-// asks for a component's, which it makes in the components folder.
+// they make at the top of the open folder and open; NewComponent asks for
+// a component's, which it makes in the components folder.
 func (e *Editor) NewDesign()    { e.askName(flowfile.Design) }
 func (e *Editor) NewFlow()      { e.askName(flowfile.Chart) }
 func (e *Editor) NewComponent() { e.askName(flowfile.Component) }
@@ -476,7 +475,7 @@ func (e *Editor) askName(kind flowfile.Kind) {
 	if e.folder.GetUntracked() == "" {
 		return
 	}
-	// The sidebar holds the dialog, and the tree shows where the file goes.
+	// The sidebar holds the dialog.
 	e.panelsHidden.Set(false)
 	e.naming.Set(kind)
 }
@@ -488,11 +487,11 @@ var (
 	errName   = errors.New("not a file name")
 )
 
-// create makes a file of kind named name in the folder into, relative to
-// the open one, and opens it: name.scenra for a design, and
-// name-flow.scenra for a flow, which is the design name's flow. A
-// component goes in the components folder wherever into is.
-func (e *Editor) create(kind flowfile.Kind, into, name string) error {
+// create makes a file of kind named name at the top of the open folder,
+// and opens it: name.scenra for a design, and name-flow.scenra for a
+// flow, which is the design name's flow. A component goes in the
+// components folder.
+func (e *Editor) create(kind flowfile.Kind, name string) error {
 	name = strings.TrimSuffix(strings.TrimSpace(name), ".scenra")
 	if kind == flowfile.Chart {
 		name = strings.TrimSuffix(name, flowSuffix)
@@ -504,9 +503,11 @@ func (e *Editor) create(kind flowfile.Kind, into, name string) error {
 		if !flowfile.ValidComponentName(name) {
 			return errName
 		}
-		into = flowfile.ComponentsDir
 	}
-	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(into), fileName(name, kind))
+	path := filepath.Join(e.folder.GetUntracked(), fileName(name, kind))
+	if kind == flowfile.Component {
+		path = filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(flowfile.ComponentPath(name)))
+	}
 	// A new file holds one empty design or flow, as it reads back.
 	f, _ := flowfile.Parse(flowfile.File{Kind: kind}.Format())
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

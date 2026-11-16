@@ -1,6 +1,8 @@
 // Package flowfile reads and writes Scenra files: plain text documents
 // that each hold designs of an app's screens, one component designs
-// share or flow charts, line by line. A folder of them is a project.
+// share or flow charts, line by line. A folder of them is a project,
+// which keeps its designs and flows at its top and its components in
+// components/, without folders of either.
 //
 //	# A comment runs to the end of the line; indentation is free.
 //	design sign-in name="Sign in" device=phone gap=120  # or tablet, desktop; width=, height= resize it
@@ -85,9 +87,11 @@
 // A file's first line says what it holds, designs, a component or flows,
 // never two kinds. Each design or flow starts with its line, which may
 // give it an ID, needed once a file holds several, and a name the editor
-// shows; the first's names the file, and the first line may set the gap
-// in points the editor lays the file's designs or flows out apart. A file
-// holds one component. A design is one element a line, and a box holds
+// shows; the first's names the file, in the group before its /, such
+// as name="Orders/Detail", which the editor lists it under, as groups do
+// not nest, and the
+// first line may set the gap in points the editor lays the file's designs
+// or flows out apart. A file holds one component. A design is one element a line, and a box holds
 // the lines up to its end. The interface is a few
 // primitives, listed in Elements, each shaped by Tailwind CSS classes, so
 // a design can look like anything rather than like the controls of one

@@ -3,7 +3,6 @@ package scenraview
 import (
 	"errors"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -43,143 +42,98 @@ func entryIcon(en entry) func() *core.SVG {
 	return lucide.FileX
 }
 
-// sidebar is the open folder's Scenra files as a tree, in which choosing
-// a file shows it, with the lines Git says each changed, under a row
-// showing its components together, which the tree leaves out; or, while no folder is open, a way
-// to open one. It
-// holds the dialog naming a new file, which the app's menu or the empty
-// workspace asks for.
+// componentsItem is the sidebar's ID of the row showing the components
+// together, which no file's path can be.
+const componentsItem = "\x00components"
+
+// sidebar is the open folder's designs and flows in the groups their
+// names give them, in which choosing a file shows it, with the lines Git
+// says each changed, under a row showing its components together, which
+// the list leaves out; or, while no folder is open, a way to open one.
+// It holds the dialog naming a new file, which the app's menu or the
+// empty workspace asks for.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
-	// Components show in the showcase instead.
-	tree := core.NewMemoFunc(cx, func() fileTree {
-		return treeOf(slices.DeleteFunc(slices.Clone(e.files.Get()), func(f entry) bool { return isComponentFile(f.path) }))
-	}, func(a, b fileTree) bool { return false })
-	collapsed := core.NewSignalFunc(cx, []string(nil), slices.Equal)
-	selection := ui.NewSelection(cx, false)
-	// The tree selects the file shown, none while the components show, and
-	// choosing a file shows it.
-	cx.Effect(func() {
-		d, showcase := e.cur(), e.showcase.Get()
-		if d == e.blank && !showcase {
-			return
+	groups := core.NewMemoFunc(cx, func() []fileGroup { return groupFiles(e.files.Get()) }, func(a, b []fileGroup) bool { return false })
+	row := func(cx *core.Scope, en entry) core.Node {
+		_, name := groupOf(en.title())
+		return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, MinWidth: core.Pt(0)},
+			Children: []core.Node{
+				ui.IconOf(entryIcon(en), 14, colors.Muted),
+				core.Text{Content: name, MaxLines: 1,
+					Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}), StyleFunc: ui.Colored(colors.Text)},
+				core.View{Style: core.Style{FlexGrow: 1}},
+				changeCounts(cx, func() (change, bool) { c, ok := e.changes.Get()[en.path]; return c, ok }),
+			}}
+	}
+	components := ui.SidebarItem{ID: componentsItem, Text: tr.Components(), TestID: "sidebar-components",
+		Content: core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, MinWidth: core.Pt(0)},
+			Children: []core.Node{
+				ui.IconOf(lucide.LayoutGrid, 14, colors.Muted),
+				core.Text{Content: tr.Components(), MaxLines: 1, Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}),
+					StyleFunc: ui.Colored(colors.Text)},
+				core.View{Style: core.Style{FlexGrow: 1}},
+				core.Text{ContentFunc: func() string { return strconv.Itoa(len(componentEntries(e.files.Get()))) },
+					Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
+			}}}
+	sections := func() []ui.SidebarSection {
+		gs := groups.Get()
+		top := ui.SidebarSection{TestID: "files-top"}
+		if e.HasComponents() {
+			top.Items = append(top.Items, components)
 		}
-		key := e.rel(d.path)
-		core.Untracked(cx, func() bool {
-			switch {
-			case showcase:
-				selection.Clear()
-				selection.SetCursor(nil)
-			case selection.Cursor() != any(key):
-				selection.Set(key)
+		out := []ui.SidebarSection{top}
+		for _, g := range gs {
+			var items []ui.SidebarItem
+			for _, en := range g.files {
+				_, name := groupOf(en.title())
+				items = append(items, ui.SidebarItem{ID: en.path, Text: name, TestID: "file", Content: row(cx, en)})
 			}
-			return true
-		})
-	})
-	cx.Effect(func() {
-		key, _ := selection.Cursor().(string)
-		cx.Untrack(func() {
-			if key == "" || strings.HasSuffix(key, "/") || e.rel(e.shown().path) == key && !e.showcase.GetUntracked() {
-				return
+			if g.name == "" {
+				out[0].Items = append(out[0].Items, items...)
+				continue
 			}
-			if _, ok := tree.GetUntracked().files[key]; ok {
-				e.open(filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(key)))
-			}
-		})
-	})
-	// New files go in the folder selected, or the one of the file
-	// selected.
-	e.into = ""
-	cx.Effect(func() {
-		key, _ := selection.Cursor().(string)
-		e.into = folderOf(key)
-	})
-	keys := func(of string) []any {
-		var out []any
-		for _, k := range tree.Get().children[of] {
-			out = append(out, k)
+			out = append(out, ui.SidebarSection{Title: g.name, Items: items, Collapsible: true, TestID: "group-" + g.name})
+		}
+		if len(out[0].Items) == 0 && len(gs) == 0 {
+			out[0].Note = core.Text{Content: tr.FilesEmpty(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)}
 		}
 		return out
 	}
-	files := ui.Tree{TestID: "files", Label: tr.Files(), ToggleLabel: tr.Expand(), Selection: selection,
-		Roots:    func() []any { return keys("") },
-		Children: func(key any) []any { return keys(key.(string)) },
-		Expanded: func(key any) bool { return !slices.Contains(collapsed.Get(), key.(string)) },
-		OnExpand: func(key any, open bool) {
-			next := slices.DeleteFunc(slices.Clone(collapsed.GetUntracked()), func(k string) bool { return k == key })
-			if !open {
-				next = append(next, key.(string))
-			}
-			collapsed.Set(next)
-		},
-		RowLabel: func(key any) string { return tree.Get().rowName(key.(string)) },
-		Row: func(cx *core.Scope, item ui.TreeItem) core.Node {
-			key := func() string { return item.Key().(string) }
-			icon := func() *core.SVG {
-				if item.Branch() {
-					if item.Expanded() {
-						return lucide.FolderOpen()
-					}
-					return lucide.Folder()
-				}
-				return entryIcon(tree.Get().files[key()])()
-			}
-			return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, MinWidth: core.Pt(0)},
-				Children: []core.Node{
-					ui.IconOf(icon, 14, colors.Muted),
-					core.Text{ContentFunc: func() string { return tree.Get().rowName(key()) }, MaxLines: 1,
-						Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}), StyleFunc: ui.Colored(colors.Text)},
-					core.View{Style: core.Style{FlexGrow: 1}},
-					changeCounts(cx, func() (change, bool) { c, ok := e.changes.Get()[key()]; return c, ok }),
-				}}
-		},
-		Empty: core.View{Style: core.Style{Padding: core.Symmetric(4, 10)}, Children: []core.Node{
-			core.Text{Content: tr.FilesEmpty(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)}}},
-		Style: core.Style{FlexGrow: 1},
+	// The list marks the file shown, or the components while they or one
+	// of them show, and choosing a file shows it.
+	selected := func() string {
+		d := e.cur()
+		if e.showcase.Get() || d != e.blank && isComponentFile(e.rel(d.path)) {
+			return componentsItem
+		}
+		if d == e.blank {
+			return ""
+		}
+		return e.rel(d.path)
 	}
+	choose := func(id string) {
+		if id == componentsItem {
+			e.ShowComponents()
+			return
+		}
+		e.open(filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(id)))
+	}
+	files := ui.Sidebar{TestID: "files", SectionsFunc: sections, Selected: selected, OnSelect: choose}
 	noFolder := core.View{Style: core.Style{Padding: core.Symmetric(8, 12), Gap: 10}, Children: []core.Node{
 		core.Text{Content: tr.NoFolder(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
 		ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: e.OpenFolder, TestID: "sidebar-open-folder"},
 	}}
-	return core.View{Style: core.Style{Width: core.Pt(sidebarWidth), FlexShrink: 0, Padding: core.Symmetric(8, 0), Borders: core.Edges{Right: 1}},
+	return core.View{Style: core.Style{Width: core.Pt(sidebarWidth), FlexShrink: 0, Padding: core.Edges{Top: 8}, Borders: core.Edges{Right: 1}},
 		StyleFunc: func() core.Style {
 			return core.Style{Background: colors.Surface(), BorderColors: core.EdgeColors{Right: colors.Line()}}
 		},
 		Children: []core.Node{
 			core.Show{When: func() bool { return e.folder.Get() == "" },
 				Then: func(*core.Scope) core.Node { return noFolder },
-				Else: func(*core.Scope) core.Node {
-					return core.View{Style: ui.FillRest.Merge(core.Style{Padding: core.Symmetric(0, 4)}), Children: []core.Node{
-						core.Show{When: e.HasComponents, Then: func(cx *core.Scope) core.Node { return componentsRow(cx, e) }},
-						files,
-					}}
-				}},
+				Else: func(*core.Scope) core.Node { return files }},
 			newFileDialog(cx, e),
-		}}
-}
-
-// componentsRow shows the open folder's components together, and is
-// selected while they or one of them show.
-func componentsRow(cx *core.Scope, e *Editor) core.Node {
-	tr := locales.For(cx)
-	colors := ui.ColorsOf(cx)
-	count := func() int { return len(componentEntries(e.files.Get())) }
-	return base.Button{TestID: "sidebar-components", Label: tr.Components(), OnPress: func(core.PressEvent) { e.ShowComponents() },
-		Selected: func() bool {
-			return e.showcase.Get() || e.cur() != e.blank && isComponentFile(e.rel(e.cur().path))
-		},
-		Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, MinHeight: core.Pt(ui.RowHeight - 8),
-			Padding: core.Symmetric(0, 10), Margin: core.Symmetric(0, 4), CornerRadius: ui.RadiusControl, FlexShrink: 0},
-		StyleFunc: func() core.Style {
-			return core.Style{Hover: ui.Hovered(cx), Selected: &core.Style{Background: ui.Alpha(colors.Text(), 0.1)}}
-		},
-		Children: []core.Node{
-			ui.IconOf(lucide.LayoutGrid, 14, colors.Muted),
-			core.Text{Content: tr.Components(), MaxLines: 1, Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}),
-				StyleFunc: ui.Colored(colors.Text)},
-			core.View{Style: core.Style{FlexGrow: 1}},
-			core.Text{ContentFunc: func() string { return strconv.Itoa(count()) }, Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
 		}}
 }
 
@@ -200,7 +154,7 @@ func changeCounts(cx *core.Scope, of func() (change, bool)) core.Node {
 }
 
 // newFileDialog asks the name of the file of the kind e.naming says,
-// which it makes in the folder e.into names and opens.
+// which it makes and opens.
 func newFileDialog(cx *core.Scope, e *Editor) core.Node {
 	// The dialog is built for the kind last asked for, which it keeps
 	// while it closes.
@@ -231,7 +185,7 @@ func newFileDialog(cx *core.Scope, e *Editor) core.Node {
 			})
 		})
 		create := func() {
-			err := e.create(k, e.into, name.GetUntracked())
+			err := e.create(k, name.GetUntracked())
 			switch {
 			case errors.Is(err, errExists):
 				problem.Set(tr.FileExists())

@@ -26,7 +26,7 @@ var Taps = []string{TapOpen, TapClose, TapTab}
 const Window = "window"
 
 // Tap is an element's tap: its action, and the design it opens, by its
-// file's path in the project's folder without .scenra, a # and its ID
+// file's name in the project's folder without .scenra, a # and its ID
 // when the file holds several, or # and the ID alone for a design of the
 // same file, or the tab it shows.
 type Tap struct{ Action, Target string }
@@ -59,12 +59,12 @@ func ParseTap(s string) (Tap, error) {
 	case TapClose:
 		file, id, hash := strings.Cut(t.Target, "#")
 		if t.Target != "" && t.Target != Window && (file == "" && !hash || file != "" && !ValidDesignName(file) || hash && !ValidID(id)) {
-			return Tap{}, fmt.Errorf("tap %q names no design; close the one tapped with close, the outermost it shows in with close window, or one it shows in by its path without .scenra, such as close settings or close settings#general", s)
+			return Tap{}, fmt.Errorf("tap %q names no design; close the one tapped with close, the outermost it shows in with close window, or one it shows in by its file name without .scenra, such as close settings or close settings#general", s)
 		}
 	case TapOpen:
 		file, id, hash := strings.Cut(t.Target, "#")
 		if file == "" && !hash || file != "" && !ValidDesignName(file) || hash && !ValidID(id) {
-			return Tap{}, fmt.Errorf("tap %q names no design; open one by its path in the folder without .scenra, such as menu or orders/detail, and #<id> for one of several in a file, such as auth#sign-up or #sign-up in the same file", s)
+			return Tap{}, fmt.Errorf("tap %q names no design; open one by its file name without .scenra, such as menu or order-detail, and #<id> for one of several in a file, such as auth#sign-up or #sign-up in the same file", s)
 		}
 	case TapTab:
 		if !ValidID(t.Target) {
@@ -83,18 +83,10 @@ func (el Element) Tap() (Tap, bool) {
 }
 
 // ValidDesignName reports whether name can name a design of the project:
-// a path of its folder with slashes, without .scenra, whose parts are
-// names of files.
+// the name of a file at the top of its folder, without .scenra, as the
+// project keeps no folders of designs.
 func ValidDesignName(name string) bool {
-	if name == "" || strings.ContainsAny(name, `\#`) || strings.HasSuffix(name, ".scenra") {
-		return false
-	}
-	for _, part := range strings.Split(name, "/") {
-		if strings.TrimSpace(part) == "" || strings.HasPrefix(part, ".") {
-			return false
-		}
-	}
-	return true
+	return strings.TrimSpace(name) != "" && !strings.ContainsAny(name, `/\#`) && !strings.HasPrefix(name, ".") && !strings.HasSuffix(name, ".scenra")
 }
 
 // DesignPath is the path of the design named name, relative to the

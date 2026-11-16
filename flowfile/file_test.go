@@ -174,24 +174,28 @@ func sizeIs(f File, w, h int) bool {
 }
 
 func TestComponents(t *testing.T) {
-	src := "component device=tablet\nbox class=\"flex-row\"\n  use nav/item class=\"flex-1\"\nend\n"
+	src := "component device=tablet\nbox class=\"flex-row\"\n  use nav-item class=\"flex-1\"\nend\n"
 	f, err := Parse(src)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Kind != Component || f.Screens[0].Device != "tablet" || f.Format() != strings.Replace(src, "use nav/item", `use "nav/item"`, 1) {
+	if f.Kind != Component || f.Screens[0].Device != "tablet" || f.Format() != strings.Replace(src, "use nav-item", `use "nav-item"`, 1) {
 		t.Fatalf("component %+v:\n%s", f, f.Format())
 	}
-	if got := Uses(f.Screens[0].UI); !slices.Equal(got, []string{"nav/item"}) {
+	if got := Uses(f.Screens[0].UI); !slices.Equal(got, []string{"nav-item"}) {
 		t.Fatalf("uses %v", got)
 	}
-	for p, want := range map[string]string{"components/tab-bar.scenra": "tab-bar", "components/nav/item.scenra": "nav/item", "tab-bar.scenra": "", "components/x.txt": ""} {
+	// Components keep no folders of their own.
+	if _, err := Parse("component\nuse nav/item\n"); err == nil {
+		t.Fatal("a use names a component in a folder")
+	}
+	for p, want := range map[string]string{"components/tab-bar.scenra": "tab-bar", "components/nav/item.scenra": "", "tab-bar.scenra": "", "components/x.txt": ""} {
 		if got, ok := ComponentName(p); got != want || ok != (want != "") {
 			t.Errorf("%s names %q %v", p, got, ok)
 		}
 	}
-	if ComponentPath("nav/item") != "components/nav/item.scenra" {
-		t.Fatal(ComponentPath("nav/item"))
+	if ComponentPath("nav-item") != "components/nav-item.scenra" {
+		t.Fatal(ComponentPath("nav-item"))
 	}
 }
 
@@ -261,13 +265,13 @@ func TestNotes(t *testing.T) {
 }
 
 func TestTaps(t *testing.T) {
-	p, err := Parse("design\nbox tap=\"open orders/detail\" class=\"p-2\"\n  text \"x\" tap=close\nend\n" +
+	p, err := Parse("design\nbox tap=\"open order-detail\" class=\"p-2\"\n  text \"x\" tap=close\nend\n" +
 		"box tap=\"tab past\"\nend\nbox panel=past\nend\nbox tap=\"open Sign in\"\nend\nbox tap=\"open auth#sign-up\"\nend\nbox tap=\"open #reset\"\nend\n" +
 		"box tap=\"close window\"\nend\nbox tap=\"close settings#general\"\nend\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for path, want := range map[string]Tap{"0": {TapOpen, "orders/detail"}, "0.0": {TapClose, ""}, "1": {TapTab, "past"}, "3": {TapOpen, "Sign in"}, "4": {TapOpen, "auth#sign-up"}, "5": {TapOpen, "#reset"}, "6": {TapClose, Window}, "7": {TapClose, "settings#general"}} {
+	for path, want := range map[string]Tap{"0": {TapOpen, "order-detail"}, "0.0": {TapClose, ""}, "1": {TapTab, "past"}, "3": {TapOpen, "Sign in"}, "4": {TapOpen, "auth#sign-up"}, "5": {TapOpen, "#reset"}, "6": {TapClose, Window}, "7": {TapClose, "settings#general"}} {
 		el, _ := ElementAt(p.Screens[0].UI, path)
 		if got, ok := el.Tap(); !ok || got != want {
 			t.Errorf("%s taps %+v", path, got)
@@ -276,10 +280,10 @@ func TestTaps(t *testing.T) {
 	if el, _ := ElementAt(p.Screens[0].UI, "2"); el.Attr("panel") != "past" {
 		t.Fatalf("the panel is %q", el.Attr("panel"))
 	}
-	if got := FormatUI(p.Screens[0].UI[:1]); got != "box class=\"p-2\" tap=\"open orders/detail\"\n  text \"x\" tap=\"close\"\nend\n" {
+	if got := FormatUI(p.Screens[0].UI[:1]); got != "box class=\"p-2\" tap=\"open order-detail\"\n  text \"x\" tap=\"close\"\nend\n" {
 		t.Fatalf("formatted as\n%s", got)
 	}
-	for _, src := range []string{"box tap=jump\nend\n", "box tap=open\nend\n", "box tap=\"open ../x\"\nend\n", "box tap=\"close ../x\"\nend\n", "box tap=\"close #\"\nend\n",
+	for _, src := range []string{"box tap=jump\nend\n", "box tap=open\nend\n", "box tap=\"open ../x\"\nend\n", "box tap=\"open orders/detail\"\nend\n", "box tap=\"close ../x\"\nend\n", "box tap=\"close #\"\nend\n",
 		"box tap=\"tab a b\"\nend\n", "box panel=\"a b\"\nend\n", "box tap=\"open #\"\nend\n", "box tap=\"open a#b c\"\nend\n", "box tap=\"open a#b#c\"\nend\n"} {
 		if _, err := ParseUI(src); err == nil {
 			t.Errorf("%q parsed", src)

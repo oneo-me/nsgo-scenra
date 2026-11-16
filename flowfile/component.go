@@ -7,20 +7,15 @@ import (
 	"strings"
 )
 
-// ComponentsDir is the folder of a project's components, at its top: the
-// component tab-bar is components/tab-bar.scenra, and nav/tab-bar is
-// components/nav/tab-bar.scenra.
+// ComponentsDir is the folder of a project's components, at its top and
+// without folders of its own: the component tab-bar is
+// components/tab-bar.scenra.
 const ComponentsDir = "components"
 
-// ValidComponentName reports whether name can name a component: a path
-// of the components folder, its parts IDs, without .scenra.
+// ValidComponentName reports whether name can name a component: an ID,
+// the name of a file of the components folder without .scenra.
 func ValidComponentName(name string) bool {
-	for _, part := range strings.Split(name, "/") {
-		if !ValidID(part) || part == "." || part == ".." {
-			return false
-		}
-	}
-	return true
+	return ValidID(name) && name != "." && name != ".."
 }
 
 // ComponentPath is the path of the component named name, relative to the
@@ -28,8 +23,8 @@ func ValidComponentName(name string) bool {
 func ComponentPath(name string) string { return ComponentsDir + "/" + name + ".scenra" }
 
 // ComponentName is the name of the component at the path, relative to
-// the project's folder with slashes, when the path is in the components
-// folder.
+// the project's folder with slashes, when the path is a file of the
+// components folder.
 func ComponentName(p string) (string, bool) {
 	rest, ok := strings.CutPrefix(path.Clean(p), ComponentsDir+"/")
 	name, scenra := strings.CutSuffix(rest, ".scenra")

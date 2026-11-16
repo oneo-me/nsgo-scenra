@@ -30,7 +30,7 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 
 ## Features
 
-- Scenra works in a folder: the left shows its Scenra files as a tree, each holding designs or flow charts, the file you choose shows beside it, and the conversation runs the window's height on the right; ⌘B hides both sides to give the canvas the whole window. In a Git repository, each file shows the lines it added and removed since the last commit.
+- Scenra works in a folder: the left lists its Scenra files, each holding designs or flow charts, kept at the folder's top and grouped by names such as `Orders/Detail`, the file you choose shows beside it, and the conversation runs the window's height on the right; ⌘B hides both sides to give the canvas the whole window. In a Git repository, each file shows the lines it added and removed since the last commit.
 - A screen's design `sign-in.scenra` and its flow `sign-in-flow.scenra` sit side by side, and the bar above switches between them.
 - Choosing another file saves the one shown, as does ⌘S, and the folder and its file reopen at the next start.
 - Phone, tablet and desktop designs are drawn from boxes, texts, icons, images and SVG shaped by Tailwind CSS classes, so a draft can look like anything; zoom, pan and select its elements as in the flow charts.
@@ -39,7 +39,7 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 - Resting the pointer on an element shows its comment and note: a comment asks the assistant for a change, and a note records what the design cannot show.
 - The assistant works on what you select, resolves your comments, keeps the notes true, and works in the open folder, so it can chart how the code there works.
 - Sending a message saves your changes; while the assistant works the files stay as it leaves them, and each of its turns undoes as one step.
-- Pieces screens share, such as a tab bar, are components in the folder's `components/`, which designs draw with `use`, so changing one changes every screen; as with Figma's instances, a use can pick the component's variants, change the texts, icons, styles and taps of the elements its component names, and fill the slots it leaves with elements of its own, components inside included. **Components** atop the tree shows them all together in place of the tree's own rows, small ones scaled up to stay legible.
+- Pieces screens share, such as a tab bar, are components in the folder's `components/`, which designs draw with `use`, so changing one changes every screen; as with Figma's instances, a use can pick the component's variants, change the texts, icons, styles and taps of the elements its component names, and fill the slots it leaves with elements of its own, components inside included. **Components** atop the list shows them all together, grouped by their names as files are, small ones scaled up to stay legible.
 - Pictures a design shows live in the folder's `assets/`, where the assistant copies the ones you give it, and images name them with `src="assets/…"`.
 - Designs are plain-text `.scenra` files you can read, diff and edit by hand.
 - Runs on macOS, Windows and Linux, in English and Simplified Chinese.
@@ -60,8 +60,8 @@ On macOS, `.scenra` files open with the app from the Finder; on Windows and Linu
 1. Install and sign in to a coding agent such as [Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex); **Settings** (⌘,) shows the agents Scenra found and turns them or their models on or off, and under **Conversation titles** takes a model behind an OpenAI-compatible API, which names each new conversation from its first message.
 2. Open a folder (⌘O), such as a project's, which the assistant works in, or `examples/coffee-shop` to start from an example.
 3. Describe an app or a process in the assistant, such as "Design the sign-in screen of a coffee shop app" or "Chart how we handle an order".
-4. Answer its questions and watch it make and draw the designs and flows; pick one in the tree on the left.
-5. Make a design (⌘N), a flow (⌘⇧N) or a component yourself in the folder selected in the tree.
+4. Answer its questions and watch it make and draw the designs and flows; pick one in the list on the left.
+5. Make a design (⌘N), a flow (⌘⇧N) or a component yourself.
 
 The [`flowfile` package comment](flowfile/) describes the file format.
 

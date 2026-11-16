@@ -380,7 +380,7 @@ func checkElement(el Element) string {
 		}
 	case "use":
 		if !ValidComponentName(el.Text) {
-			return fmt.Sprintf("%q names no component; use the path of a file in %s/ without .scenra, such as tab-bar", el.Text, ComponentsDir)
+			return fmt.Sprintf("%q names no component; use the name of a file of %s/ without .scenra, such as tab-bar", el.Text, ComponentsDir)
 		}
 	case "slot", "fill":
 		if el.Text != "" && (!ValidID(el.Text) || strings.Contains(el.Text, ".")) {

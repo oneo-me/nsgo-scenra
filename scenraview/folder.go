@@ -4,7 +4,7 @@ import (
 	"io/fs"
 	"maps"
 	"os"
-	"path"
+	pathpkg "path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -113,7 +113,8 @@ const assetLimit = 20 << 20
 // ones and installed packages.
 func skipped(name string) bool { return strings.HasPrefix(name, ".") || name == "node_modules" }
 
-// scan finds the Scenra files under root and the pictures of its assets
+// scan finds the Scenra files under root, those outside the project's
+// layout too, which the server tells of, and the pictures of its assets
 // folder, reading again only those that changed since the scan whose
 // files were cache, and returns the Scenra files, the components among
 // them, the pictures, the cache of this one and the files of designs.
@@ -185,7 +186,7 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 		if name, ok := flowfile.ComponentName(c.entry.path); ok && c.entry.kind == flowfile.Component {
 			parts[name] = c.part
 		}
-		if c.file != nil {
+		if c.file != nil && inLayout(rel) {
 			docs[strings.TrimSuffix(rel, ".scenra")] = *c.file
 		}
 		return nil
@@ -228,7 +229,7 @@ func (e *Editor) scannedFiles(dir string, files []entry, parts components, docs 
 	}
 	var made []entry
 	for _, f := range files {
-		if !slices.ContainsFunc(before, func(b entry) bool { return b.path == f.path }) && f.kind != "" {
+		if !slices.ContainsFunc(before, func(b entry) bool { return b.path == f.path }) && f.kind != "" && inLayout(f.path) {
 			made = append(made, f)
 		}
 	}
@@ -240,82 +241,112 @@ func (e *Editor) scannedFiles(dir string, files []entry, parts components, docs 
 	}
 }
 
-// fileTree is the open folder's files as a tree: the keys of each
-// folder's folders, then its files, by name. A folder's key is its path
-// and a slash, the open folder's "", and a file's its path.
-type fileTree struct {
-	children map[string][]string
-	files    map[string]entry
+// inLayout says the Scenra file at path, relative to the open folder with
+// slashes, is where a project keeps its files: a design or flow at the
+// folder's top, or a component in its components folder. The editor
+// shows only those, and the server tells agents to move the others.
+func inLayout(path string) bool {
+	return !strings.Contains(path, "/") || isComponentFile(path)
 }
 
-func treeOf(files []entry) fileTree {
-	t := fileTree{children: map[string][]string{}, files: map[string]entry{}}
-	add := func(parent, key string) {
-		if !slices.Contains(t.children[parent], key) {
-			t.children[parent] = append(t.children[parent], key)
-		}
+// groupOf splits a file's name into the group before its slash, which
+// the sidebar and the showcase list it under, and the name after it.
+// Groups do not nest, so a name of several slashes, like one of none, is
+// in no group.
+func groupOf(name string) (group, rest string) {
+	group, rest, ok := strings.Cut(name, "/")
+	group, rest = strings.TrimSpace(group), strings.TrimSpace(rest)
+	if !ok || group == "" || rest == "" || strings.Contains(rest, "/") {
+		return "", name
 	}
+	return group, rest
+}
+
+// nestedGroups says name puts its file in a group of a group, which no
+// list shows.
+func nestedGroups(name string) bool { return strings.Count(name, "/") > 1 }
+
+// keyName is the name of the file at path without its folder and
+// extension.
+func keyName(path string) string {
+	return strings.TrimSuffix(pathpkg.Base(path), ".scenra")
+}
+
+// title is the name a file shows by: the one it gives itself, or its
+// file name's.
+func (en entry) title() string {
+	if en.name != "" {
+		return en.name
+	}
+	return keyName(en.path)
+}
+
+// fileGroup is a group of the sidebar: its name, "" for the files in
+// none, and its files.
+type fileGroup struct {
+	name  string
+	files []entry
+}
+
+// groupFiles groups the designs and flows of files, those in no group
+// first and then the groups by name, each holding its files by the names
+// they show, a flow after its design and in its group, so the two stay
+// together whatever the flow calls itself.
+func groupFiles(files []entry) []fileGroup {
+	byPath := map[string]entry{}
 	for _, f := range files {
-		t.files[f.path] = f
-		key := f.path
-		for {
-			dir := path.Dir(strings.TrimSuffix(key, "/"))
-			parent := ""
-			if dir != "." {
-				parent = dir + "/"
-			}
-			add(parent, key)
-			if parent == "" {
-				break
-			}
-			key = parent
-		}
+		byPath[f.path] = f
 	}
-	for _, keys := range t.children {
-		slices.SortFunc(keys, func(a, b string) int {
-			if da, db := strings.HasSuffix(a, "/"), strings.HasSuffix(b, "/"); da != db {
-				if da {
-					return -1
-				}
-				return 1
+	// owner is the file a file sorts and groups by: a flow's design, when
+	// the folder has it.
+	owner := func(f entry) entry {
+		if design, flow := stem(f.path); flow {
+			if d, ok := byPath[design+".scenra"]; ok {
+				return d
 			}
-			// A design's flow follows it.
-			sa, fa := stem(strings.ToLower(a))
-			sb, fb := stem(strings.ToLower(b))
-			if c := strings.Compare(sa, sb); c != 0 || fa == fb {
+		}
+		return f
+	}
+	groups := map[string][]entry{}
+	for _, f := range files {
+		if !inLayout(f.path) || isComponentFile(f.path) {
+			continue
+		}
+		g, _ := groupOf(owner(f).title())
+		groups[g] = append(groups[g], f)
+	}
+	names := slices.SortedFunc(maps.Keys(groups), func(a, b string) int {
+		if c := strings.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
+			return c
+		}
+		return strings.Compare(a, b)
+	})
+	out := make([]fileGroup, 0, len(names))
+	for _, g := range names {
+		list := groups[g]
+		slices.SortFunc(list, func(a, b entry) int {
+			_, na := groupOf(owner(a).title())
+			_, nb := groupOf(owner(b).title())
+			if c := strings.Compare(strings.ToLower(na), strings.ToLower(nb)); c != 0 {
 				return c
 			}
-			if fa {
+			sa, _ := stem(owner(a).path)
+			sb, _ := stem(owner(b).path)
+			if c := strings.Compare(sa, sb); c != 0 {
+				return c
+			}
+			// A design's flow follows it.
+			_, fa := stem(a.path)
+			_, fb := stem(b.path)
+			switch {
+			case fa == fb:
+				return strings.Compare(a.path, b.path)
+			case fa:
 				return 1
 			}
 			return -1
 		})
+		out = append(out, fileGroup{g, list})
 	}
-	return t
-}
-
-// keyName is the name a tree's row shows for key: a folder's, or a
-// file's without its extension.
-func keyName(key string) string {
-	return strings.TrimSuffix(path.Base(strings.TrimSuffix(key, "/")), ".scenra")
-}
-
-// rowName is the name a tree's row shows for key: the one its file gives
-// itself, or keyName's.
-func (t fileTree) rowName(key string) string {
-	if f, ok := t.files[key]; ok && f.name != "" {
-		return f.name
-	}
-	return keyName(key)
-}
-
-// folderOf is the folder key the file or folder key is in or is.
-func folderOf(key string) string {
-	if key == "" || strings.HasSuffix(key, "/") {
-		return key
-	}
-	if dir := path.Dir(key); dir != "." {
-		return dir + "/"
-	}
-	return ""
+	return out
 }

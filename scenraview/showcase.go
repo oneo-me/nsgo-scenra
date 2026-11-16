@@ -15,8 +15,9 @@ import (
 )
 
 // componentEntries are the files of the components folder among files,
-// by path, those that do not parse as a component too, which the
-// showcase marks.
+// those that do not parse as a component too, which the showcase marks,
+// those in no group first and then by their groups' names, and by path
+// in each.
 func componentEntries(files []entry) []entry {
 	var out []entry
 	for _, f := range files {
@@ -24,7 +25,17 @@ func componentEntries(files []entry) []entry {
 			out = append(out, f)
 		}
 	}
-	slices.SortFunc(out, func(a, b entry) int { return strings.Compare(a.path, b.path) })
+	slices.SortFunc(out, func(a, b entry) int {
+		ga, _ := groupOf(a.title())
+		gb, _ := groupOf(b.title())
+		if c := strings.Compare(strings.ToLower(ga), strings.ToLower(gb)); c != 0 {
+			return c
+		}
+		if c := strings.Compare(ga, gb); c != 0 {
+			return c
+		}
+		return strings.Compare(a.path, b.path)
+	})
 	return out
 }
 
@@ -65,8 +76,14 @@ func showcaseScales(sizes []core.Size) []float64 {
 }
 
 // showcaseGap is the room between the showcase's components, closer
-// than a file's designs, as they show together.
-const showcaseGap = 24
+// than a file's designs, as they show together; groupGap is the room
+// between their groups, and groupRoom the room above a group that its
+// name takes at full size.
+const (
+	showcaseGap = 24
+	groupGap    = 96
+	groupRoom   = 48
+)
 
 // brokenHeight is how high the showcase draws a component that does not
 // parse, and brokenWidth how wide, unless it sets its width.
@@ -113,16 +130,13 @@ func withVariants(cx *core.Scope, f flowfile.File, i int, drawing core.Node, sti
 }
 
 // showcaseFile is the components of entries as one file of components,
-// each a design drawing its elements of parts at its size, named as the
-// tree names it.
+// each a design drawing its elements of parts at its size, named as its
+// file names it without its group.
 func showcaseFile(entries []entry, parts components) flowfile.File {
 	f := flowfile.File{Kind: flowfile.Component}
 	for _, en := range entries {
 		name, _ := flowfile.ComponentName(en.path)
-		title := en.name
-		if title == "" {
-			title = keyName(en.path)
-		}
+		_, title := groupOf(en.title())
 		s := en.screen()
 		s.ID, s.Name, s.UI = name, title, parts[name].UI
 		f.Screens = append(f.Screens, s)
@@ -130,23 +144,96 @@ func showcaseFile(entries []entry, parts components) flowfile.File {
 	return f
 }
 
+// showcaseGroups are the groups of entries, in order: each one's name,
+// "" for the components in none, and the indexes of its components.
+func showcaseGroups(entries []entry) []componentGroup {
+	var out []componentGroup
+	for i, en := range entries {
+		g, _ := groupOf(en.title())
+		if n := len(out); n == 0 || out[n-1].name != g {
+			out = append(out, componentGroup{name: g})
+		}
+		out[len(out)-1].members = append(out[len(out)-1].members, i)
+	}
+	return out
+}
+
+// componentGroup is a group of the showcase: its name and the indexes of
+// its components.
+type componentGroup struct {
+	name    string
+	members []int
+}
+
 // placement is where the showcase's components are in the plane, by
-// index, the sizes they laid out at, the scales they show at and the size
-// of the whole.
+// index, the sizes they laid out at, the scales they show at, where each
+// group's name is and how wide the group is, and the size of the whole.
 type placement struct {
 	at     []core.Point
 	sizes  []core.Size
 	scales []float64
+	heads  []core.Point
+	widths []core.Points
 	total  core.Size
 }
 
 func samePlacement(a, b placement) bool {
-	return slices.Equal(a.at, b.at) && slices.Equal(a.sizes, b.sizes) && slices.Equal(a.scales, b.scales) && a.total == b.total
+	return slices.Equal(a.at, b.at) && slices.Equal(a.sizes, b.sizes) && slices.Equal(a.scales, b.scales) &&
+		slices.Equal(a.heads, b.heads) && slices.Equal(a.widths, b.widths) && a.total == b.total
+}
+
+// placeGroups packs boxes, of sizes, tight in each of groups, and the
+// groups in their order, each under room for its name when it has one,
+// so the components of a group show together. It returns each box's top
+// left corner, each group's, its width and the whole's size.
+func placeGroups(boxes []core.Size, groups []componentGroup) (at, heads []core.Point, widths []core.Points, total core.Size) {
+	at = make([]core.Point, len(boxes))
+	blocks := make([]core.Size, len(groups))
+	inner := make([][]core.Point, len(groups))
+	for g, group := range groups {
+		sizes := make([]core.Size, len(group.members))
+		for k, i := range group.members {
+			sizes[k] = boxes[i]
+		}
+		var size core.Size
+		inner[g], size = packTight(sizes, showcaseGap)
+		if group.name != "" {
+			size.Height += groupRoom
+		}
+		blocks[g] = size
+	}
+	heads, total = pack(blocks, groupGap)
+	for g, group := range groups {
+		top := heads[g].Y
+		if group.name != "" {
+			top += groupRoom
+		}
+		for k, i := range group.members {
+			at[i] = core.Point{X: heads[g].X + inner[g][k].X, Y: top + inner[g][k].Y}
+		}
+		widths = append(widths, blocks[g].Width)
+	}
+	return at, heads, widths, total
+}
+
+// groupHeading names a group of the showcase over its top left corner,
+// its size on screen the same at any zoom.
+func groupHeading(cx *core.Scope, text string, at core.Point, width core.Points, zoom func() float64, testID string) core.Node {
+	colors := ui.ColorsOf(cx)
+	const size, height = 16, 16 * 1.5
+	return core.Text{Content: text, MaxLines: 1, PointerEvents: core.PointerEventsNone, TestID: testID,
+		StyleFunc: func() core.Style {
+			z := zoom()
+			return core.Style{Position: core.Absolute, Left: core.Pt(at.X), Top: core.Pt(at.Y + groupRoom - 8/core.Points(z) - height),
+				Width: core.Pt(width * core.Points(z)), Height: core.Pt(height), FontSize: size, LineHeight: height,
+				FontWeight: ui.Semibold, Color: colors.Text(), Transform: core.Transform{Scale: float32(1 / z)},
+				TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pct(100)}}}
+		}}
 }
 
 // showcasePane is every component of the open folder on one canvas,
-// with its variants, packed tight under their captions, in whatever
-// order wastes the least room, once each has laid out at the size it
+// with its variants, under their captions, each group's packed tight
+// together under its name in whatever order wastes the least room, once each has laid out at the size it
 // needs, and scaled up to the least area showcaseScales gives it. It
 // only shows them: nothing opens, plays or selects here.
 func showcasePane(cx *core.Scope, e *Editor) core.Node {
@@ -162,7 +249,7 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 	// out at, the scale it shows at and the size of the whole; one not
 	// laid out yet counts as wide as it sets, or brokenWidth, and as high
 	// as wide.
-	layout := func(f flowfile.File) placement {
+	layout := func(f flowfile.File, groups []componentGroup) placement {
 		ms := measured.Get()
 		sizes := make([]core.Size, len(f.Screens))
 		for i := range f.Screens {
@@ -183,11 +270,11 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		for i, k := range scales {
 			boxes[i] = core.Size{Width: sizes[i].Width * core.Points(k), Height: sizes[i].Height*core.Points(k) + captionRoom}
 		}
-		at, total := packTight(boxes, showcaseGap)
+		at, heads, widths, total := placeGroups(boxes, groups)
 		for i := range at {
 			at[i].Y += captionRoom
 		}
-		return placement{at, sizes, scales, total}
+		return placement{at, sizes, scales, heads, widths, total}
 	}
 	file := func() flowfile.File { return showcaseFile(entries.Get(), look.Get().parts) }
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
@@ -204,7 +291,8 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		}
 		// Every component's place reads the one packing, packed again only
 		// when a size changes.
-		placed := core.NewMemoFunc(cx, func() placement { return layout(f) }, samePlacement)
+		groups := showcaseGroups(entries.GetUntracked())
+		placed := core.NewMemoFunc(cx, func() placement { return layout(f, groups) }, samePlacement)
 		// The sizes the components lay out at in one layout land
 		// together, so they pack once rather than once each.
 		var pending map[int]core.Size
@@ -271,6 +359,15 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 						Children: []core.Node{core.View{TestID: "showcase-drawing-" + screen.ID,
 							OnLayout: func(b core.Bounds) { report(i, b.Size) },
 							Children: []core.Node{drawing}}}}}})
+		}
+		for g, group := range groups {
+			if group.name == "" {
+				continue
+			}
+			nodes = append(nodes, core.Dynamic(func(cx *core.Scope) core.Node {
+				p := placed.Get()
+				return groupHeading(cx, group.name, p.heads[g], p.widths[g], c.Zoom, "showcase-group-"+group.name)
+			}))
 		}
 		return core.View{TestID: "showcase",
 			StyleFunc: func() core.Style {

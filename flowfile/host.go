@@ -10,7 +10,7 @@ import (
 // a window's content area beside its sidebar: what it holds shows until
 // one does. A design with in="<file>#<outlet>" fills the outlet of that
 // file's first design, and in="<file>#<design>/<outlet>" that of another
-// design of it; the file is the design's path in the project without
+// design of it; the file is the design's file name without
 // .scenra, as taps name it, or nothing for the same file. The design draws
 // alone at the size the outlet lays out at, unless it sets one, and plays
 // in its host, which may fill an outlet of its own, so the parts of a

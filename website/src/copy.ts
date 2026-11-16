@@ -56,7 +56,7 @@ const en = {
       {
         icon: 'layers',
         title: 'A folder for every project',
-        body: 'Open a folder and its .scenra files show as a tree: each one phone, tablet or desktop design, or one flow chart, organized in folders as the app grows.',
+        body: 'Open a folder and its .scenra files show in a list: each one phone, tablet or desktop design, or one flow chart, grouped by their names as the app grows.',
       },
       {
         icon: 'sparkles',
@@ -305,7 +305,7 @@ const zh: typeof en = {
       {
         icon: 'layers',
         title: '一个项目，一个文件夹',
-        body: '打开一个文件夹，其中的 .scenra 文件以树形列出：每个文件是一张手机、平板或桌面设计，或一张流程图，随着应用变大用文件夹归类。',
+        body: '打开一个文件夹，其中的 .scenra 文件列在一处：每个文件是一张手机、平板或桌面设计，或一张流程图，随着应用变大按名称分组。',
       },
       {
         icon: 'sparkles',

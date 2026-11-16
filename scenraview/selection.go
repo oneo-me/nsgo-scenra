@@ -142,6 +142,18 @@ func view(dir string, files []fileView, parts components, pics assets, notes str
 		}
 		return out
 	})
+	section(fmt.Sprintf("Files in folders, which the editor does not show; keep designs and flows at the top of the folder and components in %s/, and group them with their names, such as name=\"Orders/Detail\":", flowfile.ComponentsDir), func(f fileView) []string {
+		if inLayout(f.path) {
+			return nil
+		}
+		return []string{f.path}
+	})
+	section("Names of groups in groups, which the editor shows ungrouped, as groups do not nest; keep one / in a name:", func(f fileView) []string {
+		if name := f.file.Title(); nestedGroups(name) {
+			return []string{fmt.Sprintf("%s: name=%q", f.path, name)}
+		}
+		return nil
+	})
 	section("Files that do not parse, which the editor shows as they last parsed, if ever:", func(f fileView) []string {
 		if f.broken == "" {
 			return nil
@@ -156,7 +168,7 @@ func view(dir string, files []fileView, parts components, pics assets, notes str
 				out = append(out, f.path+": "+p)
 			}
 		}
-		if f.file.Kind == flowfile.Component && self == "" {
+		if f.file.Kind == flowfile.Component && self == "" && inLayout(f.path) {
 			out = append(out, fmt.Sprintf("%s: a component outside %s/, which nothing can use", f.path, flowfile.ComponentsDir))
 		}
 		return out
