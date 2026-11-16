@@ -16,7 +16,9 @@ import (
 // of a use the component it draws, which a use swaps. row/title reaches
 // the elements named title of the component the use named row draws, and
 // so on down. Every element of a name changes, so one name may stand
-// for several elements that show one value.
+// for several elements that show one value. A slot answers to its own
+// name too, besides any name= it has, but a use changes only its
+// classes: what a fill holds is the using file's.
 //
 // A use picks the component's variants by their IDs with variant=, and
 // row.variant= those of the component its element row draws: the
@@ -326,7 +328,7 @@ func Instance(use Element, part Part) []Element {
 // with the name, outside the components they use.
 func eachNamed(els []Element, name string, fn func(el *Element)) {
 	for i := range els {
-		if els[i].Attr("name") == name {
+		if els[i].called(name) {
 			fn(&els[i])
 		}
 		eachNamed(els[i].Children, name, fn)
@@ -337,8 +339,18 @@ func eachNamed(els []Element, name string, fn func(el *Element)) {
 // use draws in its place.
 func Rooted(part []Element) bool { return len(part) == 1 }
 
+// called says the element answers to name: its name=, or a slot's own
+// name.
+func (el Element) called(name string) bool {
+	return el.Attr("name") == name || el.Kind == "slot" && el.Text != "" && el.Text == name
+}
+
 // override changes el as o, which names el first.
 func (el *Element) override(o Override) {
+	if el.Kind == "slot" && (len(o.Path) > 1 || o.Attr != "class") {
+		// A use only shapes a slot; what it shows is the fill's.
+		return
+	}
 	if len(o.Path) > 1 {
 		if el.Kind == "use" {
 			inner := o
@@ -525,7 +537,7 @@ func hasStateClasses(els []Element, state string, parts Parts) bool {
 func named(els []Element, name string) []Element {
 	var out []Element
 	for _, el := range els {
-		if el.Attr("name") == name {
+		if el.called(name) {
 			out = append(out, el)
 		}
 		out = append(out, named(el.Children, name)...)
@@ -615,9 +627,20 @@ func stateProblems(states, name string, els []Element, parts Parts) []string {
 func overrideProblem(o Override, path []string, name string, els []Element, parts Parts) string {
 	found := named(els, path[0])
 	if len(found) == 0 {
-		return fmt.Sprintf("names nothing: no element of %s has name=%s", ComponentPath(name), path[0])
+		return fmt.Sprintf("names nothing: no element of %s has name=%s, nor is it a slot's name", ComponentPath(name), path[0])
 	}
 	for _, el := range found {
+		if el.Kind == "slot" {
+			switch {
+			case len(path) > 1:
+				return fmt.Sprintf("goes inside %s, a slot of %s, not a use; change what a fill holds where it is written", path[0], ComponentPath(name))
+			case o.Attr == "":
+				return fmt.Sprintf("sets the text of %s, a slot, which has none; fill it, or change its class", path[0])
+			case o.Attr != "class":
+				return fmt.Sprintf("sets the %s of %s, a slot, which takes only class; set it on what a fill holds", o.Attr, path[0])
+			}
+			continue
+		}
 		if len(path) > 1 {
 			if el.Kind != "use" {
 				return fmt.Sprintf("goes inside %s, a %s of %s, not a use", path[0], el.Kind, ComponentPath(name))

@@ -48,6 +48,7 @@ var Parameters = map[string][]string{
 	"FixFilePrompt":         {"path", "error_"},
 	"NoDesign":              {"name"},
 	"TapOpens":              {"design"},
+	"TapClosesDesign":       {"design"},
 	"TapShows":              {"panel"},
 }
 
@@ -66,6 +67,7 @@ type Translation struct {
 	FixFilePrompt         func(path string, error_ string) string
 	NoDesign              func(name string) string
 	TapOpens              func(design string) string
+	TapClosesDesign       func(design string) string
 	TapShows              func(panel string) string
 }
 
@@ -124,6 +126,7 @@ const (
 	textNotePlaceholder
 	textRemoveNote
 	textTapCloses
+	textTapClosesWindow
 	textShowTaps
 	textComponents
 	textComponentsEmpty
@@ -185,6 +188,7 @@ var keyOfText = [numTexts]string{
 	"notePlaceholder",
 	"removeNote",
 	"tapCloses",
+	"tapClosesWindow",
 	"showTaps",
 	"components",
 	"componentsEmpty",
@@ -244,6 +248,7 @@ var textsEn = i18n.NewTexts(""+
 	"What should others know here?"+
 	"Remove Note"+
 	"Closes this screen"+
+	"Closes the window"+
 	"Show What Can Be Tapped"+
 	"Components"+
 	"The components of this folder's components folder show here together."+
@@ -300,6 +305,7 @@ var textsEn = i18n.NewTexts(""+
 		29,
 		11,
 		18,
+		17,
 		23,
 		10,
 		69,
@@ -359,6 +365,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"这里有什么需要说明的？"+
 	"删除备注"+
 	"关闭这个界面"+
+	"关闭窗口"+
 	"显示可点击的区域"+
 	"组件"+
 	"此文件夹 components 中的组件会在这里一起展示。"+
@@ -415,6 +422,7 @@ var textsZhHans = i18n.NewTexts(""+
 		33,
 		12,
 		18,
+		12,
 		24,
 		6,
 		63,
@@ -501,6 +509,9 @@ func Supply(lang string, t Translation) {
 	}
 	if t.TapOpens != nil {
 		s.TapOpens = t.TapOpens
+	}
+	if t.TapClosesDesign != nil {
+		s.TapClosesDesign = t.TapClosesDesign
 	}
 	if t.TapShows != nil {
 		s.TapShows = t.TapShows
@@ -1111,6 +1122,35 @@ func TapCloses(cx *core.Scope) string { return For(cx).TapCloses() }
 
 // TapCloses is the package's TapCloses in the language of msgs.
 func (msgs Messages) TapCloses() string { return msgs.text(textTapCloses) }
+
+// TapClosesWindow says "Closes the window"
+// in the language the app shows under cx.
+func TapClosesWindow(cx *core.Scope) string { return For(cx).TapClosesWindow() }
+
+// TapClosesWindow is the package's TapClosesWindow in the language of msgs.
+func (msgs Messages) TapClosesWindow() string { return msgs.text(textTapClosesWindow) }
+
+// TapClosesDesign says "Closes {design}"
+// in the language the app shows under cx.
+func TapClosesDesign(cx *core.Scope, design string) string { return For(cx).TapClosesDesign(design) }
+
+// TapClosesDesign is the package's TapClosesDesign in the language of msgs.
+func (msgs Messages) TapClosesDesign(design string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.TapClosesDesign(design))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].TapClosesDesign; f != nil {
+			return f(design)
+		}
+		switch lang {
+		case "", "en":
+			return "Closes " + msgs.arg(design)
+		case "zh-Hans":
+			return "关闭 " + design
+		}
+	}
+}
 
 // TapShows says "Shows {panel}"
 // in the language the app shows under cx.

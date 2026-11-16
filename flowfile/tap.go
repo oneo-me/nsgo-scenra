@@ -8,7 +8,10 @@ import (
 
 // What pressing an element does, its tap attribute, as the editor plays
 // a design: open another design, close the one shown, returning to the
-// design that opened it, or show a tab, the panels of that name.
+// design that opened it, or show a tab, the panels of that name. A close
+// naming a design closes that one of the designs the one tapped shows in
+// through in=, as a window's close button in a page filling its content
+// closes the window; close window closes the outermost, which fills none.
 const (
 	TapOpen  = "open"
 	TapClose = "close"
@@ -18,14 +21,19 @@ const (
 // Taps are the actions a tap takes.
 var Taps = []string{TapOpen, TapClose, TapTab}
 
+// Window is what close names to close the outermost design the one
+// tapped shows in.
+const Window = "window"
+
 // Tap is an element's tap: its action, and the design it opens, by its
 // file's path in the project's folder without .scenra, a # and its ID
 // when the file holds several, or # and the ID alone for a design of the
 // same file, or the tab it shows.
 type Tap struct{ Action, Target string }
 
-// Opens is the file and the ID of the design an open tap opens: "" for
-// the file of the design tapped, and for the file's first design.
+// Opens is the file and the ID of the design an open tap opens, or a
+// close tap closes: "" for the file of the design tapped, and for the
+// file's first design.
 func (t Tap) Opens() (file, id string) {
 	file, id, _ = strings.Cut(t.Target, "#")
 	return file, id
@@ -39,17 +47,19 @@ func (t Tap) String() string {
 	return t.Action + " " + t.Target
 }
 
-var errTap = errors.New(`tap takes "open <design>", close or "tab <panel>"`)
+var errTap = errors.New(`tap takes "open <design>", close, "close window", "close <design>" or "tab <panel>"`)
 
-// ParseTap reads a tap attribute: open with a design's path, close, or
-// tab with a panel's name.
+// ParseTap reads a tap attribute: open with a design's path, close,
+// alone, with window or with a design's path, or tab with a panel's
+// name.
 func ParseTap(s string) (Tap, error) {
 	action, target, _ := strings.Cut(strings.TrimSpace(s), " ")
 	t := Tap{action, strings.TrimSpace(target)}
 	switch t.Action {
 	case TapClose:
-		if t.Target != "" {
-			return Tap{}, errTap
+		file, id, hash := strings.Cut(t.Target, "#")
+		if t.Target != "" && t.Target != Window && (file == "" && !hash || file != "" && !ValidDesignName(file) || hash && !ValidID(id)) {
+			return Tap{}, fmt.Errorf("tap %q names no design; close the one tapped with close, the outermost it shows in with close window, or one it shows in by its path without .scenra, such as close settings or close settings#general", s)
 		}
 	case TapOpen:
 		file, id, hash := strings.Cut(t.Target, "#")

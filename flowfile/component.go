@@ -64,6 +64,8 @@ func Uses(els []Element) []string {
 // fills. What a fill holds is the design's, or the component's using
 // it: it selects itself there and takes comments, and a slot of that
 // component inside it passes on what that component's own use fills.
+// A slot's name names it as name= does: variants and uses add to its
+// classes by it, and change nothing else of it.
 
 // slotName names the slot called name in a message.
 func slotName(name string) string {

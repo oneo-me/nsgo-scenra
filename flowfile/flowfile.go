@@ -39,6 +39,7 @@
 //
 //	design sign-up name="Sign up"      # another design of the file
 //	text "Back" tap=close
+//	icon x tap="close window"          # closes the window it shows in; see Tap
 //
 //	design in="main#content"         # fills main.scenra's outlet content
 //

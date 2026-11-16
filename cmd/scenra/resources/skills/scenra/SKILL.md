@@ -9,9 +9,9 @@ Scenra files (`.scenra`) are plain text, and each holds one kind of thing: desig
 
 ## Working on files
 
-1. Before you change files, call the `get_view` tool of the `scenra` MCP server. It names the open folder and the file the user is looking at and what they selected, lists the comments and notes on elements and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger".
+1. Before you change files, call the `get_view` tool of the `scenra` MCP server. It names the open folder and the file the user is looking at and what they selected, lists the comments and notes on elements and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger". Once you have read the notes, pass `notes="open"` for only those of the open file and the components it uses, or `notes="none"`; the problems show in full either way.
 2. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads the file shown as you write it, shows the files you make, and the user cannot edit them while you work.
-3. After you write them, call `get_view` again: it reports the files that do not parse, the classes that draw nothing, the taps that lead nowhere and what lays out wrong, such as text cut off, elements outside their design or of no size, and `w-full` filling nothing. Fix what it reports. Call `get_layout` with a file's path, and a design's ID or a component's variant, to see where each of its elements laid out, its x, y, width and height, when a layout looks off.
+3. After you write them, call `get_view` again: it reports the files that do not parse, the classes that draw nothing, the taps that lead nowhere and what lays out wrong, such as text cut off, elements outside their design or of no size, and `w-full` filling nothing. Fix what it reports. Call `get_layout` with a file's path, and a design's ID or a component's variant, to see where each of its elements laid out, its x, y, width and height, when a layout looks off; give it `element=` a path, such as `0.2.1`, for only that element and what it holds, and `depth=` to list only that many levels under it, counting the rest.
 4. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
 
 The editor saves files in their canonical form, which drops `#` comments, so do not keep notes in them.
@@ -220,6 +220,7 @@ end
 - Use a slot where uses differ by more than values, such as a card's body, a sheet's content or a bar's actions; change values by names instead.
 - What a fill holds belongs to the file using the component: it is selected, commented and noted there, and its paths run through the use and the fill, so `0.1.0` is the first element of the second fill of the use at `0`.
 - A fill inside a component may hold that component's own slot, passing on what its uses fill.
+- A slot's name names it as `name=` does, and it may have a `name=` too: a variant or a use shapes it with `<name>.class="…"`, such as `variant stacked control.class="w-full"` or `use settings/item control.class="justify-end"`, its classes adding up as an element's do, the component's, then each variant's, then the use's. That is all a use changes of a slot: its text, tap and the rest are what the fill holds, which stays the using file's, and `get_view` reports `control="…"` or `control.tap="…"` on one.
 - A fill takes only `comment=` and `note=`; a design has no slots. `get_view` reports fills of slots a component does not have and slots of one name written twice.
 
 ## Interactions
@@ -228,6 +229,7 @@ The editor plays a design as the app would run: pressing an element with `tap="�
 
 - `tap="open <design>"` opens another design, named by its file's path in the open folder without `.scenra`, such as `tap="open menu"` or `tap="open orders/detail"`, which opens the file's first design; add `#` and an ID for another design of a file, such as `tap="open auth#sign-up"`, or write `#` and the ID alone for one of the same file, such as `tap="open #sign-up"`, which the editor moves to.
 - `tap="close"` closes the screen shown, returning to the design that opened it, as a back button, a dialog's Cancel or a sheet's close button.
+- `tap="close window"` closes the window a design filling an outlet shows in, the outermost design of its `in=`, returning to the design that opened that, as the ✕ of a settings page closes the settings window; `tap="close <design>"`, such as `tap="close settings#general"`, closes that one of the designs it shows in. Each does nothing where no design opened the window.
 - `tap="tab <name>"` shows the elements with `panel=<name>` in place of the panels beside them. The first panel among its siblings shows until a tab shows another, so draw the panels of one place side by side, as the content of a segmented control or of tabs.
 
 A box whose tap leads to what shows, opening the design it is in or showing its panel there, is selected: style it with `selected:` classes, and what it holds with `group-selected:` classes and `group` on the box.
@@ -306,7 +308,7 @@ end
 ```
 
 - A design filling an outlet draws alone at the size the outlet lays out at, so it needs no `device=`, `width=` or `height=`; those it writes win.
-- It plays inside its host: opening it, from the host or a design its outlet shows, swaps only the outlet's content, so the rest of the window stays and keeps working, and what opens it is selected. `tap="close"` returns the outlet to what it showed before, or to its own elements.
+- It plays inside its host: opening it, from the host or a design its outlet shows, swaps only the outlet's content, so the rest of the window stays and keeps working, and what opens it is selected. `tap="close"` returns the outlet to what it showed before, or to its own elements; `tap="close window"` closes the whole window, as Interactions says.
 - A host may fill an outlet of its own, as the categories of a settings window fill its content, which fills the main window.
 - The first design's `in=` stands for the others of its file that write none.
 - `get_view` reports outlets `in=` names that are not there, designs filling each other in a loop and two outlets of one name in a design.

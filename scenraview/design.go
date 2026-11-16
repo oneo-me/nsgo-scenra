@@ -209,7 +209,22 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 					e.tapOpen(t, screen)
 				}
 			case flowfile.TapClose:
-				if !play.close(outlet) {
+				if t.Target == "" {
+					if !play.close(outlet) {
+						e.tapClose()
+					}
+					break
+				}
+				// A design it shows in closes: an outlet's goes back, and
+				// the one drawn returns to what opened it, its outlets
+				// showing their own elements when it opens again.
+				key, ok := play.closing(t, screen, outlet)
+				switch {
+				case !ok:
+				case key != "":
+					play.close(key)
+				case len(e.trail) > 0:
+					play.forget(screen)
 					e.tapClose()
 				}
 			case flowfile.TapTab:

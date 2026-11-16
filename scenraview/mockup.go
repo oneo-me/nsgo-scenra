@@ -340,6 +340,54 @@ func (pl *player) close(key string) bool {
 	return true
 }
 
+// closing is the outlet whose design closing t, a close naming a design,
+// takes away, pressed in what the outlet at the key outlet shows of the
+// design at index screen, or nothing: "" when the design at index screen
+// closes, as do the designs it fills, which are not drawn, and false
+// when t names none of those the design tapped shows in.
+func (pl *player) closing(t flowfile.Tap, screen int, outlet string) (string, bool) {
+	if t.Target == flowfile.Window {
+		return "", true
+	}
+	name, id := t.Opens()
+	if name == "" {
+		name = pl.file()
+	}
+	ds := pl.designs()
+	f, ok := ds[name]
+	i, found := f.Screen(id)
+	if !ok || !found {
+		return "", false
+	}
+	want := place{name, i}
+	// The outlets showing what was tapped, from the innermost out.
+	shown := pl.shown.GetUntracked()
+	for key := outlet; key != ""; {
+		if p, ok := shown.top(key); ok && p == want {
+			return key, true
+		}
+		at := strings.LastIndex(key, outletSep)
+		if at < 0 {
+			break
+		}
+		key = key[:at]
+	}
+	here := place{pl.file(), screen}
+	if want == here {
+		return "", true
+	}
+	hops, _ := ds.hosts(here)
+	return "", slices.ContainsFunc(hops, func(h hop) bool { return h.place == want })
+}
+
+// forget drops what the outlets of the design at index screen show, as
+// it closes.
+func (pl *player) forget(screen int) {
+	shown := maps.Clone(pl.shown.GetUntracked())
+	shown.drop(screenPrefix(screen))
+	pl.shown.Set(shown)
+}
+
 // shownIn are the designs the outlets of the design at index screen
 // show.
 func (pl *player) shownIn(screen int) []place {

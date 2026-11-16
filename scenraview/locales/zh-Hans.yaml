@@ -58,6 +58,8 @@ removeNote: 删除备注
 noDesign: "没有可以打开的设计 {name}。"
 tapOpens: "打开 {design}"
 tapCloses: 关闭这个界面
+tapClosesWindow: 关闭窗口
+tapClosesDesign: "关闭 {design}"
 tapShows: "显示 {panel}"
 showTaps: 显示可点击的区域
 components: 组件

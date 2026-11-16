@@ -225,7 +225,13 @@ func tapLabel(tr locales.Messages, t flowfile.Tap) string {
 	case flowfile.TapOpen:
 		return tr.TapOpens(t.Target)
 	case flowfile.TapClose:
-		return tr.TapCloses()
+		switch t.Target {
+		case "":
+			return tr.TapCloses()
+		case flowfile.Window:
+			return tr.TapClosesWindow()
+		}
+		return tr.TapClosesDesign(t.Target)
 	}
 	return tr.TapShows(t.Target)
 }

@@ -230,3 +230,56 @@ func TestUsesNoteAndSetPanels(t *testing.T) {
 		t.Fatalf("a reserved name: %v", err)
 	}
 }
+
+// settingsItem is a component of the user's kind: a row whose control
+// is a slot its stacked variant widens by the slot's own name.
+const settingsItem = `component width=fill preview=535
+box name=row class="flex-row items-center gap-3 px-3"
+  text "Label" name=label class="flex-1"
+  slot control class="flex-row items-center"
+    text "Pick"
+  end
+  slot name=extra class="gap-1"
+  end
+end
+variant stacked row.class="flex-col items-stretch" control.class="w-full"
+`
+
+func TestUsesShapeSlotsByTheirNames(t *testing.T) {
+	item := partOf(t, settingsItem)
+	parts := func(name string) (Part, bool) { return item, name == "settings/item" }
+	use := func(src string) Element {
+		t.Helper()
+		els, err := ParseUI(src)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return els[0]
+	}
+	if p := VariantProblems(Screen{UI: item.UI, Variants: item.Variants}, "settings/item", parts); len(p) != 0 {
+		t.Fatalf("problems %v", p)
+	}
+	// The component's classes, the variant's and the use's add up in
+	// order; the slot keeps its name and what it holds.
+	drawn := Instance(use(`use settings/item variant=stacked control.class="justify-end" extra.class="p-2"`), item)
+	slot := drawn[0].Children[1]
+	if slot.Kind != "slot" || slot.Text != "control" || slot.Attr("class") != "flex-row items-center w-full justify-end" || slot.Children[0].Text != "Pick" {
+		t.Fatalf("the slot draws as %+v", slot)
+	}
+	if got := drawn[0].Children[2].Attr("class"); got != "gap-1 p-2" {
+		t.Fatalf("the slot named extra takes %q", got)
+	}
+	// A slot takes nothing else.
+	p := OverrideProblems(use(`use settings/item control="x" control.tap="close" control/label="y"`), parts)
+	all := strings.Join(p, "\n")
+	for _, want := range []string{`control="x" sets the text of control, a slot, which has none`,
+		`control.tap="close" sets the tap of control, a slot, which takes only class`,
+		`control/label="y" goes inside control, a slot of components/settings/item.scenra, not a use`} {
+		if !strings.Contains(all, want) {
+			t.Errorf("no %q in\n%s", want, all)
+		}
+	}
+	if drawn := Instance(use(`use settings/item control="x" control.tap="close"`), item); drawn[0].Children[1].Text != "control" || drawn[0].Children[1].Attr("tap") != "" {
+		t.Fatalf("the slot changed: %+v", drawn[0].Children[1])
+	}
+}

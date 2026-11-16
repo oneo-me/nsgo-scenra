@@ -99,7 +99,7 @@ func OutletProblems(els []Element) []string {
 // Resolve is the tap t, written in the file of designs name, naming its
 // file: a design of the same file is one of name.
 func (t Tap) Resolve(name string) Tap {
-	if t.Action != TapOpen || !strings.HasPrefix(t.Target, "#") {
+	if t.Action != TapOpen && t.Action != TapClose || !strings.HasPrefix(t.Target, "#") {
 		return t
 	}
 	return Tap{t.Action, name + t.Target}

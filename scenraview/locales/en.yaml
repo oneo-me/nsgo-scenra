@@ -58,6 +58,8 @@ removeNote: Remove Note
 noDesign: "There is no design {name} to open."
 tapOpens: "Opens {design}"
 tapCloses: Closes this screen
+tapClosesWindow: Closes the window
+tapClosesDesign: "Closes {design}"
 tapShows: "Shows {panel}"
 showTaps: Show What Can Be Tapped
 components: Components

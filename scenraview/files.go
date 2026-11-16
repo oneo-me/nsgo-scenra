@@ -163,28 +163,32 @@ func (e *Editor) locked() bool { return e.a.busy() }
 func (e *Editor) Working() bool { return e.a.working() }
 
 // viewOf is what the Server tells an agent: what the user sees of the
-// open folder, and the problems of its files, without how they lay out.
-func (e *Editor) viewOf() string {
+// open folder, and the problems of its files, without how they lay out,
+// with all the notes.
+func (e *Editor) viewOf() string { return e.viewNoting(NotesAll) }
+
+// viewNoting is what viewOf tells, with the notes notes says.
+func (e *Editor) viewNoting(notes string) string {
 	dir := e.folder.GetUntracked()
 	if dir == "" {
 		return "No folder is open in Scenra.\n"
 	}
 	files, parts, pics := e.readFolder(dir)
-	return view(dir, files, parts, pics)
+	return view(dir, files, parts, pics, notes)
 }
 
-// viewLaidOut has done hear what viewOf tells, and what is wrong with
-// how the folder's designs and components lay out; read hears what
-// viewOf tells first, before they lay out.
-func (e *Editor) viewLaidOut(read, done func(string)) {
+// viewLaidOut has done hear what viewNoting tells, and what is wrong
+// with how the folder's designs and components lay out; read hears what
+// viewNoting tells first, before they lay out.
+func (e *Editor) viewLaidOut(notes string, read, done func(string)) {
 	dir := e.folder.GetUntracked()
 	if dir == "" {
-		read(e.viewOf())
-		done(e.viewOf())
+		read(e.viewNoting(notes))
+		done(e.viewNoting(notes))
 		return
 	}
 	files, parts, pics := e.readFolder(dir)
-	text := view(dir, files, parts, pics)
+	text := view(dir, files, parts, pics, notes)
 	read(text)
 	ds := e.allDesigns()
 	var targets []layoutTarget
@@ -202,8 +206,10 @@ func (e *Editor) viewLaidOut(read, done func(string)) {
 
 // layoutOf has done hear how the designs of the file at path, relative
 // to the open folder, lay out, only that with id when it is set, or its
-// component, as variant draws it when set; or what is wrong.
-func (e *Editor) layoutOf(path, id, variant string, done func(text string, failed bool)) {
+// component, as variant draws it when set; or what is wrong. Only the
+// element at the path element and what it holds tell, when it is set,
+// down to depth levels under it unless depth is negative.
+func (e *Editor) layoutOf(path, id, variant string, element string, depth int, done func(text string, failed bool)) {
 	dir := e.folder.GetUntracked()
 	if dir == "" {
 		done("No folder is open in Scenra.", true)
@@ -239,11 +245,19 @@ func (e *Editor) layoutOf(path, id, variant string, done func(text string, faile
 			return
 		}
 		var b strings.Builder
-		for i, l := range out {
-			if i > 0 {
+		for _, l := range out {
+			text, ok := layoutText(l, element, depth)
+			if !ok {
+				continue
+			}
+			if b.Len() > 0 {
 				b.WriteByte('\n')
 			}
-			b.WriteString(layoutText(l))
+			b.WriteString(text)
+		}
+		if b.Len() == 0 {
+			done(fmt.Sprintf("%s has no element %s; get_layout without element lists the paths there are.", f.path, element), true)
+			return
 		}
 		done(b.String(), false)
 	})

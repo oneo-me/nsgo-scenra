@@ -3,6 +3,7 @@ package scenraview
 import (
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/nsgo-dev/nsgo/core"
@@ -283,15 +284,67 @@ func pt(v core.Points) string {
 }
 
 // layoutText is l, an element a line, indented by depth: its path, kind,
-// x, y, width and height.
-func layoutText(l laidOut) string {
+// x, y, width and height. When element is set only the element at that
+// path and what it holds tell, false when l has none, and when depth is
+// not negative only those up to depth levels under it, each holding
+// more saying how many.
+func layoutText(l laidOut, element string, depth int) (string, bool) {
+	root := -1
+	if element != "" {
+		root = slices.IndexFunc(l.els, func(p placed) bool { return p.path == element })
+		if root < 0 {
+			return "", false
+		}
+	}
+	// level is how far under the root the element at i is, -1 outside it.
+	level := func(i int) int {
+		if root < 0 {
+			return l.els[i].depth
+		}
+		n := 0
+		for ; i != root; i = l.els[i].parent {
+			if i < 0 {
+				return -1
+			}
+			n++
+		}
+		return n
+	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s laid out %s×%s points; each element's x and y are from its top left corner.\n", l.name, pt(l.size.Width), pt(l.size.Height))
-	for _, p := range l.els {
-		fmt.Fprintf(&b, "%s%s at %s,%s %s×%s\n", strings.Repeat("  ", p.depth), describe(p),
-			pt(p.bounds.Origin.X), pt(p.bounds.Origin.Y), pt(p.bounds.Size.Width), pt(p.bounds.Size.Height))
+	if root >= 0 {
+		fmt.Fprintf(&b, "Only %s and what it holds:\n", element)
 	}
-	return b.String()
+	// more counts the elements left out under each listed at the depth.
+	more := map[int]int{}
+	for i := range l.els {
+		n := level(i)
+		if n < 0 || depth < 0 || n <= depth {
+			continue
+		}
+		at := i
+		for level(at) > depth {
+			at = l.els[at].parent
+		}
+		more[at]++
+	}
+	base := 0
+	if root >= 0 {
+		base = l.els[root].depth
+	}
+	for i, p := range l.els {
+		n := level(i)
+		if n < 0 || depth >= 0 && n > depth {
+			continue
+		}
+		indent := strings.Repeat("  ", p.depth-base)
+		fmt.Fprintf(&b, "%s%s at %s,%s %s×%s\n", indent, describe(p),
+			pt(p.bounds.Origin.X), pt(p.bounds.Origin.Y), pt(p.bounds.Size.Width), pt(p.bounds.Size.Height))
+		if m := more[i]; m > 0 {
+			fmt.Fprintf(&b, "%s  … %d more elements inside; ask for %s with a greater depth to see them\n", indent, m, p.path)
+		}
+	}
+	return b.String(), true
 }
 
 // slack is how far in points an element may reach past what holds it
@@ -389,18 +442,111 @@ func layoutProblems(l laidOut, widths map[string]core.Points) []string {
 	return out
 }
 
-// sizing are the classes that give an element its own width, and
-// wrapping those of a column laying out what it holds as wide as their
-// content, or of an element that so lays out.
-var (
-	sizing   = []string{"w-", "size-", "flex-1", "flex-auto", "grow", "basis-", "min-w-", "self-stretch", "absolute", "fixed"}
-	wrapping = []string{"items-start", "items-center", "items-end", "items-baseline"}
-	wrapped  = []string{"self-start", "self-center", "self-end", "self-baseline"}
-)
+// sizing are the classes that give an element its own width.
+var sizing = []string{"w-", "size-", "flex-1", "flex-auto", "grow", "basis-", "min-w-", "self-stretch", "absolute", "fixed"}
+
+// lastClass is the last class of class, outside variants, that is one of
+// the words or starts with a prefix ending in -, as the later of
+// conflicting classes wins; "" when none is.
+func lastClass(class string, words ...string) string {
+	fields := strings.Fields(class)
+	for i := len(fields) - 1; i >= 0; i-- {
+		if c := fields[i]; !strings.Contains(c, ":") && hasClass(c, words...) {
+			return c
+		}
+	}
+	return ""
+}
+
+// inRow says class lays out what its box holds in a row, as boxes are
+// columns unless they say otherwise.
+func inRow(class string) bool {
+	return strings.HasPrefix(lastClass(class, "flex-row", "flex-row-reverse", "flex-col", "flex-col-reverse"), "flex-row")
+}
+
+// stretched says a column of class stretches the element of own across
+// it, as it does unless either aligns elsewhere.
+func stretched(own, class string) bool {
+	if self := lastClass(own, "self-"); self != "" && self != "self-auto" {
+		return self == "self-stretch"
+	}
+	items := lastClass(class, "items-")
+	return items == "" || items == "items-stretch"
+}
+
+// sideInsets are the padding and border widths class gives the left and
+// right of its box, the later classes winning per side.
+func sideInsets(class string) core.Points {
+	var pad, border [2]core.Points
+	set := func(to *[2]core.Points, side string, v core.Points) {
+		switch side {
+		case "", "x":
+			to[0], to[1] = v, v
+		case "l", "s":
+			to[0] = v
+		case "r", "e":
+			to[1] = v
+		}
+	}
+	for _, c := range strings.Fields(class) {
+		if strings.Contains(c, ":") {
+			continue
+		}
+		name, value, _ := strings.Cut(c, "-")
+		switch {
+		case name == "p" || len(name) == 2 && name[0] == 'p':
+			if v, ok := spacing(value); ok {
+				set(&pad, name[1:], v)
+			}
+		case name == "border":
+			side, width, _ := strings.Cut(value, "-")
+			if !slices.Contains([]string{"", "x", "y", "t", "b", "l", "r", "s", "e"}, side) {
+				side, width = "", value
+			}
+			v, ok := core.Points(1), true
+			if width != "" {
+				v, ok = length(width)
+			}
+			if ok {
+				set(&border, side, v)
+			}
+		}
+	}
+	return pad[0] + pad[1] + border[0] + border[1]
+}
+
+// spacing is a value of Tailwind's spacing scale, a quarter rem a step,
+// px or a length in brackets.
+func spacing(v string) (core.Points, bool) {
+	if v == "px" {
+		return 1, true
+	}
+	if n, err := strconv.ParseFloat(v, 64); err == nil && n >= 0 {
+		return core.Points(n * 4), true
+	}
+	return length(v)
+}
+
+// length is a whole number of pixels, or a length in brackets, such as
+// [13px].
+func length(v string) (core.Points, bool) {
+	if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+		return core.Points(n), true
+	}
+	inner, ok := strings.CutPrefix(v, "[")
+	if inner, ok = strings.CutSuffix(inner, "px]"); ok {
+		if n, err := strconv.ParseFloat(inner, 64); err == nil && n >= 0 {
+			return core.Points(n), true
+		}
+	}
+	return 0, false
+}
 
 // unfilled says how the w-full or row flex-1 of the element at i fills
-// nothing: what holds it is only as wide as what it holds, as nothing
-// widens it, by the rules of flexbox and how they laid out.
+// nothing: what holds it is only as wide as what it holds, as it sets no
+// width of its own and the column it is in does not stretch it, and is
+// narrower than the content of what holds that, inside its padding and
+// borders, or than what a row it is in leaves its siblings and gaps.
 func unfilled(l laidOut, i int) string {
 	p := l.els[i]
 	class := p.el.Attr("class")
@@ -409,22 +555,34 @@ func unfilled(l laidOut, i int) string {
 	}
 	parent, outer := l.els[p.parent], l.els[l.els[p.parent].parent]
 	pc, oc := parent.el.Attr("class"), outer.el.Attr("class")
-	row := hasClass(pc, "flex-row")
-	if !hasClass(class, "w-full") && !(row && hasClass(class, "flex-1")) || hasClass(pc, sizing...) {
+	if !hasClass(class, "w-full") && !(inRow(pc) && hasClass(class, "flex-1")) || hasClass(pc, sizing...) || outer.el.Kind == "use" {
 		return ""
 	}
-	// A column stretches what it holds across it unless its items or the
-	// element align elsewhere; a row gives them the width they need.
-	content := hasClass(oc, "flex-row") || hasClass(oc, wrapping...) || hasClass(pc, wrapped...)
-	if !content || outer.el.Kind == "use" || parent.bounds.Size.Width+1 >= outer.bounds.Size.Width {
+	row := inRow(oc)
+	if !row && stretched(pc, oc) {
+		return ""
+	}
+	content := outer.bounds.Size.Width - sideInsets(oc)
+	used := parent.bounds.Size.Width
+	if row {
+		// The row's other elements and its gaps take their share.
+		left, right := parent.bounds.Origin.X, parent.bounds.Origin.X+parent.bounds.Size.Width
+		for _, q := range l.els {
+			if q.parent == parent.parent && !hasClass(q.el.Attr("class"), "absolute", "fixed", "hidden") {
+				left, right = min(left, q.bounds.Origin.X), max(right, q.bounds.Origin.X+q.bounds.Size.Width)
+			}
+		}
+		used = right - left
+	}
+	if used >= content-slack {
 		return ""
 	}
 	what := "w-full"
 	if !hasClass(class, "w-full") {
 		what = "flex-1"
 	}
-	return fmt.Sprintf("%s of %s fills only %s, which is as wide as what it holds, %s of the %s it is in; give %s w-full, flex-1 or a width",
-		what, describe(p), describe(parent), pt(parent.bounds.Size.Width), pt(outer.bounds.Size.Width), parent.path)
+	return fmt.Sprintf("%s of %s fills only %s, which is as wide as what it holds, %s of the %s content width of %s; give %s w-full, flex-1 or a width",
+		what, describe(p), describe(parent), pt(parent.bounds.Size.Width), pt(content), outer.path, parent.path)
 }
 
 // layoutSection tells what is wrong with how out laid out, a line each,

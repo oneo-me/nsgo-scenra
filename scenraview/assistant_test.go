@@ -458,24 +458,41 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 }
 
 func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
-	f, err := flowfile.Parse("design sign-in\ntext \"In\" tap=\"open #reset\" comment=\"Warmer\"\n\ndesign sign-up\ntext \"Up\" tap=\"open home#top\"\n")
+	f, err := flowfile.Parse("design sign-in\ntext \"In\" tap=\"open #reset\" comment=\"Warmer\"\n\ndesign sign-up\ntext \"Up\" tap=\"open home#top\" note=\"Up there\"\nuse tag\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	home, _ := flowfile.Parse("design top\ntext \"Home\" tap=\"open auth#sign-up\"\n")
+	home, _ := flowfile.Parse("design top\ntext \"Home\" tap=\"open auth#sign-up\" note=\"Down here\"\n")
+	tag, _ := flowfile.Parse("component\ntext \"Tag\" note=\"Tagged\"\n")
+	pill, _ := flowfile.Parse("component\ntext \"Pill\" note=\"Unused\"\n")
 	flows, _ := flowfile.Parse("flow pay\nnode a\n\nflow refund\nnode b\n")
 	out := view("/p", []fileView{{path: "auth.scenra", file: f, shown: &location{element: "1/0"}}, {path: "home.scenra", file: home},
-		{path: "pay-flow.scenra", file: flows}}, nil, nil)
+		{path: "pay-flow.scenra", file: flows}}, nil, nil, NotesAll)
 	for _, want := range []string{"design auth.scenra open, which holds the designs sign-in, sign-up.", "selected element 0 of design sign-up:",
 		`auth.scenra, design sign-in, element 0: "Warmer"`, `auth.scenra: tap "open #reset": auth.scenra has no design reset`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the view tells nothing of %q:\n%s", want, out)
 		}
 	}
+	// Notes may be left out, problems never.
+	files := []fileView{{path: "auth.scenra", file: f, shown: &location{}}, {path: "home.scenra", file: home},
+		{path: "components/tag.scenra", file: tag}, {path: "components/pill.scenra", file: pill}}
+	parts := components{"tag": {UI: tag.Screens[0].UI}, "pill": {UI: pill.Screens[0].UI}}
+	for notes, want := range map[string][]string{NotesAll: {"Up there", "Down here", "Tagged", "Unused"}, NotesOpen: {"Up there", "Tagged"}, NotesNone: nil} {
+		out := view("/p", files, parts, nil, notes)
+		for _, note := range []string{"Up there", "Down here", "Tagged", "Unused"} {
+			if strings.Contains(out, note) != slices.Contains(want, note) {
+				t.Errorf("notes=%s tells of %q wrongly:\n%s", notes, note, out)
+			}
+		}
+		if !strings.Contains(out, "has no design reset") {
+			t.Errorf("notes=%s drops a problem:\n%s", notes, out)
+		}
+	}
 	if _, taps, _ := strings.Cut(out, "Taps that lead nowhere:"); strings.Contains(taps, "home#top") || strings.Contains(taps, "auth#sign-up") {
 		t.Errorf("taps that lead somewhere are reported:\n%s", out)
 	}
-	out = view("/p", []fileView{{path: "pay-flow.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil)
+	out = view("/p", []fileView{{path: "pay-flow.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil, NotesAll)
 	if !strings.Contains(out, `selected node "b" of flow refund`) || !strings.Contains(out, "which holds the flows pay, refund") {
 		t.Errorf("the view of flows:\n%s", out)
 	}

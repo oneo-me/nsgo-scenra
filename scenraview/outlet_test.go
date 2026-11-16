@@ -114,6 +114,12 @@ func TestTheServerTellsHowDesignsLayOut(t *testing.T) {
 			"  use field\n" +
 			"end\n",
 		"components/field.scenra": "component width=fill\nbox class=\"h-10 border border-zinc-200\"\n  text \"Email\"\nend\n",
+		// A column a later class stretches, and a row whose siblings
+		// take the rest, fill all they can.
+		"padded.scenra": "design\nbox class=\"flex-1 items-center\"\n" +
+			"  box class=\"w-full flex-row items-center px-3 flex-col items-stretch\"\n    box class=\"flex-row\"\n      box class=\"h-10 w-full bg-zinc-100\"\n      end\n    end\n  end\n" +
+			"  box class=\"w-full flex-row gap-2 px-3\"\n    box class=\"flex-col\"\n      text \"Name\"\n      box class=\"h-10 w-full bg-zinc-100\"\n      end\n    end\n" +
+			"    box class=\"h-10 flex-1 bg-zinc-200\"\n    end\n  end\nend\n",
 	}
 	for name, text := range window {
 		files[name] = text
@@ -121,16 +127,17 @@ func TestTheServerTellsHowDesignsLayOut(t *testing.T) {
 	dir := folderOfFiles(t, files)
 	app, e := startEditor(t)
 	openPath(t, app, e, dir)
-	app.WaitUntil(5*time.Second, func() bool { return len(core.Untracked(e.cx, e.designs.Get)) == 4 })
+	app.WaitUntil(5*time.Second, func() bool { return len(core.Untracked(e.cx, e.designs.Get)) == 5 })
 	wait := func(run func(done func(string))) string {
 		var out string
 		app.Post(func() { run(func(text string) { out = text }) })
 		app.WaitUntil(5*time.Second, func() bool { return out != "" })
 		return out
 	}
-	view := wait(func(done func(string)) { e.viewLaidOut(func(string) {}, done) })
+	view := wait(func(done func(string)) { e.viewLaidOut(NotesAll, func(string) {}, done) })
 	for _, want := range []string{
 		"form.scenra: w-full of 0.0.0 box fills only 0.0 box",
+		"content width of 0; give 0.0 w-full",
 		`form.scenra: text 0.1.0 text "A sentence long enough to wrap onto line…" is cut off by 0.1 box`,
 		"form.scenra: 0.2 box, at -105,",
 		"form.scenra: 0.3 use field is",
@@ -140,13 +147,98 @@ func TestTheServerTellsHowDesignsLayOut(t *testing.T) {
 			t.Errorf("the view tells nothing of %q:\n%s", want, view)
 		}
 	}
-	if strings.Contains(view, "main.scenra:") || strings.Contains(view, "issues.scenra: 0") {
+	if strings.Contains(view, "main.scenra:") || strings.Contains(view, "issues.scenra: 0") || strings.Contains(view, "padded.scenra") {
 		t.Errorf("the view tells of problems the window has not:\n%s", view)
 	}
 	layout := wait(func(done func(string)) {
-		e.layoutOf("issues", "", "", func(text string, failed bool) { done(text) })
+		e.layoutOf("issues", "", "", "", -1, func(text string, failed bool) { done(text) })
 	})
 	if !strings.Contains(layout, "issues.scenra laid out 974×758 points") || !strings.Contains(layout, "\n  0.0 text \"Issue list\" at 0,0 ") {
 		t.Fatalf("the layout:\n%s", layout)
+	} // One element and what it holds tell, down to a depth.
+	layout = wait(func(done func(string)) {
+		e.layoutOf("form", "", "", "0.0", 1, func(text string, failed bool) { done(text) })
+	})
+	if !strings.Contains(layout, "Only 0.0 and what it holds:\n0.0 box at ") || !strings.Contains(layout, "\n  0.0.0 box at ") ||
+		!strings.Contains(layout, "  … 1 more elements inside; ask for 0.0.0") || strings.Contains(layout, "0.1 box") {
+		t.Fatalf("the layout of 0.0:\n%s", layout)
+	}
+	var failed bool
+	wait(func(done func(string)) {
+		e.layoutOf("form", "", "", "9", -1, func(text string, f bool) { failed = f; done(text) })
+	})
+	if !failed {
+		t.Fatal("an element that is not there lays out")
+	}
+}
+
+// settings is a window a main window opens, whose categories fill its
+// content and close it from there.
+var settings = map[string]string{
+	"main.scenra": "design device=desktop\nbox class=\"flex-1\"\n  text \"Main home\"\n  text \"Settings entry\" tap=\"open settings\"\nend\n",
+	"settings.scenra": "design general device=desktop\nbox class=\"flex-1 flex-row\"\n" +
+		"  box class=\"w-40\"\n    text \"Agents entry\" tap=\"open #agents\"\n  end\n" +
+		"  box class=\"flex-1\" outlet=content\n    text \"General page\"\n  end\nend\n\n" +
+		"design agents in=\"#general/content\"\nbox class=\"flex-1\"\n  text \"Agents page\"\n" +
+		"  text \"Close page\" tap=close\n  text \"Close window\" tap=\"close window\"\n" +
+		"  text \"Close settings\" tap=\"close #general\"\n  text \"Close main\" tap=\"close main\"\nend\n",
+}
+
+func TestClosingTheWindowAPageShowsIn(t *testing.T) {
+	dir := folderOfFiles(t, settings)
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "main.scenra"))
+	app.WaitFor("design >> text:Main home", 5*time.Second)
+	toAgents := func() {
+		t.Helper()
+		app.Press("design >> text:Settings entry")
+		app.WaitFor("id:element-0/0.1.0", time.Second)
+		app.Press("design >> text:Agents entry")
+		app.WaitFor("id:element-0/0.1|0.0", time.Second)
+	}
+	// A close returns the outlet to what it showed.
+	toAgents()
+	app.Press("id:element-0/0.1|0.1")
+	app.WaitForGone("id:element-0/0.1|0.0", time.Second)
+	app.WaitFor("id:element-0/0.1.0", time.Second)
+	if shownName(app) != "settings" {
+		t.Fatalf("%s shows", shownName(app))
+	}
+	// Closing the window, or the design it is, returns to what opened it,
+	// and it opens again showing its outlet's own elements; a design the
+	// page does not show in closes nothing.
+	for _, tap := range []string{"2", "3"} {
+		app.Press("design >> text:Agents entry")
+		app.WaitFor("id:element-0/0.1|0.0", time.Second)
+		app.Press("id:element-0/0.1|0.4")
+		app.Post(func() {})
+		app.WaitFor("id:element-0/0.1|0.0", time.Second)
+		app.Press("id:element-0/0.1|0." + tap)
+		app.WaitFor("design >> text:Main home", time.Second)
+		app.Press("design >> text:Settings entry")
+		app.WaitFor("id:element-0/0.1.0", time.Second)
+	}
+	// What no design opened closes nothing.
+	app.Press("design >> text:Agents entry")
+	app.WaitFor("id:element-0/0.1|0.0", time.Second)
+	app.Post(func() { e.trail = nil })
+	app.Press("id:element-0/0.1|0.2")
+	app.Post(func() {})
+	app.WaitFor("id:element-0/0.1|0.0", time.Second)
+	view := core.Untracked(e.cx, e.viewOf)
+	if !strings.Contains(view, `settings.scenra: tap "close main": close names a design this one does not show in; it shows in settings.scenra#agents, settings.scenra#general`) ||
+		strings.Contains(view, "close window") || strings.Contains(view, "close #general") {
+		t.Fatalf("the view:\n%s", view)
+	}
+}
+
+func TestSideInsetsFollowTailwind(t *testing.T) {
+	for class, want := range map[string]core.Points{
+		"px-3 py-2 border-b border-border": 24, "p-4 px-2 border": 18, "pl-2.5 pr-[13px] border-x-2": 27,
+		"border-l border-zinc-200 hover:px-8": 1, "p-px border-0": 2, "border-y-4 pt-3": 0,
+	} {
+		if got := sideInsets(class); got != want {
+			t.Errorf("%q: %v, want %v", class, got, want)
+		}
 	}
 }

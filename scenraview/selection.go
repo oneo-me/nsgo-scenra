@@ -24,12 +24,22 @@ type fileView struct {
 	shown  *location
 }
 
+// Which notes get_view lists: all of the folder's, those of the file
+// shown and the components it uses, or none, as they change seldom and
+// an agent may have read them.
+const (
+	NotesAll  = "all"
+	NotesOpen = "open"
+	NotesNone = "none"
+)
+
 // view tells an agent what the user sees of the folder dir and the
 // problems of its files: the file shown and what is selected in it, the
-// components designs can use, the user's comments, the files that do not parse, the components missing
+// components designs can use, the user's comments, the notes of the
+// files notes says, the files that do not parse, the components missing
 // or used in a loop, the pictures missing and the classes that draw
 // nothing.
-func view(dir string, files []fileView, parts components, pics assets) string {
+func view(dir string, files []fileView, parts components, pics assets, notes string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "The open folder is %s; the paths below are relative to it.\n", dir)
 	if len(files) == 0 {
@@ -91,7 +101,11 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 		}
 		return out
 	})
+	noted := notedFiles(files, shown, parts, notes)
 	section("The notes on elements, which say what the designs cannot show, such as what an element does or when it changes; keep them true:", func(f fileView) []string {
+		if !noted(f) {
+			return nil
+		}
 		var out []string
 		for _, n := range f.file.Notes() {
 			out = append(out, remark(f, n))
@@ -115,9 +129,15 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 			}
 		}
 	}
+	docs := designs{}
+	for _, f := range files {
+		if f.file.Kind == flowfile.Design {
+			docs[strings.TrimSuffix(f.path, ".scenra")] = f.file
+		}
+	}
 	section("Taps that lead nowhere:", func(f fileView) []string {
 		var out []string
-		for _, p := range tapProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), opens, parts) {
+		for _, p := range tapProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), opens, docs, parts) {
 			out = append(out, f.path+": "+p)
 		}
 		return out
@@ -141,12 +161,6 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 		}
 		return out
 	})
-	docs := designs{}
-	for _, f := range files {
-		if f.file.Kind == flowfile.Design {
-			docs[strings.TrimSuffix(f.path, ".scenra")] = f.file
-		}
-	}
 	section("Outlets that in= cannot fill, and outlets of one name:", func(f fileView) []string {
 		var out []string
 		for _, p := range outletProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), docs) {
@@ -194,6 +208,35 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 	return b.String()
 }
 
+// notedFiles says which of files get_view lists the notes of, as notes
+// says, shown being the file shown, if any: those of the components it
+// uses and those they use count as its own.
+func notedFiles(files []fileView, shown *fileView, parts components, notes string) func(fileView) bool {
+	switch {
+	case notes == NotesNone:
+		return func(fileView) bool { return false }
+	case notes != NotesOpen:
+		return func(fileView) bool { return true }
+	case shown == nil:
+		return func(fileView) bool { return false }
+	}
+	paths := []string{shown.path}
+	var visit func(els []flowfile.Element)
+	visit = func(els []flowfile.Element) {
+		for _, name := range flowfile.Uses(els) {
+			path := flowfile.ComponentPath(name)
+			if part, ok := parts[name]; ok && !slices.Contains(paths, path) {
+				paths = append(paths, path)
+				visit(part.UI)
+			}
+		}
+	}
+	for _, s := range shown.file.Screens {
+		visit(s.UI)
+	}
+	return func(f fileView) bool { return slices.Contains(paths, f.path) }
+}
+
 // imageProblems are what is wrong with the pictures the images of els,
 // and the uses changing theirs, name in the folder: those outside the
 // assets folder or of a kind it does not show, and those missing.
@@ -238,12 +281,21 @@ func which(f flowfile.File, id string) string {
 
 // tapProblems are the taps of the elements of f, named self, and those
 // its uses give the elements of their components, that lead nowhere:
-// those opening none of designs, and in a design those showing a panel
-// neither it nor the components it uses has. A component's tabs may show
-// the panels of the designs using it.
-func tapProblems(f flowfile.File, self string, designs []string, parts components) []string {
+// those opening or closing none of designs, and in a design those
+// closing a design it does not show in, by the in= of the designs of ds,
+// or showing a panel neither it nor the components it uses has. A
+// component's tabs may show the panels of the designs using it.
+func tapProblems(f flowfile.File, self string, designs []string, ds designs, parts components) []string {
 	var out []string
-	for _, s := range f.Screens {
+	for i, s := range f.Screens {
+		// in are the designs this one shows in, itself first.
+		in := []place{{self, i}}
+		if f.Kind == flowfile.Design {
+			hops, _ := ds.hosts(place{self, i})
+			for _, h := range hops {
+				in = append(in, h.place)
+			}
+		}
 		panels := map[string]bool{}
 		drawn(s.UI, parts, func(el flowfile.Element) {
 			if name := el.Attr("panel"); name != "" {
@@ -259,11 +311,21 @@ func tapProblems(f flowfile.File, self string, designs []string, parts component
 			if id != "" {
 				to += "#" + id
 			}
+			names := t.Action == flowfile.TapOpen || t.Action == flowfile.TapClose && t.Target != "" && t.Target != flowfile.Window
 			switch {
-			case t.Action == flowfile.TapOpen && !slices.Contains(designs, file):
+			case names && !slices.Contains(designs, file):
 				out = append(out, fmt.Sprintf("%s %q: there is no %s", key, t.String(), flowfile.DesignPath(file)))
-			case t.Action == flowfile.TapOpen && !slices.Contains(designs, to):
+			case names && !slices.Contains(designs, to):
 				out = append(out, fmt.Sprintf("%s %q: %s has no design %s", key, t.String(), flowfile.DesignPath(file), id))
+			case names && t.Action == flowfile.TapClose && f.Kind == flowfile.Design:
+				at, _ := ds[file].Screen(id)
+				if !slices.Contains(in, place{file, at}) {
+					var titles []string
+					for _, p := range in {
+						titles = append(titles, ds.title(p))
+					}
+					out = append(out, fmt.Sprintf("%s %q: close names a design this one does not show in; it shows in %s, by their in=", key, t.String(), strings.Join(titles, ", ")))
+				}
 			case t.Action == flowfile.TapTab && f.Kind == flowfile.Design && !panels[t.Target]:
 				out = append(out, fmt.Sprintf("%s %q: no element has panel=%s", key, t.String(), t.Target))
 			}

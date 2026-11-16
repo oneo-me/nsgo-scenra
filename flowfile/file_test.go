@@ -262,11 +262,12 @@ func TestNotes(t *testing.T) {
 
 func TestTaps(t *testing.T) {
 	p, err := Parse("design\nbox tap=\"open orders/detail\" class=\"p-2\"\n  text \"x\" tap=close\nend\n" +
-		"box tap=\"tab past\"\nend\nbox panel=past\nend\nbox tap=\"open Sign in\"\nend\nbox tap=\"open auth#sign-up\"\nend\nbox tap=\"open #reset\"\nend\n")
+		"box tap=\"tab past\"\nend\nbox panel=past\nend\nbox tap=\"open Sign in\"\nend\nbox tap=\"open auth#sign-up\"\nend\nbox tap=\"open #reset\"\nend\n" +
+		"box tap=\"close window\"\nend\nbox tap=\"close settings#general\"\nend\n")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for path, want := range map[string]Tap{"0": {TapOpen, "orders/detail"}, "0.0": {TapClose, ""}, "1": {TapTab, "past"}, "3": {TapOpen, "Sign in"}, "4": {TapOpen, "auth#sign-up"}, "5": {TapOpen, "#reset"}} {
+	for path, want := range map[string]Tap{"0": {TapOpen, "orders/detail"}, "0.0": {TapClose, ""}, "1": {TapTab, "past"}, "3": {TapOpen, "Sign in"}, "4": {TapOpen, "auth#sign-up"}, "5": {TapOpen, "#reset"}, "6": {TapClose, Window}, "7": {TapClose, "settings#general"}} {
 		el, _ := ElementAt(p.Screens[0].UI, path)
 		if got, ok := el.Tap(); !ok || got != want {
 			t.Errorf("%s taps %+v", path, got)
@@ -278,7 +279,7 @@ func TestTaps(t *testing.T) {
 	if got := FormatUI(p.Screens[0].UI[:1]); got != "box class=\"p-2\" tap=\"open orders/detail\"\n  text \"x\" tap=\"close\"\nend\n" {
 		t.Fatalf("formatted as\n%s", got)
 	}
-	for _, src := range []string{"box tap=jump\nend\n", "box tap=open\nend\n", "box tap=\"open ../x\"\nend\n", "box tap=\"close now\"\nend\n",
+	for _, src := range []string{"box tap=jump\nend\n", "box tap=open\nend\n", "box tap=\"open ../x\"\nend\n", "box tap=\"close ../x\"\nend\n", "box tap=\"close #\"\nend\n",
 		"box tap=\"tab a b\"\nend\n", "box panel=\"a b\"\nend\n", "box tap=\"open #\"\nend\n", "box tap=\"open a#b c\"\nend\n", "box tap=\"open a#b#c\"\nend\n"} {
 		if _, err := ParseUI(src); err == nil {
 			t.Errorf("%q parsed", src)
