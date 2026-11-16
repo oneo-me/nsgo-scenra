@@ -13,6 +13,13 @@ namingKey: API Key
 namingKeyPlaceholder: 本地服务可留空
 namingModel: 模型
 namingModelPlaceholder: 留空则不启用
+namingEffort: 推理强度
+namingEffortDefault: 模型默认
+namingEffortOff: 关闭
+namingEffortLow: 低
+namingEffortMedium: 中
+namingEffortHigh: 高
+namingEffortMax: 最高
 namingFailed: "命名失败：{error}"
 statsSection: 统计
 statsSend: 发送使用统计

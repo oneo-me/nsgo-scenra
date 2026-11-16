@@ -74,6 +74,13 @@ const (
 	textNamingKeyPlaceholder
 	textNamingModel
 	textNamingModelPlaceholder
+	textNamingEffort
+	textNamingEffortDefault
+	textNamingEffortOff
+	textNamingEffortLow
+	textNamingEffortMedium
+	textNamingEffortHigh
+	textNamingEffortMax
 	textStatsSection
 	textStatsSend
 	textStatsDetail
@@ -98,6 +105,13 @@ var keyOfText = [numTexts]string{
 	"namingKeyPlaceholder",
 	"namingModel",
 	"namingModelPlaceholder",
+	"namingEffort",
+	"namingEffortDefault",
+	"namingEffortOff",
+	"namingEffortLow",
+	"namingEffortMedium",
+	"namingEffortHigh",
+	"namingEffortMax",
 	"statsSection",
 	"statsSend",
 	"statsDetail",
@@ -120,6 +134,13 @@ var textsEn = i18n.NewTexts(""+
 	"Optional for local servers"+
 	"Model"+
 	"Off when empty"+
+	"Reasoning effort"+
+	"Model default"+
+	"Off"+
+	"Low"+
+	"Medium"+
+	"High"+
+	"Max"+
 	"Statistics"+
 	"Send usage statistics"+
 	"Sends how often and how long the app is used, with no charts, messages or personal data, to help improve Scenra.",
@@ -139,6 +160,13 @@ var textsEn = i18n.NewTexts(""+
 		26,
 		5,
 		14,
+		16,
+		13,
+		3,
+		3,
+		6,
+		4,
+		3,
 		10,
 		21,
 		112,
@@ -161,6 +189,13 @@ var textsZhHans = i18n.NewTexts(""+
 	"本地服务可留空"+
 	"模型"+
 	"留空则不启用"+
+	"推理强度"+
+	"模型默认"+
+	"关闭"+
+	"低"+
+	"中"+
+	"高"+
+	"最高"+
 	"统计"+
 	"发送使用统计"+
 	"发送应用的使用次数和时长，不含流程图、消息或个人信息，帮助改进 Scenra。",
@@ -180,6 +215,13 @@ var textsZhHans = i18n.NewTexts(""+
 		21,
 		6,
 		18,
+		12,
+		12,
+		6,
+		3,
+		3,
+		3,
+		6,
 		6,
 		18,
 		103,
@@ -361,6 +403,55 @@ func NamingModelPlaceholder(cx *core.Scope) string { return For(cx).NamingModelP
 
 // NamingModelPlaceholder is the package's NamingModelPlaceholder in the language of msgs.
 func (msgs Messages) NamingModelPlaceholder() string { return msgs.text(textNamingModelPlaceholder) }
+
+// NamingEffort says "Reasoning effort"
+// in the language the app shows under cx.
+func NamingEffort(cx *core.Scope) string { return For(cx).NamingEffort() }
+
+// NamingEffort is the package's NamingEffort in the language of msgs.
+func (msgs Messages) NamingEffort() string { return msgs.text(textNamingEffort) }
+
+// NamingEffortDefault says "Model default"
+// in the language the app shows under cx.
+func NamingEffortDefault(cx *core.Scope) string { return For(cx).NamingEffortDefault() }
+
+// NamingEffortDefault is the package's NamingEffortDefault in the language of msgs.
+func (msgs Messages) NamingEffortDefault() string { return msgs.text(textNamingEffortDefault) }
+
+// NamingEffortOff says "Off"
+// in the language the app shows under cx.
+func NamingEffortOff(cx *core.Scope) string { return For(cx).NamingEffortOff() }
+
+// NamingEffortOff is the package's NamingEffortOff in the language of msgs.
+func (msgs Messages) NamingEffortOff() string { return msgs.text(textNamingEffortOff) }
+
+// NamingEffortLow says "Low"
+// in the language the app shows under cx.
+func NamingEffortLow(cx *core.Scope) string { return For(cx).NamingEffortLow() }
+
+// NamingEffortLow is the package's NamingEffortLow in the language of msgs.
+func (msgs Messages) NamingEffortLow() string { return msgs.text(textNamingEffortLow) }
+
+// NamingEffortMedium says "Medium"
+// in the language the app shows under cx.
+func NamingEffortMedium(cx *core.Scope) string { return For(cx).NamingEffortMedium() }
+
+// NamingEffortMedium is the package's NamingEffortMedium in the language of msgs.
+func (msgs Messages) NamingEffortMedium() string { return msgs.text(textNamingEffortMedium) }
+
+// NamingEffortHigh says "High"
+// in the language the app shows under cx.
+func NamingEffortHigh(cx *core.Scope) string { return For(cx).NamingEffortHigh() }
+
+// NamingEffortHigh is the package's NamingEffortHigh in the language of msgs.
+func (msgs Messages) NamingEffortHigh() string { return msgs.text(textNamingEffortHigh) }
+
+// NamingEffortMax says "Max"
+// in the language the app shows under cx.
+func NamingEffortMax(cx *core.Scope) string { return For(cx).NamingEffortMax() }
+
+// NamingEffortMax is the package's NamingEffortMax in the language of msgs.
+func (msgs Messages) NamingEffortMax() string { return msgs.text(textNamingEffortMax) }
 
 // NamingFailed says "Naming failed: {error}"
 // in the language the app shows under cx.

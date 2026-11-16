@@ -15,6 +15,13 @@ namingKey: API key
 namingKeyPlaceholder: Optional for local servers
 namingModel: Model
 namingModelPlaceholder: Off when empty
+namingEffort: Reasoning effort
+namingEffortDefault: Model default
+namingEffortOff: "Off"
+namingEffortLow: Low
+namingEffortMedium: Medium
+namingEffortHigh: High
+namingEffortMax: Max
 namingFailed:
   message: "Naming failed: {error}"
   description: Why the last request for a title failed; error is the service's or network's message.

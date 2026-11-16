@@ -19,11 +19,12 @@ func TestFirstMessageTitlesTheConversation(t *testing.T) {
 	var asked atomic.Int32
 	service := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Model    string
-			Messages []struct{ Content string }
+			Model           string
+			ReasoningEffort string `json:"reasoning_effort"`
+			Messages        []struct{ Content string }
 		}
 		json.NewDecoder(r.Body).Decode(&req)
-		if r.URL.Path != "/v1/chat/completions" || r.Header.Get("Authorization") != "Bearer secret" || req.Model != "small" ||
+		if r.URL.Path != "/v1/chat/completions" || r.Header.Get("Authorization") != "Bearer secret" || req.Model != "small" || req.ReasoningEffort != "low" ||
 			len(req.Messages) != 2 || !strings.Contains(req.Messages[1].Content, "coffee") {
 			t.Errorf("request %s %q %+v", r.URL.Path, r.Header.Get("Authorization"), req)
 		}
@@ -40,6 +41,11 @@ func TestFirstMessageTitlesTheConversation(t *testing.T) {
 	app.Type("id:settings >> label:Model", " small ")
 	if v, _ := app.Storage().GetItem(keyNamingModel); v != "small" {
 		t.Fatalf("model = %q, want small", v)
+	}
+	app.Press("id:naming-effort")
+	app.Press("id:naming-effort-1")
+	if v, _ := app.Storage().GetItem(keyNamingEffort); v != "low" {
+		t.Fatalf("effort = %q, want low", v)
 	}
 	app.Press("id:settings-done")
 
