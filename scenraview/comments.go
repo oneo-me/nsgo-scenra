@@ -74,7 +74,8 @@ type remarkOptions struct {
 // shown, saving them together, says what pressing the element plays, and
 // asks the assistant to resolve the comment, saving it first. The card
 // moves by its position, not a transform, as platforms hit-test views
-// without their transforms.
+// without their transforms, and its blank space takes presses, which
+// would reach the canvas under it.
 func remarkCard(cx *core.Scope, e *Editor, o remarkOptions) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -138,7 +139,8 @@ func remarkCard(cx *core.Scope, e *Editor, o remarkOptions) core.Node {
 		}}
 	}
 	return core.View{TestID: "comment-card",
-		Style:        core.Style{Position: core.Absolute, Width: core.Pt(cardWidth), Padding: core.All(12), Gap: 10, CornerRadius: ui.RadiusCard, BorderWidth: 1},
+		Style:   core.Style{Position: core.Absolute, Width: core.Pt(cardWidth), Padding: core.All(12), Gap: 10, CornerRadius: ui.RadiusCard, BorderWidth: 1},
+		OnPress: func(core.PressEvent) {}, NoFocus: true,
 		OnLayout:     func(b core.Bounds) { size.Set(b.Size) },
 		OnMouseEnter: func(core.MouseEvent) { o.over(true) },
 		OnMouseLeave: func(core.MouseEvent) { o.over(false) },

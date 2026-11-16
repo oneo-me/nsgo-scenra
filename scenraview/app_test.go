@@ -207,6 +207,11 @@ func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
 	if got := e.cur().element.GetUntracked(); got != "0/0.1.0" || !app.Exists("id:comment-card") {
 		t.Fatalf("typing in the card selected %q", got)
 	}
+	// Pressing the card's blank space leaves the canvas under it alone.
+	app.PressAt("id:comment-card", core.Point{X: 4, Y: 4})
+	if got := e.cur().element.GetUntracked(); got != "0/0.1.0" || !app.Exists("id:comment-card") {
+		t.Fatalf("pressing the card selected %q", got)
+	}
 	app.HoverAt("id:design-camera-pointer", at("0.0"))
 	app.PressAt("id:design-camera-pointer", at("0.0"))
 	if got := e.cur().element.GetUntracked(); got != "0/0.0" {
