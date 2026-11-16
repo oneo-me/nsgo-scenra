@@ -1,21 +1,14 @@
 edited: 已编辑
-newDesign: 新建设计
-newFlow: 新建流程
-newComponent: 新建组件
 design: 设计
 flow: 流程
 designOrFlow: 设计或流程
 openFolder: 打开文件夹…
 save: 保存
 noFolder: 打开一个文件夹，在其中的 Scenra 文件里设计应用，每个文件是一张设计图或一张流程图。
-noFileOpen: 在侧边栏选择一个文件、新建一个，或让助手设计应用、绘制流程。
+noFileOpen: 在侧边栏选择一个文件，或让助手设计应用、绘制流程。
 files: 文件
 filesEmpty: 这个文件夹中的设计和流程会出现在这里。
 expand: 展开
-fileName: 名称
-fileExists: 这个文件夹中已有同名文件。
-fileNameInvalid: 名称不能为空、不能以点开头，也不能包含斜杠。
-create: 创建
 settings: 设置…
 zoomIn: 放大
 zoomOut: 缩小
@@ -32,7 +25,6 @@ chats: 对话
 removeChat: 删除对话
 emptyTitle: 一起来设计应用
 emptyDetail: 描述一个应用或流程，助手会询问所需的细节，并在这个文件夹中画出它的设计和流程。
-cancel: 取消
 statusTodo: 待办
 statusDoing: 进行中
 statusDone: 已完成

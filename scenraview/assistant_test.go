@@ -15,6 +15,7 @@ import (
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/nsgotest"
 	"github.com/nsgo-dev/nsgo/ui"
+	agio "github.com/oneo-me/nsgo-agio"
 	agentio "github.com/oneo-me/nsgo-agio/agent"
 	"github.com/oneo-me/nsgo-agio/chatview"
 	"github.com/oneo-me/nsgo-agio/host"
@@ -63,7 +64,8 @@ func (d *scripted) get() (started []agentio.StartOptions, prompts, views []strin
 func (d *scripted) Tool() agentio.Tool { return agentio.Claude }
 
 func (d *scripted) Catalog(context.Context, string) (agentio.Catalog, error) {
-	return agentio.Catalog{Model: "opus", Models: []agentio.Model{{Tool: agentio.Claude, ID: "opus", Name: "Opus"}}}, nil
+	return agentio.Catalog{Model: "opus", Models: []agentio.Model{{Tool: agentio.Claude, ID: "opus", Name: "Opus"},
+		{Tool: agentio.Claude, ID: "sonnet", Name: "Sonnet", Efforts: []string{"low", "high"}, DefaultEffort: "low"}}}, nil
 }
 
 func (d *scripted) Start(o agentio.StartOptions, onEvent func(agentio.Event), onExit func(error)) (agentio.Session, agentio.Info, error) {
@@ -259,6 +261,35 @@ func TestConversationsResumeWithTheFolder(t *testing.T) {
 		stored, _ := again.Storage().GetItem("editor.chats")
 		return again.Find("id:chat-title").Text == "Sketch a sign-in screen" && !strings.Contains(stored, "session-2")
 	})
+}
+
+func TestNewConversationsStartWithTheChoiceMadeLast(t *testing.T) {
+	app, e, d := startAssistant(t)
+	dir := t.TempDir()
+	openPath(t, app, e, dir)
+	waitComposer(app)
+	shown := func(a *assistant) *agio.Conversation {
+		return a.m.Backend().State().Conversation(a.agent.GetUntracked())
+	}
+	model, effort := agentio.Key(agentio.Claude, "sonnet"), "high"
+	app.Post(func() {
+		id := e.a.agent.GetUntracked()
+		e.a.m.Do(func(b agio.Backend) error { return b.Choose(id, agio.Choice{Model: &model, Effort: &effort}) }, nil)
+	})
+	d.script(reply{text: "Sure."})
+	send(app, "Sketch a sign-in screen")
+	app.WaitFor("text:Sure.", 5*time.Second)
+	app.Press("id:new-chat")
+	app.WaitUntil(5*time.Second, func() bool { c := shown(e.a); return c != nil && len(c.Turns) == 0 })
+	if c := shown(e.a); c.Model != model || c.Effort != effort {
+		t.Fatalf("the new conversation chose %q %q", c.Model, c.Effort)
+	}
+	stored, _ := app.Storage().GetItem("editor.choice")
+
+	// Another start remembers it.
+	again, e2, _ := startAssistant(t, nsgotest.Storage(map[string]string{"editor.choice": stored}))
+	openPath(t, again, e2, t.TempDir())
+	again.WaitUntil(5*time.Second, func() bool { c := shown(e2.a); return c != nil && c.Model == model && c.Effort == effort })
 }
 
 func TestAScreenShowsOverTheComponentsMadeWithIt(t *testing.T) {

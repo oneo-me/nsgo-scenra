@@ -42,6 +42,19 @@ type assistant struct {
 	resumed map[string]string
 	// gone are the conversations being removed, which are no longer kept.
 	gone map[string]bool
+	// last is the agent, model and its settings chosen last, which new
+	// conversations start with and choiceKey, when set, keeps in the
+	// storage.
+	last      choice
+	choiceKey string
+}
+
+// choice is a conversation's model, as its agent.Key naming its agent,
+// reasoning effort and service tier.
+type choice struct {
+	Model  string `json:"model"`
+	Effort string `json:"effort,omitempty"`
+	Tier   string `json:"tier,omitempty"`
 }
 
 // savedChat is what resumes a conversation: its agent's session and
@@ -67,6 +80,10 @@ func newAssistant(cx *core.Scope, e *Editor) *assistant {
 		if data, ok := cx.Storage().GetItem(a.key); ok {
 			json.Unmarshal([]byte(data), &a.saved)
 		}
+		a.choiceKey = e.opts.Remember + ".choice"
+		if data, ok := cx.Storage().GetItem(a.choiceKey); ok {
+			json.Unmarshal([]byte(data), &a.last)
+		}
 	}
 	// The open folder gets its conversations.
 	cx.Effect(func() {
@@ -78,7 +95,37 @@ func newAssistant(cx *core.Scope, e *Editor) *assistant {
 		s := a.m.State()
 		cx.Untrack(func() { a.note(s) })
 	})
+	// What the user chooses in the conversation shown is what new ones
+	// start with; what it shows first is only what it was made or
+	// resumed with, or known once the agents' models load.
+	var seen string
+	var was choice
+	cx.Effect(func() {
+		id := a.agent.Get()
+		c := a.m.Conversation(id)
+		now := choice{Model: c.Model, Effort: c.Effort, Tier: c.Tier}
+		cx.Untrack(func() {
+			if id != "" && id == seen && was.Model != "" && now.Model != "" && now != was {
+				a.choose(now)
+			}
+			seen, was = id, now
+		})
+	})
 	return a
+}
+
+// choose keeps c as the choice new conversations start with.
+func (a *assistant) choose(c choice) {
+	if c == a.last {
+		return
+	}
+	a.last = c
+	if a.choiceKey == "" {
+		return
+	}
+	if data, err := json.Marshal(c); err == nil {
+		a.cx.Storage().SetItem(a.choiceKey, string(data))
+	}
 }
 
 // prompt is the system prompt of a conversation about the folder dir.
@@ -235,15 +282,16 @@ func (a *assistant) keep(chats []savedChat) {
 	}
 }
 
-// create starts a conversation about the open folder, working in it, and
-// shows it.
+// create starts a conversation about the open folder, working in it, with
+// the choice made last, and shows it.
 func (a *assistant) create() {
 	dir := a.dir
 	if a.m == nil || dir == "" || a.creating {
 		return
 	}
 	a.creating = true
-	a.m.Create(agio.Create{Dir: dir, SystemPrompt: prompt(dir)}, func(id string) {
+	c := agio.Create{Dir: dir, SystemPrompt: prompt(dir), Model: a.last.Model, Effort: a.last.Effort, Tier: a.last.Tier}
+	a.m.Create(c, func(id string) {
 		a.creating = false
 		if a.dir != dir {
 			a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
@@ -304,9 +352,12 @@ func (a *assistant) ask() func(prompt string) {
 }
 
 // sent saves the documents, so what the agent reads is what the user
-// sees, as a message is sent.
+// sees, and keeps the conversation's choice, as a message is sent.
 func (a *assistant) sent() {
 	a.e.saveQuietly()
+	if c := a.m.Backend().State().Conversation(a.agent.GetUntracked()); c != nil && c.Model != "" {
+		a.choose(choice{Model: c.Model, Effort: c.Effort, Tier: c.Tier})
+	}
 	if a.e.opts.OnSend != nil {
 		a.e.opts.OnSend()
 	}

@@ -1,12 +1,9 @@
 package scenraview
 
 import (
-	"errors"
 	"path/filepath"
 	"strconv"
-	"strings"
 
-	"github.com/nsgo-dev/nsgo/base"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
@@ -51,8 +48,6 @@ const componentsItem = "\x00components"
 // leaves out, and its designs in the groups their names give them; in
 // which choosing a file shows it, with the lines Git says each changed;
 // or, while no folder is open, a way to open one.
-// It holds the dialog naming a new file, which the app's menu or the
-// empty workspace asks for.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -142,7 +137,6 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			core.Show{When: func() bool { return e.folder.Get() == "" },
 				Then: func(*core.Scope) core.Node { return noFolder },
 				Else: func(*core.Scope) core.Node { return files }},
-			newFileDialog(cx, e),
 		}}
 }
 
@@ -162,77 +156,8 @@ func changeCounts(cx *core.Scope, of func() (change, bool)) core.Node {
 	}}
 }
 
-// newFileDialog asks the name of the file of the kind e.naming says,
-// which it makes and opens.
-func newFileDialog(cx *core.Scope, e *Editor) core.Node {
-	// The dialog is built for the kind last asked for, which it keeps
-	// while it closes.
-	kind := core.NewSignal(cx, flowfile.Design)
-	cx.Effect(func() {
-		if k := e.naming.Get(); k != "" {
-			core.Untracked(cx, func() bool { kind.Set(k); return true })
-		}
-	})
-	return core.Dynamic(func(cx *core.Scope) core.Node {
-		k := kind.Get()
-		tr := locales.For(cx)
-		colors := ui.ColorsOf(cx)
-		name := core.NewSignal(cx, "")
-		problem := core.NewSignal(cx, "")
-		// A new flow is named for the design shown, as its flow.
-		cx.Effect(func() {
-			e.naming.Get()
-			core.Untracked(cx, func() bool {
-				name.Set("")
-				if d := e.shown(); k == flowfile.Chart && d.doc.GetUntracked().Kind == flowfile.Design {
-					name.Set(keyName(d.path))
-				}
-				problem.Set("")
-				return true
-			})
-		})
-		create := func() {
-			err := e.create(k, name.GetUntracked())
-			switch {
-			case errors.Is(err, errExists):
-				problem.Set(tr.FileExists())
-			case errors.Is(err, errName):
-				problem.Set(tr.FileNameInvalid())
-			case err != nil:
-				problem.Set(tr.SaveFailed(err.Error()))
-			default:
-				e.naming.Set("")
-			}
-		}
-		title := tr.NewDesign()
-		switch k {
-		case flowfile.Chart:
-			title = tr.NewFlow()
-		case flowfile.Component:
-			title = tr.NewComponent()
-		}
-		return ui.Dialog{Open: func() bool { return e.naming.Get() != "" }, OnOpenChange: func(open bool, _ base.Reason) {
-			if !open {
-				e.naming.Set("")
-			}
-		}, TestID: "new-file-dialog", Title: title, Style: core.Style{Width: core.Pt(400)},
-			Children: []core.Node{
-				ui.Input{Value: name.Get, OnChange: func(v string) { name.Set(v); problem.Set("") }, OnSubmit: func(string) { create() },
-					Placeholder: tr.FileName(), Label: tr.FileName(), AutoFocus: true, TestID: "new-file-name"},
-				core.Show{When: func() bool { return problem.Get() != "" }, Then: func(*core.Scope) core.Node {
-					return core.Text{ContentFunc: problem.Get, Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Danger), TestID: "new-file-problem"}
-				}},
-			},
-			Footer: []core.Node{
-				ui.Button{Text: tr.Cancel(), Variant: ui.ButtonOutline, OnPress: func() { e.naming.Set("") }, TestID: "new-file-cancel"},
-				ui.Button{Text: tr.Create(), Variant: ui.ButtonPrimary, Disabled: func() bool { return strings.TrimSpace(name.Get()) == "" },
-					OnPress: create, TestID: "new-file-create"},
-			}}
-	})
-}
-
 // workspacePane is the file shown: a design, or a flow chart; or a way to
-// open a folder, or to make a file in the one open; or the folder's
+// open a folder, or what to do in the one open; or the folder's
 // components together.
 func workspacePane(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
@@ -271,9 +196,7 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 							ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonPrimary, OnPress: e.OpenFolder, TestID: "open-folder-start"})
 					},
 					Else: func(*core.Scope) core.Node {
-						return message(lucide.FileStack, tr.NoFileOpen(),
-							ui.Button{Text: tr.NewDesign(), Icon: lucide.AppWindow, Variant: ui.ButtonOutline, OnPress: e.NewDesign, TestID: "start-new-design"},
-							ui.Button{Text: tr.NewFlow(), Icon: lucide.Workflow, Variant: ui.ButtonOutline, OnPress: e.NewFlow, TestID: "start-new-flow"})
+						return message(lucide.FileStack, tr.NoFileOpen())
 					}}
 			},
 			Else: func(*core.Scope) core.Node { return body }},

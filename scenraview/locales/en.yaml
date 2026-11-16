@@ -1,21 +1,14 @@
 edited: Edited
-newDesign: New Design
-newFlow: New Flow
-newComponent: New Component
 design: Design
 flow: Flow
 designOrFlow: Design or Flow
 openFolder: Open Folder…
 save: Save
 noFolder: Open a folder to design an app in its Scenra files, a design or a flow chart each.
-noFileOpen: Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow.
+noFileOpen: Choose a file in the sidebar, or ask the assistant to design an app or draw a flow.
 files: Files
 filesEmpty: The designs and flows of this folder appear here.
 expand: Expand
-fileName: Name
-fileExists: A file of that name exists in this folder.
-fileNameInvalid: A name cannot be empty, start with a dot or hold slashes.
-create: Create
 settings: Settings…
 zoomIn: Zoom In
 zoomOut: Zoom Out
@@ -32,7 +25,6 @@ chats: Conversations
 removeChat: Delete Conversation
 emptyTitle: Let's design an app together
 emptyDetail: Describe an app or a process, and the assistant asks what it needs and draws its designs and flows in this folder.
-cancel: Cancel
 statusTodo: To do
 statusDoing: In progress
 statusDone: Done

@@ -61,7 +61,7 @@ On macOS, `.scenra` files open with the app from the Finder; on Windows and Linu
 2. Open a folder (⌘O), such as a project's, which the assistant works in, or `examples/coffee-shop` to start from an example.
 3. Describe an app or a process in the assistant, such as "Design the sign-in screen of a coffee shop app" or "Chart how we handle an order".
 4. Answer its questions and watch it make and draw the designs and flows; pick one in the list on the left.
-5. Make a design (⌘N), a flow (⌘⇧N) or a component yourself.
+5. Start another conversation with ⌘N; new conversations keep the agent, model and settings chosen last.
 
 The [`flowfile` package comment](flowfile/) describes the file format.
 

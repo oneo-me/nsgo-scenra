@@ -103,9 +103,6 @@ type Editor struct {
 	// showcase says the folder's components show together in place of
 	// the document, which stays open beneath them.
 	showcase *core.Signal[bool]
-	// naming is the kind of file the new file dialog makes, "" while it
-	// is closed.
-	naming *core.Signal[flowfile.Kind]
 	// camera shows the flows of the file shown, and charts their
 	// diagrams' states by index.
 	camera *camera.State
@@ -145,8 +142,8 @@ func New(cx *core.Scope, opts Options) *Editor {
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
 		parts: core.NewSignalFunc(cx, components(nil), sameComponents), designs: core.NewSignalFunc(cx, designs(nil), sameDesigns), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		changes: core.NewSignalFunc(cx, changes(nil), sameChanges),
-		active:  core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
-		camera: &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
+		active:  core.NewSignal[*document](cx, nil),
+		camera:  &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
 		focus: core.NewSignal(cx, focusing{}), showcase: core.NewSignal(cx, false), probe: core.NewSignal[*probe](cx, nil)}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)
@@ -462,75 +459,6 @@ func (e *Editor) tapClose() {
 		e.trail = e.trail[:n-1]
 		e.focusOn(back.id)
 	}
-}
-
-// NewDesign and NewFlow ask for the name of a new design or flow, which
-// they make at the top of the open folder and open; NewComponent asks for
-// a component's, which it makes in the components folder.
-func (e *Editor) NewDesign()    { e.askName(flowfile.Design) }
-func (e *Editor) NewFlow()      { e.askName(flowfile.Chart) }
-func (e *Editor) NewComponent() { e.askName(flowfile.Component) }
-
-func (e *Editor) askName(kind flowfile.Kind) {
-	if e.folder.GetUntracked() == "" {
-		return
-	}
-	// The sidebar holds the dialog.
-	e.panelsHidden.Set(false)
-	e.naming.Set(kind)
-}
-
-// errExists and errName are the errors of a new file whose name is taken
-// or cannot name a file.
-var (
-	errExists = errors.New("a file of that name exists")
-	errName   = errors.New("not a file name")
-)
-
-// create makes a file of kind named name in the open folder, and opens
-// it: name.scenra at its top for a design, and in the flows folder for a
-// flow, which is the design name's flow, or in the components folder for
-// a component.
-func (e *Editor) create(kind flowfile.Kind, name string) error {
-	name = strings.TrimSuffix(strings.TrimSpace(name), ".scenra")
-	if name == "" || strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, ".") {
-		return errName
-	}
-	if kind == flowfile.Component {
-		if !flowfile.ValidComponentName(name) {
-			return errName
-		}
-	}
-	rel := name + ".scenra"
-	switch kind {
-	case flowfile.Chart:
-		rel = flowPath(name)
-	case flowfile.Component:
-		rel = flowfile.ComponentPath(name)
-	}
-	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(rel))
-	// A new file holds one empty design or flow, as it reads back.
-	f, _ := flowfile.Parse(flowfile.File{Kind: kind}.Format())
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if errors.Is(err, os.ErrExist) {
-		return errExists
-	}
-	if err != nil {
-		return err
-	}
-	_, err = file.WriteString(f.Format())
-	if cerr := file.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	e.found(entry{path: e.rel(path), kind: kind})
-	e.openDoc(e.newDocument(f, path))
-	return nil
 }
 
 // name is the document's file name.

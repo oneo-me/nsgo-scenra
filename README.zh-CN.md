@@ -61,7 +61,7 @@ go tool nsgo build cmd/scenra   # build macOS, Windows and Linux into cmd/scenra
 2. 打开一个文件夹（⌘O），比如某个项目的文件夹，助手会在那里工作；也可以打开 `examples/coffee-shop` 从示例开始。
 3. 在助手中描述一个应用或流程，例如“设计一个咖啡店应用的登录界面”或“画出我们处理订单的流程”。
 4. 回答它的问题，看它新建并画出设计和流程；在左侧的列表中选择要看的文件。
-5. 也可以自己新建设计（⌘N）、流程（⌘⇧N）或组件。
+5. 按 ⌘N 开始新对话；新对话沿用上次选择的 agent、模型及其设置。
 
 文件格式见 [`flowfile` 包注释](flowfile/)。
 

@@ -202,12 +202,6 @@ func (e *Editor) scanNow() {
 	}
 }
 
-// found adds a file the editor made to those found before the scan does.
-func (e *Editor) found(en entry) {
-	files := slices.DeleteFunc(slices.Clone(e.files.GetUntracked()), func(f entry) bool { return f.path == en.path })
-	e.files.Set(append(files, en))
-}
-
 // scannedFiles takes the files a scan of dir found and what Git says
 // changed in them, and opens those the
 // agent made in its turn: a component only when it made nothing else, so

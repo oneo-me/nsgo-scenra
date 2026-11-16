@@ -95,8 +95,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		})
 		cx.Effect(func() { desktop.SetApplicationMenu(cx, menu(cx, e, settingsOpen)) })
 	} else {
-		cx.OnKey("mod+n", e.NewDesign)
-		cx.OnKey("mod+shift+n", e.NewFlow)
+		cx.OnKey("mod+n", e.NewChat)
 		cx.OnKey("mod+o", e.OpenFolder)
 		cx.OnKey("mod+s", e.Save)
 		cx.OnKey("mod+b", e.TogglePanels)
@@ -121,14 +120,10 @@ func menu(cx *core.Scope, e *scenraview.Editor, settingsOpen *core.Signal[bool])
 			{Role: desktop.MenuQuit},
 		}},
 		{Label: tr.FileMenu(), Items: []desktop.MenuItem{
-			{Label: w.NewDesign(), Shortcut: "mod+n", Disabled: e.Folder() == "", OnSelect: e.NewDesign},
-			{Label: w.NewFlow(), Shortcut: "mod+shift+n", Disabled: e.Folder() == "", OnSelect: e.NewFlow},
-			{Label: w.NewComponent(), Disabled: e.Folder() == "", OnSelect: e.NewComponent},
+			{Label: w.NewChat(), Shortcut: "mod+n", Disabled: e.Folder() == "", OnSelect: e.NewChat},
 			{Label: w.OpenFolder(), Shortcut: "mod+o", OnSelect: e.OpenFolder},
 			{Separator: true},
 			{Label: w.Save(), Shortcut: "mod+s", OnSelect: e.Save},
-			{Separator: true},
-			{Label: w.NewChat(), Shortcut: "mod+alt+n", OnSelect: e.NewChat},
 			{Separator: true},
 			{Role: desktop.MenuClose},
 		}},

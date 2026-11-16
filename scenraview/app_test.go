@@ -249,86 +249,28 @@ func TestHidingThePanelsLeavesTheWindowToTheWorkspace(t *testing.T) {
 	if got := app.Find("id:header").Frame.Size.Width; got != 1280 {
 		t.Fatalf("the header is %v wide, from %v", got, width)
 	}
-	// Making a file shows the sidebar, holding its dialog.
-	app.Post(e.NewDesign)
-	app.WaitFor("id:new-file-dialog", time.Second)
-	app.Find("id:files >> label:home")
-	if !app.Exists("id:composer") {
-		t.Fatal("the assistant stays hidden")
-	}
 }
 
-func TestMakesFilesInTheFolder(t *testing.T) {
-	dir := folderOfFiles(t, map[string]string{"flows/old.scenra": "flow\n"})
+func TestTheHeaderSwitchesADesignAndItsFlow(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"Sign in.scenra":        "design\n",
+		"flows/Sign in.scenra":  "flow\n",
+		"flows/checkout.scenra": "flow\n",
+	})
 	app, e := startEditor(t)
-	openPath(t, app, e, dir)
-	app.WaitFor("id:files >> label:old", time.Second)
-	ask := func(item string) {
-		app.Post(map[string]func(){"new-design": e.NewDesign, "new-flow": e.NewFlow, "new-component": e.NewComponent}[item])
-		app.WaitFor("id:new-file-dialog", time.Second)
-	}
-	create := func(item, name string) {
-		ask(item)
-		app.Type("id:new-file-name", name)
-		app.Press("id:new-file-create")
-		app.Settle()
-	}
-	// A design is made in the folder.
-	create("new-design", "Sign in")
-	if data, err := os.ReadFile(filepath.Join(dir, "Sign in.scenra")); err != nil || string(data) != "design\n" {
-		t.Fatalf("the design: %q %v", data, err)
-	}
-	if got := shownName(app); got != "Sign in" {
-		t.Fatalf("the header names %q", got)
-	}
-	app.Find("id:files >> label:Sign in")
-	app.WaitForGone("id:new-file-dialog", time.Second)
-	// A name in use, or one holding a folder, is refused.
-	for _, name := range []string{"Sign in.scenra", "flows/Sign in"} {
-		create("new-design", name)
-		app.Find("id:new-file-problem")
-		app.Press("id:new-file-cancel")
-		app.WaitForGone("id:new-file-dialog", time.Second)
-	}
-	// A new flow is the design's, in the flows folder, which the header
-	// switches to.
-	ask("new-flow")
-	if got := app.Find("id:new-file-name").Text; got != "Sign in" {
-		t.Fatalf("the flow is named %q", got)
-	}
-	app.Press("id:new-file-create")
-	app.Settle()
-	if data, err := os.ReadFile(filepath.Join(dir, "flows", "Sign in.scenra")); err != nil || string(data) != "flow\n" {
-		t.Fatalf("the design's flow: %q %v", data, err)
-	}
-	app.WaitUntil(time.Second, func() bool { return slices.Equal(fileNames(app), []string{"old", "Sign in", "Sign in"}) })
-	if e.rel(e.cur().path) != "flows/Sign in.scenra" {
-		t.Fatalf("the new flow does not show: %q", e.cur().path)
+	openPath(t, app, e, filepath.Join(dir, "Sign in.scenra"))
+	app.WaitFor("id:pair", time.Second)
+	app.Press("id:pair-flow")
+	if got := e.rel(e.cur().path); got != "flows/Sign in.scenra" {
+		t.Fatalf("the switch showed %q", got)
 	}
 	app.Press("id:pair-design")
 	if got := e.rel(e.cur().path); got != "Sign in.scenra" {
 		t.Fatalf("the switch showed %q", got)
 	}
-	app.Press("id:pair-flow")
-	if got := e.rel(e.cur().path); got != "flows/Sign in.scenra" {
-		t.Fatalf("the switch showed %q", got)
-	}
-	// A component goes in the components folder.
-	create("new-component", "tab-bar")
-	if data, err := os.ReadFile(filepath.Join(dir, "components", "tab-bar.scenra")); err != nil || string(data) != "component\n" {
-		t.Fatalf("the component: %q %v", data, err)
-	}
-	if app.Exists("id:files >> label:tab-bar") {
-		t.Fatal("the sidebar lists the component")
-	}
-	app.Find("id:sidebar-components")
-	// A flow goes in the flows folder whatever shows.
-	app.Press("id:files >> label:old")
-	create("new-flow", "checkout")
-	if data, err := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); err != nil || string(data) != "flow\n" {
-		t.Fatalf("the flow: %q %v", data, err)
-	}
-	app.Find("id:files-flows >> label:checkout")
+	// A flow without its design does not switch.
+	app.Press("id:files-flows >> label:checkout")
+	app.Settle()
 	if app.Exists("id:pair") {
 		t.Fatal("a flow without its design switches")
 	}

@@ -76,9 +76,6 @@ var supplied = map[string]Translation{}
 // The indexes of the messages without arguments in the tables.
 const (
 	textEdited = iota
-	textNewDesign
-	textNewFlow
-	textNewComponent
 	textDesign
 	textFlow
 	textDesignOrFlow
@@ -89,10 +86,6 @@ const (
 	textFiles
 	textFilesEmpty
 	textExpand
-	textFileName
-	textFileExists
-	textFileNameInvalid
-	textCreate
 	textSettings
 	textZoomIn
 	textZoomOut
@@ -106,7 +99,6 @@ const (
 	textRemoveChat
 	textEmptyTitle
 	textEmptyDetail
-	textCancel
 	textStatusTodo
 	textStatusDoing
 	textStatusDone
@@ -139,9 +131,6 @@ const (
 // index, by which Supply reads a Translation's Texts.
 var keyOfText = [numTexts]string{
 	"edited",
-	"newDesign",
-	"newFlow",
-	"newComponent",
 	"design",
 	"flow",
 	"designOrFlow",
@@ -152,10 +141,6 @@ var keyOfText = [numTexts]string{
 	"files",
 	"filesEmpty",
 	"expand",
-	"fileName",
-	"fileExists",
-	"fileNameInvalid",
-	"create",
 	"settings",
 	"zoomIn",
 	"zoomOut",
@@ -169,7 +154,6 @@ var keyOfText = [numTexts]string{
 	"removeChat",
 	"emptyTitle",
 	"emptyDetail",
-	"cancel",
 	"statusTodo",
 	"statusDoing",
 	"statusDone",
@@ -200,23 +184,16 @@ var keyOfText = [numTexts]string{
 // textsEn are the messages without arguments in en.
 var textsEn = i18n.NewTexts(""+
 	"Edited"+
-	"New Design"+
-	"New Flow"+
-	"New Component"+
 	"Design"+
 	"Flow"+
 	"Design or Flow"+
 	"Open Folder…"+
 	"Save"+
 	"Open a folder to design an app in its Scenra files, a design or a flow chart each."+
-	"Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow."+
+	"Choose a file in the sidebar, or ask the assistant to design an app or draw a flow."+
 	"Files"+
 	"The designs and flows of this folder appear here."+
 	"Expand"+
-	"Name"+
-	"A file of that name exists in this folder."+
-	"A name cannot be empty, start with a dot or hold slashes."+
-	"Create"+
 	"Settings…"+
 	"Zoom In"+
 	"Zoom Out"+
@@ -230,7 +207,6 @@ var textsEn = i18n.NewTexts(""+
 	"Delete Conversation"+
 	"Let's design an app together"+
 	"Describe an app or a process, and the assistant asks what it needs and draws its designs and flows in this folder."+
-	"Cancel"+
 	"To do"+
 	"In progress"+
 	"Done"+
@@ -258,22 +234,15 @@ var textsEn = i18n.NewTexts(""+
 	"Default",
 	[]uint16{
 		6,
-		10,
-		8,
-		13,
 		6,
 		4,
 		14,
 		14,
 		4,
 		82,
-		93,
+		83,
 		5,
 		49,
-		6,
-		4,
-		42,
-		57,
 		6,
 		11,
 		7,
@@ -288,7 +257,6 @@ var textsEn = i18n.NewTexts(""+
 		19,
 		28,
 		114,
-		6,
 		5,
 		11,
 		4,
@@ -319,23 +287,16 @@ var textsEn = i18n.NewTexts(""+
 // textsZhHans are the messages without arguments in zh-Hans.
 var textsZhHans = i18n.NewTexts(""+
 	"已编辑"+
-	"新建设计"+
-	"新建流程"+
-	"新建组件"+
 	"设计"+
 	"流程"+
 	"设计或流程"+
 	"打开文件夹…"+
 	"保存"+
 	"打开一个文件夹，在其中的 Scenra 文件里设计应用，每个文件是一张设计图或一张流程图。"+
-	"在侧边栏选择一个文件、新建一个，或让助手设计应用、绘制流程。"+
+	"在侧边栏选择一个文件，或让助手设计应用、绘制流程。"+
 	"文件"+
 	"这个文件夹中的设计和流程会出现在这里。"+
 	"展开"+
-	"名称"+
-	"这个文件夹中已有同名文件。"+
-	"名称不能为空、不能以点开头，也不能包含斜杠。"+
-	"创建"+
 	"设置…"+
 	"放大"+
 	"缩小"+
@@ -349,7 +310,6 @@ var textsZhHans = i18n.NewTexts(""+
 	"删除对话"+
 	"一起来设计应用"+
 	"描述一个应用或流程，助手会询问所需的细节，并在这个文件夹中画出它的设计和流程。"+
-	"取消"+
 	"待办"+
 	"进行中"+
 	"已完成"+
@@ -377,22 +337,15 @@ var textsZhHans = i18n.NewTexts(""+
 	"默认",
 	[]uint16{
 		9,
-		12,
-		12,
-		12,
 		6,
 		6,
 		15,
 		18,
 		6,
 		119,
-		90,
+		75,
 		6,
 		57,
-		6,
-		6,
-		39,
-		66,
 		6,
 		9,
 		6,
@@ -407,7 +360,6 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		21,
 		117,
-		6,
 		6,
 		9,
 		9,
@@ -542,27 +494,6 @@ func Edited(cx *core.Scope) string { return For(cx).Edited() }
 // Edited is the package's Edited in the language of msgs.
 func (msgs Messages) Edited() string { return msgs.text(textEdited) }
 
-// NewDesign says "New Design"
-// in the language the app shows under cx.
-func NewDesign(cx *core.Scope) string { return For(cx).NewDesign() }
-
-// NewDesign is the package's NewDesign in the language of msgs.
-func (msgs Messages) NewDesign() string { return msgs.text(textNewDesign) }
-
-// NewFlow says "New Flow"
-// in the language the app shows under cx.
-func NewFlow(cx *core.Scope) string { return For(cx).NewFlow() }
-
-// NewFlow is the package's NewFlow in the language of msgs.
-func (msgs Messages) NewFlow() string { return msgs.text(textNewFlow) }
-
-// NewComponent says "New Component"
-// in the language the app shows under cx.
-func NewComponent(cx *core.Scope) string { return For(cx).NewComponent() }
-
-// NewComponent is the package's NewComponent in the language of msgs.
-func (msgs Messages) NewComponent() string { return msgs.text(textNewComponent) }
-
 // Design says "Design"
 // in the language the app shows under cx.
 func Design(cx *core.Scope) string { return For(cx).Design() }
@@ -605,7 +536,7 @@ func NoFolder(cx *core.Scope) string { return For(cx).NoFolder() }
 // NoFolder is the package's NoFolder in the language of msgs.
 func (msgs Messages) NoFolder() string { return msgs.text(textNoFolder) }
 
-// NoFileOpen says "Choose a file in the sidebar, make one, or ask the assistant to design an app or draw a flow."
+// NoFileOpen says "Choose a file in the sidebar, or ask the assistant to design an app or draw a flow."
 // in the language the app shows under cx.
 func NoFileOpen(cx *core.Scope) string { return For(cx).NoFileOpen() }
 
@@ -632,34 +563,6 @@ func Expand(cx *core.Scope) string { return For(cx).Expand() }
 
 // Expand is the package's Expand in the language of msgs.
 func (msgs Messages) Expand() string { return msgs.text(textExpand) }
-
-// FileName says "Name"
-// in the language the app shows under cx.
-func FileName(cx *core.Scope) string { return For(cx).FileName() }
-
-// FileName is the package's FileName in the language of msgs.
-func (msgs Messages) FileName() string { return msgs.text(textFileName) }
-
-// FileExists says "A file of that name exists in this folder."
-// in the language the app shows under cx.
-func FileExists(cx *core.Scope) string { return For(cx).FileExists() }
-
-// FileExists is the package's FileExists in the language of msgs.
-func (msgs Messages) FileExists() string { return msgs.text(textFileExists) }
-
-// FileNameInvalid says "A name cannot be empty, start with a dot or hold slashes."
-// in the language the app shows under cx.
-func FileNameInvalid(cx *core.Scope) string { return For(cx).FileNameInvalid() }
-
-// FileNameInvalid is the package's FileNameInvalid in the language of msgs.
-func (msgs Messages) FileNameInvalid() string { return msgs.text(textFileNameInvalid) }
-
-// Create says "Create"
-// in the language the app shows under cx.
-func Create(cx *core.Scope) string { return For(cx).Create() }
-
-// Create is the package's Create in the language of msgs.
-func (msgs Messages) Create() string { return msgs.text(textCreate) }
 
 // Settings says "Settings…"
 // in the language the app shows under cx.
@@ -839,13 +742,6 @@ func EmptyDetail(cx *core.Scope) string { return For(cx).EmptyDetail() }
 
 // EmptyDetail is the package's EmptyDetail in the language of msgs.
 func (msgs Messages) EmptyDetail() string { return msgs.text(textEmptyDetail) }
-
-// Cancel says "Cancel"
-// in the language the app shows under cx.
-func Cancel(cx *core.Scope) string { return For(cx).Cancel() }
-
-// Cancel is the package's Cancel in the language of msgs.
-func (msgs Messages) Cancel() string { return msgs.text(textCancel) }
 
 // StatusTodo says "To do"
 // in the language the app shows under cx.

@@ -9,7 +9,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | `flowfile/` | The Scenra file format: a design's elements or a flow's nodes and edges, parsing, canonical formatting and edits. Its package comment is the format's reference. |
 | `scenraview/` | The `Editor` an app opens a folder of Scenra files in, and its views: `Window`, or the `Header`, `Sidebar`, `Workspace` and `Assistant` it lays out. |
 | `scenraview/editor.go`, `folder.go`, `header.go`, `diagram.go` | The open folder and the files found in it, the document shown and its history, the header switching a design and its flow, and the flow chart. |
-| `scenraview/sidebar.go`, `mockup.go`, `icons.go`, `comments.go` | The list of the folder's Flows group and grouped designs and the new file dialog, the drawing and playing of a design, and the comments and notes on its elements. |
+| `scenraview/sidebar.go`, `mockup.go`, `icons.go`, `comments.go` | The list of the folder's Flows group and grouped designs, the drawing and playing of a design, and the comments and notes on its elements. |
 | `scenraview/showcase.go`, `gitdiff.go` | The folder's components drawn together, and the lines Git says its files changed. |
 | `scenraview/outlet.go`, `layout.go` | The designs filling others' outlets, and the folder's designs laid out unseen for agents. |
 | `scenraview/assistant.go`, `files.go` | The folder's conversations, run by an Agio backend and kept to resume, and the files read again as agents write them. |
@@ -48,6 +48,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 - The flow file names icons by their Lucide names, or older ones it maps to them, as `flowfile` cannot import NSGo. `tools/iconsgen`, run by `go generate` after updating NSGo, writes every name NSGo's Lucide package has into `flowfile` and the map from names to icons into `scenraview`.
 - The flow pane keeps a diagram for each index of a file's flows, following the document shown instead of remounting per file, and the design covers it while a design shows.
 - The chart fits only once a change's batch is over: remounting a chart, or fitting it while it takes new data, trips NSGo's commit check on macOS.
+- Files are made only by agents, as the skill teaches where each kind goes and what it holds, so the editor has no way to make one and ⌘N starts a conversation instead.
 - A folder's conversations work in it with Agio's full access there, as a design and its flows are made together. Agio persists nothing, so the editor keeps by folder what resumes those whose agents started a session, and opening the folder again resumes them and shows the latest; leaving it stops their agents.
 - User-visible words live in `locales/`, in both languages.
 - Statistics never carry document content, messages or paths. `nsgo dev` builds and test binaries send none.
@@ -56,13 +57,13 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 
 **Assistant turn.** Sending a message saves the documents and sends the message to the folder's conversation, whose agent asks the server what the user sees, reads and writes the files and makes new ones. The editor looks at the open files a few times a second and reads a changed one again into its document as a change of the running turn; the server's answer reads them and scans the folder first, so the agent hears of what it just wrote.
 
-**Files.** The app opens a folder, from the picker, the Finder or the command line; opening a file opens the folder holding it unless it is in the open one. Choosing a file in the sidebar, or its pair in the header, saves the document shown and parses the file in its place. A new file is named in a dialog and made at the folder's top, or a flow in `flows/` and a component in `components/`; a new flow takes the shown design's name. A document saves to the path it was opened from, in the canonical form, so `#` comments in a hand-written file are dropped.
+**Files.** The app opens a folder, from the picker, the Finder or the command line; opening a file opens the folder holding it unless it is in the open one. Choosing a file in the sidebar, or its pair in the header, saves the document shown and parses the file in its place. A document saves to the path it was opened from, in the canonical form, so `#` comments in a hand-written file are dropped.
 
 **Statistics.** Release builds send an Umami pageview at start, an event per message sent and heartbeats while the chart or the conversation changes. A queue on its own goroutine posts them and drops failures.
 
 ## Data and state
 
-Settings, the naming model's API key among them, the open folder, the path of the file shown, each folder's conversations as their agents' sessions, choices and titles, and the install's random statistics ID live in NSGo's storage on the device; the transcripts stay in the agents' own sessions. Documents live only in the folder's files.
+Settings, the naming model's API key among them, the open folder, the path of the file shown, each folder's conversations as their agents' sessions, choices and titles, the agent, model and settings chosen last, which new conversations start with, and the install's random statistics ID live in NSGo's storage on the device; the transcripts stay in the agents' own sessions. Documents live only in the folder's files.
 
 ## Verification
 
