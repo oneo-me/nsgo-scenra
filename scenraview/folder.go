@@ -12,31 +12,31 @@ import (
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
 
-// flowSuffix ends the name of a design's flow, which lives beside it:
-// sign-in-flow.scenra is the flow of sign-in.scenra.
-const flowSuffix = "-flow"
+// flowsDir is the folder of a project's flows, at its top and without
+// folders of its own: flows/sign-in.scenra is the flow of sign-in.scenra.
+const flowsDir = "flows"
 
-// fileName is the file name of the design or flow named name.
-func fileName(name string, kind flowfile.Kind) string {
-	if kind == flowfile.Chart {
-		return name + flowSuffix + ".scenra"
+// flowPath is the path of the flow named name, relative to the open
+// folder, with slashes.
+func flowPath(name string) string { return flowsDir + "/" + name + ".scenra" }
+
+// isFlowFile says the file at path, relative to the open folder with
+// slashes, is a file of the flows folder, which the sidebar keeps at its
+// top.
+func isFlowFile(path string) bool {
+	rest, ok := strings.CutPrefix(pathpkg.Clean(path), flowsDir+"/")
+	name, scenra := strings.CutSuffix(rest, ".scenra")
+	return ok && scenra && name != "" && !strings.Contains(name, "/")
+}
+
+// pairOf is the design and the flow named alike as the file at path,
+// when it is one of them.
+func pairOf(path string) (design, flow string, ok bool) {
+	if strings.Contains(path, "/") && !isFlowFile(path) {
+		return "", "", false
 	}
-	return name + ".scenra"
-}
-
-// stem is the name of the design that the file at path is or whose flow
-// it is, and flow says it is named as a flow.
-func stem(path string) (name string, flow bool) {
-	name = strings.TrimSuffix(path, ".scenra")
-	trimmed := strings.TrimSuffix(name, flowSuffix)
-	return trimmed, trimmed != name
-}
-
-// pairOf is the design and the flow named alike in the folder of the file
-// at path, which is one of them.
-func pairOf(path string) (design, flow string) {
-	name, _ := stem(path)
-	return name + ".scenra", name + flowSuffix + ".scenra"
+	name := keyName(path)
+	return name + ".scenra", flowPath(name), true
 }
 
 // scanLimit is how many files and folders a scan of the open folder looks
@@ -242,11 +242,12 @@ func (e *Editor) scannedFiles(dir string, files []entry, parts components, docs 
 }
 
 // inLayout says the Scenra file at path, relative to the open folder with
-// slashes, is where a project keeps its files: a design or flow at the
-// folder's top, or a component in its components folder. The editor
-// shows only those, and the server tells agents to move the others.
+// slashes, is where a project keeps its files: a design at the folder's
+// top, a flow in its flows folder or a component in its components
+// folder. The editor shows only those, and the server tells agents to
+// move the others.
 func inLayout(path string) bool {
-	return !strings.Contains(path, "/") || isComponentFile(path)
+	return !strings.Contains(path, "/") || isFlowFile(path) || isComponentFile(path)
 }
 
 // groupOf splits a file's name into the group before its slash, which
@@ -288,65 +289,57 @@ type fileGroup struct {
 	files []entry
 }
 
-// groupFiles groups the designs and flows of files, those in no group
-// first and then the groups by name, each holding its files by the names
-// they show, a flow after its design and in its group, so the two stay
-// together whatever the flow calls itself.
+// groupFiles groups the designs of files, those in no group first and
+// then the groups by name, each holding its files by the names they
+// show.
 func groupFiles(files []entry) []fileGroup {
-	byPath := map[string]entry{}
-	for _, f := range files {
-		byPath[f.path] = f
-	}
-	// owner is the file a file sorts and groups by: a flow's design, when
-	// the folder has it.
-	owner := func(f entry) entry {
-		if design, flow := stem(f.path); flow {
-			if d, ok := byPath[design+".scenra"]; ok {
-				return d
-			}
-		}
-		return f
-	}
 	groups := map[string][]entry{}
 	for _, f := range files {
-		if !inLayout(f.path) || isComponentFile(f.path) {
+		if strings.Contains(f.path, "/") {
 			continue
 		}
-		g, _ := groupOf(owner(f).title())
+		g, _ := groupOf(f.title())
 		groups[g] = append(groups[g], f)
 	}
-	names := slices.SortedFunc(maps.Keys(groups), func(a, b string) int {
-		if c := strings.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
-			return c
-		}
-		return strings.Compare(a, b)
-	})
+	names := slices.SortedFunc(maps.Keys(groups), byName)
 	out := make([]fileGroup, 0, len(names))
 	for _, g := range names {
 		list := groups[g]
 		slices.SortFunc(list, func(a, b entry) int {
-			_, na := groupOf(owner(a).title())
-			_, nb := groupOf(owner(b).title())
-			if c := strings.Compare(strings.ToLower(na), strings.ToLower(nb)); c != 0 {
+			_, na := groupOf(a.title())
+			_, nb := groupOf(b.title())
+			if c := byName(na, nb); c != 0 {
 				return c
 			}
-			sa, _ := stem(owner(a).path)
-			sb, _ := stem(owner(b).path)
-			if c := strings.Compare(sa, sb); c != 0 {
-				return c
-			}
-			// A design's flow follows it.
-			_, fa := stem(a.path)
-			_, fb := stem(b.path)
-			switch {
-			case fa == fb:
-				return strings.Compare(a.path, b.path)
-			case fa:
-				return 1
-			}
-			return -1
+			return strings.Compare(a.path, b.path)
 		})
 		out = append(out, fileGroup{g, list})
 	}
 	return out
+}
+
+// flowEntries are the files of the flows folder among files, by the
+// names they show, whole, as flows are in no group.
+func flowEntries(files []entry) []entry {
+	var out []entry
+	for _, f := range files {
+		if isFlowFile(f.path) {
+			out = append(out, f)
+		}
+	}
+	slices.SortFunc(out, func(a, b entry) int {
+		if c := byName(a.title(), b.title()); c != 0 {
+			return c
+		}
+		return strings.Compare(a.path, b.path)
+	})
+	return out
+}
+
+// byName orders names regardless of case, and then by case.
+func byName(a, b string) int {
+	if c := strings.Compare(strings.ToLower(a), strings.ToLower(b)); c != 0 {
+		return c
+	}
+	return strings.Compare(a, b)
 }

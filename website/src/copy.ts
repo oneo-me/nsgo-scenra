@@ -119,7 +119,7 @@ const en = {
   file: {
     kicker: 'Plain text',
     title: 'A file you can read, diff and commit.',
-    lead: 'Each screen is a .scenra design, with its flow beside it in -flow.scenra: plain text that sits beside the code it describes. Review it in a pull request, edit it by hand, or keep it in version control.',
+    lead: 'Each screen is a .scenra design, with its flow of the same name in flows/: plain text that sits beside the code it describes. Review it in a pull request, edit it by hand, or keep it in version control.',
   },
   privacy: {
     kicker: 'Statistics',
@@ -368,7 +368,7 @@ const zh: typeof en = {
   file: {
     kicker: '纯文本',
     title: '一份能读、能 diff、能提交的文件',
-    lead: '每个界面是一个 .scenra 设计，它的流程就在旁边的 -flow.scenra 里：纯文本，放在它所描述的代码旁边。可以在 pull request 里审阅、手写修改，或者纳入版本控制。',
+    lead: '每个界面是一个 .scenra 设计，它的流程就在 flows/ 里的同名文件中：纯文本，放在它所描述的代码旁边。可以在 pull request 里审阅、手写修改，或者纳入版本控制。',
   },
   privacy: {
     kicker: '使用统计',

@@ -1,8 +1,8 @@
 // Package flowfile reads and writes Scenra files: plain text documents
 // that each hold designs of an app's screens, one component designs
 // share or flow charts, line by line. A folder of them is a project,
-// which keeps its designs and flows at its top and its components in
-// components/, without folders of either.
+// which keeps its designs at its top, its flows in flows/ and its
+// components in components/, without folders of their own.
 //
 //	# A comment runs to the end of the line; indentation is free.
 //	design sign-in name="Sign in" device=phone gap=120  # or tablet, desktop; width=, height= resize it

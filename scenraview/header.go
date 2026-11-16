@@ -1,7 +1,6 @@
 package scenraview
 
 import (
-	"path"
 	"path/filepath"
 	"slices"
 
@@ -42,15 +41,15 @@ func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 		if d == e.blank {
 			return [2]string{}
 		}
-		design, flow := pairOf(e.rel(d.path))
+		design, flow, ok := pairOf(e.rel(d.path))
 		files := e.files.Get()
 		has := func(p string) bool { return slices.ContainsFunc(files, func(f entry) bool { return f.path == p }) }
-		if !has(design) || !has(flow) {
+		if !ok || !has(design) || !has(flow) {
 			return [2]string{}
 		}
 		return [2]string{design, flow}
 	}, func(a, b [2]string) bool { return a == b })
-	showsFlow := func() bool { _, flow := stem(path.Base(e.cur().path)); return flow }
+	showsFlow := func() bool { d := e.cur(); return d != e.blank && isFlowFile(e.rel(d.path)) }
 	toggle := ui.Tabs[bool]{Size: ui.SizeSmall, Label: tr.DesignOrFlow(), TestID: "pair",
 		Options: []ui.Option[bool]{{Value: false, Label: tr.Design(), Icon: lucide.AppWindow, TestID: "pair-design"},
 			{Value: true, Label: tr.Flow(), Icon: lucide.Workflow, TestID: "pair-flow"}},

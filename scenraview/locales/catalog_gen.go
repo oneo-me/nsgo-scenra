@@ -213,7 +213,7 @@ var textsEn = i18n.NewTexts(""+
 	"Expand"+
 	"Name"+
 	"A file of that name exists in this folder."+
-	"A name cannot be empty, start with a dot, hold slashes or end in -flow."+
+	"A name cannot be empty, start with a dot or hold slashes."+
 	"Create"+
 	"Settings…"+
 	"Zoom In"+
@@ -270,7 +270,7 @@ var textsEn = i18n.NewTexts(""+
 		6,
 		4,
 		42,
-		71,
+		57,
 		6,
 		11,
 		7,
@@ -330,7 +330,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"展开"+
 	"名称"+
 	"这个文件夹中已有同名文件。"+
-	"名称不能为空、不能以点开头、不能包含斜杠，也不能以 -flow 结尾。"+
+	"名称不能为空、不能以点开头，也不能包含斜杠。"+
 	"创建"+
 	"设置…"+
 	"放大"+
@@ -387,7 +387,7 @@ var textsZhHans = i18n.NewTexts(""+
 		6,
 		6,
 		39,
-		91,
+		66,
 		6,
 		9,
 		6,
@@ -641,7 +641,7 @@ func FileExists(cx *core.Scope) string { return For(cx).FileExists() }
 // FileExists is the package's FileExists in the language of msgs.
 func (msgs Messages) FileExists() string { return msgs.text(textFileExists) }
 
-// FileNameInvalid says "A name cannot be empty, start with a dot, hold slashes or end in -flow."
+// FileNameInvalid says "A name cannot be empty, start with a dot or hold slashes."
 // in the language the app shows under cx.
 func FileNameInvalid(cx *core.Scope) string { return For(cx).FileNameInvalid() }
 

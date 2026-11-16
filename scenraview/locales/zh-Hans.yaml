@@ -14,7 +14,7 @@ filesEmpty: 这个文件夹中的设计和流程会出现在这里。
 expand: 展开
 fileName: 名称
 fileExists: 这个文件夹中已有同名文件。
-fileNameInvalid: 名称不能为空、不能以点开头、不能包含斜杠，也不能以 -flow 结尾。
+fileNameInvalid: 名称不能为空、不能以点开头，也不能包含斜杠。
 create: 创建
 settings: 设置…
 zoomIn: 放大

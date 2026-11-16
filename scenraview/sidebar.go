@@ -46,18 +46,19 @@ func entryIcon(en entry) func() *core.SVG {
 // together, which no file's path can be.
 const componentsItem = "\x00components"
 
-// sidebar is the open folder's designs and flows in the groups their
-// names give them, in which choosing a file shows it, with the lines Git
-// says each changed, under a row showing its components together, which
-// the list leaves out; or, while no folder is open, a way to open one.
+// sidebar is the open folder's designs in the groups their names give
+// them, in which choosing a file shows it, with the lines Git says each
+// changed, under a row showing its components together, which the list
+// leaves out, and its flows, which are in no group; or, while no folder
+// is open, a way to open one.
 // It holds the dialog naming a new file, which the app's menu or the
 // empty workspace asks for.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	groups := core.NewMemoFunc(cx, func() []fileGroup { return groupFiles(e.files.Get()) }, func(a, b []fileGroup) bool { return false })
-	row := func(cx *core.Scope, en entry) core.Node {
-		_, name := groupOf(en.title())
+	flows := core.NewMemoFunc(cx, func() []entry { return flowEntries(e.files.Get()) }, func(a, b []entry) bool { return false })
+	row := func(cx *core.Scope, en entry, name string) core.Node {
 		return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, MinWidth: core.Pt(0)},
 			Children: []core.Node{
 				ui.IconOf(entryIcon(en), 14, colors.Muted),
@@ -83,12 +84,15 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 		if e.HasComponents() {
 			top.Items = append(top.Items, components)
 		}
+		for _, en := range flows.Get() {
+			top.Items = append(top.Items, ui.SidebarItem{ID: en.path, Text: en.title(), TestID: "file", Content: row(cx, en, en.title())})
+		}
 		out := []ui.SidebarSection{top}
 		for _, g := range gs {
 			var items []ui.SidebarItem
 			for _, en := range g.files {
 				_, name := groupOf(en.title())
-				items = append(items, ui.SidebarItem{ID: en.path, Text: name, TestID: "file", Content: row(cx, en)})
+				items = append(items, ui.SidebarItem{ID: en.path, Text: name, TestID: "file", Content: row(cx, en, name)})
 			}
 			if g.name == "" {
 				out[0].Items = append(out[0].Items, items...)
@@ -176,9 +180,7 @@ func newFileDialog(cx *core.Scope, e *Editor) core.Node {
 			core.Untracked(cx, func() bool {
 				name.Set("")
 				if d := e.shown(); k == flowfile.Chart && d.doc.GetUntracked().Kind == flowfile.Design {
-					if design, flow := stem(d.name()); !flow {
-						name.Set(design)
-					}
+					name.Set(keyName(d.path))
 				}
 				problem.Set("")
 				return true

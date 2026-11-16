@@ -142,14 +142,20 @@ func view(dir string, files []fileView, parts components, pics assets, notes str
 		}
 		return out
 	})
-	section(fmt.Sprintf("Files in folders, which the editor does not show; keep designs and flows at the top of the folder and components in %s/, and group them with their names, such as name=\"Orders/Detail\":", flowfile.ComponentsDir), func(f fileView) []string {
+	section(fmt.Sprintf("Files in folders, which the editor does not show; keep designs at the top of the folder, flows in %s/ and components in %s/, and group designs and components with their names, such as name=\"Orders/Detail\":", flowsDir, flowfile.ComponentsDir), func(f fileView) []string {
 		if inLayout(f.path) {
 			return nil
 		}
 		return []string{f.path}
 	})
+	section(fmt.Sprintf("Flows outside %s/, and designs in it, where the editor does not pair them; keep a design's flow in %s/ under the design's file name:", flowsDir, flowsDir), func(f fileView) []string {
+		if isFlowFile(f.path) == (f.file.Kind == flowfile.Chart) || f.file.Kind == "" || !inLayout(f.path) {
+			return nil
+		}
+		return []string{f.path}
+	})
 	section("Names of groups in groups, which the editor shows ungrouped, as groups do not nest; keep one / in a name:", func(f fileView) []string {
-		if name := f.file.Title(); nestedGroups(name) {
+		if name := f.file.Title(); nestedGroups(name) && !isFlowFile(f.path) {
 			return []string{fmt.Sprintf("%s: name=%q", f.path, name)}
 		}
 		return nil

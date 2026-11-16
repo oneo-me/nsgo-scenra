@@ -14,7 +14,7 @@ filesEmpty: The designs and flows of this folder appear here.
 expand: Expand
 fileName: Name
 fileExists: A file of that name exists in this folder.
-fileNameInvalid: A name cannot be empty, start with a dot, hold slashes or end in -flow.
+fileNameInvalid: A name cannot be empty, start with a dot or hold slashes.
 create: Create
 settings: Settings…
 zoomIn: Zoom In

@@ -487,16 +487,13 @@ var (
 	errName   = errors.New("not a file name")
 )
 
-// create makes a file of kind named name at the top of the open folder,
-// and opens it: name.scenra for a design, and name-flow.scenra for a
-// flow, which is the design name's flow. A component goes in the
-// components folder.
+// create makes a file of kind named name in the open folder, and opens
+// it: name.scenra at its top for a design, and in the flows folder for a
+// flow, which is the design name's flow, or in the components folder for
+// a component.
 func (e *Editor) create(kind flowfile.Kind, name string) error {
 	name = strings.TrimSuffix(strings.TrimSpace(name), ".scenra")
-	if kind == flowfile.Chart {
-		name = strings.TrimSuffix(name, flowSuffix)
-	}
-	if name == "" || strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, ".") || strings.HasSuffix(name, flowSuffix) {
+	if name == "" || strings.ContainsAny(name, `/\`) || strings.HasPrefix(name, ".") {
 		return errName
 	}
 	if kind == flowfile.Component {
@@ -504,10 +501,14 @@ func (e *Editor) create(kind flowfile.Kind, name string) error {
 			return errName
 		}
 	}
-	path := filepath.Join(e.folder.GetUntracked(), fileName(name, kind))
-	if kind == flowfile.Component {
-		path = filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(flowfile.ComponentPath(name)))
+	rel := name + ".scenra"
+	switch kind {
+	case flowfile.Chart:
+		rel = flowPath(name)
+	case flowfile.Component:
+		rel = flowfile.ComponentPath(name)
 	}
+	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(rel))
 	// A new file holds one empty design or flow, as it reads back.
 	f, _ := flowfile.Parse(flowfile.File{Kind: kind}.Format())
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

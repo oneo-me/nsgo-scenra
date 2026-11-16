@@ -122,7 +122,7 @@ const tones = ['indigo', 'green', 'amber', 'green', 'indigo', 'amber'];
       <div class="code-window" dir="ltr">
         <div class="code-bar">
           <span class="code-dots" aria-hidden="true"><span></span><span></span><span></span></span>
-          <span class="code-name">sign-in.scenra · sign-in-flow.scenra</span>
+          <span class="code-name">sign-in.scenra · flows/sign-in.scenra</span>
         </div>
         <pre><code><span class="tok-comment"># sign-in.scenra: the screen.</span>
 <span class="tok-key">design</span> device=phone
@@ -131,7 +131,7 @@ const tones = ['indigo', 'green', 'amber', 'green', 'indigo', 'amber'];
   <span class="tok-key">text</span> <span class="tok-str">"Welcome back"</span> <span class="tok-prop">class</span>=<span class="tok-str">"text-3xl font-bold"</span>
 <span class="tok-key">end</span>
 
-<span class="tok-comment"># sign-in-flow.scenra: what happens on it, beside it.</span>
+<span class="tok-comment"># flows/sign-in.scenra: what happens on it.</span>
 <span class="tok-key">flow</span>
 <span class="tok-key">node</span> tap <span class="tok-str">"Tap Sign in"</span> kind=start
 <span class="tok-key">node</span> check <span class="tok-str">"Check password"</span> kind=decision note=<span class="tok-str">"Lock after 5 tries"</span>

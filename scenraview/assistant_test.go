@@ -421,6 +421,7 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{"plan.scenra": "design\ntext \"x\" class=\"bg-nope\"\nuse card\nuse gone\n" +
 		"image \"Cup\" src=\"assets/cup.png\"\nimage \"Lost\" src=\"assets/lost.jpg\"\nimage \"Stray\" src=\"a/stray.png\"\n",
 		"components/card.scenra": "component\nuse card\n", "stray.scenra": "component\n", "a/nested.scenra": "design\n", "deep.scenra": "design name=\"A/B/C\"\n",
+		"loose-flow.scenra": "flow\n", "flows/screen.scenra": "design\n", "flows/pay.scenra": "flow name=\"A/B/Pay\"\n",
 		"assets/cup.png": "cup", "a/stray.png": "stray"})
 	var e *Editor
 	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
@@ -452,10 +453,15 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		`components/card.scenra: use "card": components use each other`, "stray.scenra: a component outside components/",
 		"which the editor does not show", "- a/nested.scenra\n", `deep.scenra: name="A/B/C"`,
 		`plan.scenra: src "assets/lost.jpg": there is no assets/lost.jpg`,
-		`plan.scenra: src "a/stray.png": put the picture in assets/`} {
+		`plan.scenra: src "a/stray.png": put the picture in assets/`, "where the editor does not pair them",
+		"- loose-flow.scenra\n", "- flows/screen.scenra\n"} {
 		if failed || !strings.Contains(out, want) {
 			t.Fatalf("the view tells nothing of %q: %s", want, out)
 		}
+	}
+	// A flow's name has no groups to nest.
+	if strings.Contains(out, "flows/pay.scenra") {
+		t.Fatalf("the view tells of a flow in its place: %s", out)
 	}
 }
 
@@ -469,7 +475,7 @@ func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
 	pill, _ := flowfile.Parse("component\ntext \"Pill\" note=\"Unused\"\n")
 	flows, _ := flowfile.Parse("flow pay\nnode a\n\nflow refund\nnode b\n")
 	out := view("/p", []fileView{{path: "auth.scenra", file: f, shown: &location{element: "1/0"}}, {path: "home.scenra", file: home},
-		{path: "pay-flow.scenra", file: flows}}, nil, nil, NotesAll)
+		{path: "flows/pay.scenra", file: flows}}, nil, nil, NotesAll)
 	for _, want := range []string{"design auth.scenra open, which holds the designs sign-in, sign-up.", "selected element 0 of design sign-up:",
 		`auth.scenra, design sign-in, element 0: "Warmer"`, `auth.scenra: tap "open #reset": auth.scenra has no design reset`} {
 		if !strings.Contains(out, want) {
@@ -494,7 +500,7 @@ func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
 	if _, taps, _ := strings.Cut(out, "Taps that lead nowhere:"); strings.Contains(taps, "home#top") || strings.Contains(taps, "auth#sign-up") {
 		t.Errorf("taps that lead somewhere are reported:\n%s", out)
 	}
-	out = view("/p", []fileView{{path: "pay-flow.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil, NotesAll)
+	out = view("/p", []fileView{{path: "flows/pay.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil, NotesAll)
 	if !strings.Contains(out, `selected node "b" of flow refund`) || !strings.Contains(out, "which holds the flows pay, refund") {
 		t.Errorf("the view of flows:\n%s", out)
 	}

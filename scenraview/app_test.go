@@ -92,7 +92,7 @@ func TestShowsTheFolderInGroups(t *testing.T) {
 		"home.scenra":             "design\ntext \"Welcome\"\n",
 		"broken.scenra":           "box\n",
 		"cart.scenra":             "design name=\"Shop/Shopping cart\"\ntext \"Cart\"\n",
-		"cart-flow.scenra":        "flow\nnode a \"Pay\"\n",
+		"flows/cart.scenra":       "flow name=\"Shop/Pay\"\nnode a \"Pay\"\n",
 		"deep.scenra":             "design name=\"A/B/Deep\"\n",
 		"screens/old.scenra":      "design\n",
 		".hidden/secret.scenra":   "flow\n",
@@ -107,12 +107,13 @@ func TestShowsTheFolderInGroups(t *testing.T) {
 	if got := app.Find("id:header >> id:folder-name").Text; got != filepath.Base(dir) {
 		t.Fatalf("the header names the folder %q", got)
 	}
-	if got := fileNames(app); !slices.Equal(got, []string{"A/B/Deep", "broken", "home", "plan", "Shopping cart", "cart-flow"}) {
+	if got := fileNames(app); !slices.Equal(got, []string{"Shop/Pay", "A/B/Deep", "broken", "home", "plan", "Shopping cart"}) {
 		t.Fatalf("the sidebar lists %v", got)
 	}
-	// A name's group holds the file, and its design's holds a flow.
+	// A name's group holds a design, while flows stay at the top whatever
+	// their names.
 	app.Find("id:group-Shop >> label:Shopping cart")
-	app.Find("id:group-Shop >> label:cart-flow")
+	app.Find("id:files-top >> label:Shop/Pay")
 	// Files in folders are not the project's.
 	for _, name := range []string{"old", "screens", "secret", "pkg", "notes", "empty", "cart"} {
 		if app.Exists("id:files >> label:" + name) {
@@ -258,7 +259,7 @@ func TestHidingThePanelsLeavesTheWindowToTheWorkspace(t *testing.T) {
 }
 
 func TestMakesFilesInTheFolder(t *testing.T) {
-	dir := folderOfFiles(t, map[string]string{"old.scenra": "flow\n"})
+	dir := folderOfFiles(t, map[string]string{"flows/old.scenra": "flow\n"})
 	app, e := startEditor(t)
 	openPath(t, app, e, dir)
 	app.WaitFor("id:files >> label:old", time.Second)
@@ -282,31 +283,34 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	}
 	app.Find("id:files >> label:Sign in")
 	app.WaitForGone("id:new-file-dialog", time.Second)
-	// A name in use, or one only a flow has, is refused.
-	for _, name := range []string{"Sign in.scenra", "Sign in-flow"} {
+	// A name in use, or one holding a folder, is refused.
+	for _, name := range []string{"Sign in.scenra", "flows/Sign in"} {
 		create("new-design", name)
 		app.Find("id:new-file-problem")
 		app.Press("id:new-file-cancel")
 		app.WaitForGone("id:new-file-dialog", time.Second)
 	}
-	// A new flow is the design's, beside it, which the header switches
-	// to.
+	// A new flow is the design's, in the flows folder, which the header
+	// switches to.
 	ask("new-flow")
 	if got := app.Find("id:new-file-name").Text; got != "Sign in" {
 		t.Fatalf("the flow is named %q", got)
 	}
 	app.Press("id:new-file-create")
 	app.Settle()
-	if data, err := os.ReadFile(filepath.Join(dir, "Sign in-flow.scenra")); err != nil || string(data) != "flow\n" {
+	if data, err := os.ReadFile(filepath.Join(dir, "flows", "Sign in.scenra")); err != nil || string(data) != "flow\n" {
 		t.Fatalf("the design's flow: %q %v", data, err)
 	}
+	app.WaitUntil(time.Second, func() bool { return slices.Equal(fileNames(app), []string{"old", "Sign in", "Sign in"}) })
+	if e.rel(e.cur().path) != "flows/Sign in.scenra" {
+		t.Fatalf("the new flow does not show: %q", e.cur().path)
+	}
 	app.Press("id:pair-design")
-	app.WaitFor("id:files >> label:Sign in-flow", time.Second)
-	if got := shownName(app); got != "Sign in" {
+	if got := e.rel(e.cur().path); got != "Sign in.scenra" {
 		t.Fatalf("the switch showed %q", got)
 	}
 	app.Press("id:pair-flow")
-	if got := shownName(app); got != "Sign in-flow" {
+	if got := e.rel(e.cur().path); got != "flows/Sign in.scenra" {
 		t.Fatalf("the switch showed %q", got)
 	}
 	// A component goes in the components folder.
@@ -318,13 +322,13 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 		t.Fatal("the sidebar lists the component")
 	}
 	app.Find("id:sidebar-components")
-	// Every file goes at the top of the folder.
+	// A flow goes in the flows folder whatever shows.
 	app.Press("id:files >> label:old")
 	create("new-flow", "checkout")
-	if data, err := os.ReadFile(filepath.Join(dir, "checkout-flow.scenra")); err != nil || string(data) != "flow\n" {
+	if data, err := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); err != nil || string(data) != "flow\n" {
 		t.Fatalf("the flow: %q %v", data, err)
 	}
-	app.Find("id:files >> label:checkout-flow")
+	app.Find("id:files-top >> label:checkout")
 	if app.Exists("id:pair") {
 		t.Fatal("a flow without its design switches")
 	}
@@ -339,7 +343,7 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	app.Settle()
 	app.Post(e.Save)
 	app.Settle()
-	if data, _ := os.ReadFile(filepath.Join(dir, "checkout-flow.scenra")); string(data) != "flow direction=right\n" {
+	if data, _ := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); string(data) != "flow direction=right\n" {
 		t.Fatalf("the file was not saved:\n%s", data)
 	}
 }
@@ -532,14 +536,15 @@ func TestADesignIsDrawnAtTheSizeItSets(t *testing.T) {
 	app.WaitUntil(5*time.Second, func() bool { return app.Find("id:design").Frame.Size.Width == 600 })
 }
 
-func TestTheSidebarKeepsAFlowByItsDesign(t *testing.T) {
+func TestTheSidebarKeepsFlowsAtTheTop(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
-		"sign-in.scenra": "design\n", "sign-in-flow.scenra": "flow\n", "sign-in-error.scenra": "design\n", "about.scenra": "design\n",
+		"sign-in.scenra": "design\n", "flows/sign-in.scenra": "flow name=\"Sign in\"\n", "flows/about.scenra": "flow\n",
+		"about.scenra": "design\n", "components/card.scenra": "component\n",
 	})
 	app, e := startEditor(t)
 	openPath(t, app, e, dir)
-	app.WaitFor("id:files >> label:sign-in-error", time.Second)
-	if got := fileNames(app); !slices.Equal(got, []string{"about", "sign-in", "sign-in-flow", "sign-in-error"}) {
+	app.WaitFor("id:files >> label:sign-in", time.Second)
+	if got := fileNames(app); !slices.Equal(got, []string{"about", "Sign in", "about", "sign-in"}) {
 		t.Fatalf("the sidebar lists %v", got)
 	}
 }
@@ -908,7 +913,7 @@ func TestAFileHoldsSeveralDesigns(t *testing.T) {
 }
 
 func TestAFileHoldsSeveralFlows(t *testing.T) {
-	pay := writeFlow(t, "pay-flow.scenra", "flow pay name=\"Pay\" gap=200\nnode card \"Charge card\"\ncard -> receipt\n\n"+
+	pay := writeFlow(t, "flows/pay.scenra", "flow pay name=\"Pay\" gap=200\nnode card \"Charge card\"\ncard -> receipt\n\n"+
 		"flow refund name=\"Refund\" direction=right\nnode ask \"Ask why\"\nask -> back\n")
 	app, e := startEditor(t)
 	openPath(t, app, e, pay)
