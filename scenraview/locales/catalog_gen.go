@@ -128,6 +128,7 @@ const (
 	textTapCloses
 	textTapClosesWindow
 	textShowTaps
+	textFlows
 	textComponents
 	textComponentsEmpty
 	textComponentDefault
@@ -190,6 +191,7 @@ var keyOfText = [numTexts]string{
 	"tapCloses",
 	"tapClosesWindow",
 	"showTaps",
+	"flows",
 	"components",
 	"componentsEmpty",
 	"componentDefault",
@@ -250,6 +252,7 @@ var textsEn = i18n.NewTexts(""+
 	"Closes this screen"+
 	"Closes the window"+
 	"Show What Can Be Tapped"+
+	"Flows"+
 	"Components"+
 	"The components of this folder's components folder show here together."+
 	"Default",
@@ -307,6 +310,7 @@ var textsEn = i18n.NewTexts(""+
 		18,
 		17,
 		23,
+		5,
 		10,
 		69,
 		7,
@@ -367,6 +371,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"关闭这个界面"+
 	"关闭窗口"+
 	"显示可点击的区域"+
+	"流程"+
 	"组件"+
 	"此文件夹 components 中的组件会在这里一起展示。"+
 	"默认",
@@ -424,6 +429,7 @@ var textsZhHans = i18n.NewTexts(""+
 		18,
 		12,
 		24,
+		6,
 		6,
 		63,
 		6,
@@ -1180,6 +1186,13 @@ func ShowTaps(cx *core.Scope) string { return For(cx).ShowTaps() }
 
 // ShowTaps is the package's ShowTaps in the language of msgs.
 func (msgs Messages) ShowTaps() string { return msgs.text(textShowTaps) }
+
+// Flows says "Flows"
+// in the language the app shows under cx.
+func Flows(cx *core.Scope) string { return For(cx).Flows() }
+
+// Flows is the package's Flows in the language of msgs.
+func (msgs Messages) Flows() string { return msgs.text(textFlows) }
 
 // Components says "Components"
 // in the language the app shows under cx.

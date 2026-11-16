@@ -46,11 +46,11 @@ func entryIcon(en entry) func() *core.SVG {
 // together, which no file's path can be.
 const componentsItem = "\x00components"
 
-// sidebar is the open folder's designs in the groups their names give
-// them, in which choosing a file shows it, with the lines Git says each
-// changed, under a row showing its components together, which the list
-// leaves out, and its flows, which are in no group; or, while no folder
-// is open, a way to open one.
+// sidebar is the open folder's flows in a group of their own pinned at
+// its top, over a row showing its components together, which the list
+// leaves out, and its designs in the groups their names give them; in
+// which choosing a file shows it, with the lines Git says each changed;
+// or, while no folder is open, a way to open one.
 // It holds the dialog naming a new file, which the app's menu or the
 // empty workspace asks for.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
@@ -80,12 +80,14 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			}}}
 	sections := func() []ui.SidebarSection {
 		gs := groups.Get()
+		fs := flows.Get()
+		flowSection := ui.SidebarSection{Title: tr.Flows(), Collapsible: true, TestID: "files-flows"}
+		for _, en := range fs {
+			flowSection.Items = append(flowSection.Items, ui.SidebarItem{ID: en.path, Text: en.title(), TestID: "file", Content: row(cx, en, en.title())})
+		}
 		top := ui.SidebarSection{TestID: "files-top"}
 		if e.HasComponents() {
 			top.Items = append(top.Items, components)
-		}
-		for _, en := range flows.Get() {
-			top.Items = append(top.Items, ui.SidebarItem{ID: en.path, Text: en.title(), TestID: "file", Content: row(cx, en, en.title())})
 		}
 		out := []ui.SidebarSection{top}
 		for _, g := range gs {
@@ -100,8 +102,11 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			}
 			out = append(out, ui.SidebarSection{Title: g.name, Items: items, Collapsible: true, TestID: "group-" + g.name})
 		}
-		if len(out[0].Items) == 0 && len(gs) == 0 {
+		if len(out[0].Items) == 0 && len(gs) == 0 && len(fs) == 0 {
 			out[0].Note = core.Text{Content: tr.FilesEmpty(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)}
+		}
+		if len(fs) > 0 {
+			out = append([]ui.SidebarSection{flowSection}, out...)
 		}
 		return out
 	}

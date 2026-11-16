@@ -110,10 +110,10 @@ func TestShowsTheFolderInGroups(t *testing.T) {
 	if got := fileNames(app); !slices.Equal(got, []string{"Shop/Pay", "A/B/Deep", "broken", "home", "plan", "Shopping cart"}) {
 		t.Fatalf("the sidebar lists %v", got)
 	}
-	// A name's group holds a design, while flows stay at the top whatever
-	// their names.
+	// A name's group holds a design, while flows stay in their own group
+	// at the top whatever their names.
 	app.Find("id:group-Shop >> label:Shopping cart")
-	app.Find("id:files-top >> label:Shop/Pay")
+	app.Find("id:files-flows >> label:Shop/Pay")
 	// Files in folders are not the project's.
 	for _, name := range []string{"old", "screens", "secret", "pkg", "notes", "empty", "cart"} {
 		if app.Exists("id:files >> label:" + name) {
@@ -328,7 +328,7 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	if data, err := os.ReadFile(filepath.Join(dir, "flows", "checkout.scenra")); err != nil || string(data) != "flow\n" {
 		t.Fatalf("the flow: %q %v", data, err)
 	}
-	app.Find("id:files-top >> label:checkout")
+	app.Find("id:files-flows >> label:checkout")
 	if app.Exists("id:pair") {
 		t.Fatal("a flow without its design switches")
 	}
@@ -547,6 +547,11 @@ func TestTheSidebarKeepsFlowsAtTheTop(t *testing.T) {
 	if got := fileNames(app); !slices.Equal(got, []string{"about", "Sign in", "about", "sign-in"}) {
 		t.Fatalf("the sidebar lists %v", got)
 	}
+	flows, components := app.Find("id:files-flows").Bounds(), app.Find("id:sidebar-components").Bounds()
+	if flows.Origin.Y >= components.Origin.Y {
+		t.Fatalf("the flows group at %v sits below the components at %v", flows, components)
+	}
+	app.Find("id:files-flows >> label:Sign in")
 }
 
 func TestShowingAnotherFileSavesTheOneShown(t *testing.T) {

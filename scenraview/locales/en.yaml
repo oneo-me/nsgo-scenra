@@ -62,6 +62,7 @@ tapClosesWindow: Closes the window
 tapClosesDesign: "Closes {design}"
 tapShows: "Shows {panel}"
 showTaps: Show What Can Be Tapped
+flows: Flows
 components: Components
 componentsEmpty: The components of this folder's components folder show here together.
 componentDefault: Default
