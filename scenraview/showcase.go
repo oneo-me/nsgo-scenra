@@ -69,8 +69,47 @@ func showcaseScales(sizes []core.Size) []float64 {
 const showcaseGap = 24
 
 // brokenHeight is how high the showcase draws a component that does not
-// parse.
-const brokenHeight = 96
+// parse, and brokenWidth how wide, unless it sets its width.
+const (
+	brokenHeight = 96
+	brokenWidth  = 200
+)
+
+// variantGap is the room between a component and its variants.
+const variantGap = 32
+
+// stillSelection draws screens, drawn from parts and assets, only to
+// show them: nothing selects or plays.
+func stillSelection(cx *core.Scope, screens []flowfile.Screen, parts components, pics assets) selection {
+	play := newPlayer(cx, func() string { return "" })
+	play.scan(screens, parts)
+	return selection{selected: func() string { return "" }, frames: map[string]frame{}, laidOut: core.NewSignal(cx, 0), play: play,
+		parts: parts, assets: pics, choose: func(string) {}, tap: func(flowfile.Tap, int) {}}
+}
+
+// withVariants is drawing, of the component that is f's design at i,
+// with its variants beside it, each over its ID and drawn from still,
+// as only the component itself selects; drawing alone without any.
+func withVariants(cx *core.Scope, f flowfile.File, i int, drawing core.Node, still selection) core.Node {
+	variants := f.Screens[i].Variants
+	if len(variants) == 0 {
+		return drawing
+	}
+	tr := locales.For(cx)
+	colors := ui.ColorsOf(cx)
+	state := func(name string, d core.Node, testID string) core.Node {
+		return core.View{TestID: testID, Style: core.Style{Gap: 8, AlignItems: core.AlignStart}, Children: []core.Node{d,
+			core.Text{Content: name, MaxLines: 1, Style: core.Style{FontSize: 12, LineHeight: 16, FontWeight: ui.Medium}, StyleFunc: ui.Colored(colors.Muted)}}}
+	}
+	states := []core.Node{state(tr.ComponentDefault(), drawing, "variant")}
+	for _, v := range variants {
+		vf := f
+		vf.Screens = slices.Clone(f.Screens)
+		vf.Screens[i].UI = flowfile.Instance(v.Use(f.Screens[i].ID), f.Screens[i].UI)
+		states = append(states, state(v.ID, screenView(cx, vf, i, still), "variant-"+v.ID))
+	}
+	return core.View{Style: core.Style{Direction: core.Row, Gap: variantGap, AlignItems: core.AlignStart}, Children: states}
+}
 
 // showcaseFile is the components of entries as one file of components,
 // each a design drawing its elements of parts at its size, named as the
@@ -83,16 +122,18 @@ func showcaseFile(entries []entry, parts components) flowfile.File {
 		if title == "" {
 			title = keyName(en.path)
 		}
-		f.Screens = append(f.Screens, flowfile.Screen{ID: name, Name: title, Device: en.device, Width: en.width, Height: en.height, UI: parts[name]})
+		s := en.screen()
+		s.ID, s.Name, s.UI = name, title, parts[name]
+		f.Screens = append(f.Screens, s)
 	}
 	return f
 }
 
 // showcasePane is every component of the open folder on one canvas,
-// packed tight under their captions, in whatever order wastes the least
-// room, once each has laid out at the height it needs, and scaled up to the least area
-// showcaseScales gives it. It only shows them: nothing opens, plays or
-// selects here.
+// with its variants, packed tight under their captions, in whatever
+// order wastes the least room, once each has laid out at the size it
+// needs, and scaled up to the least area showcaseScales gives it. It
+// only shows them: nothing opens, plays or selects here.
 func showcasePane(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -100,34 +141,38 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 	entries := core.NewMemoFunc(cx, func() []entry { return componentEntries(e.files.Get()) }, slices.Equal[[]entry])
 	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{parts: e.parts.Get(), assets: e.assets.Get()} },
 		func(a, b lookOf) bool { return sameComponents(a.parts, b.parts) && sameAssets(a.assets, b.assets) })
-	// heights are the heights the components laid out at, by index.
-	heights := core.NewSignalFunc(cx, []core.Points(nil), slices.Equal[[]core.Points])
-	// layout is where each component is in the plane, the size it shows
-	// at and the size of the whole; one not laid out yet counts as high
-	// as it is wide.
-	layout := func(f flowfile.File) ([]core.Point, []core.Size, core.Size) {
-		hs := heights.Get()
+	// measured are the sizes the components laid out at, by index.
+	measured := core.NewSignalFunc(cx, []core.Size(nil), slices.Equal[[]core.Size])
+	// layout is where each component is in the plane, the size it laid
+	// out at, the scale it shows at and the size of the whole; one not
+	// laid out yet counts as wide as it sets, or brokenWidth, and as high
+	// as wide.
+	layout := func(f flowfile.File) ([]core.Point, []core.Size, []float64, core.Size) {
+		ms := measured.Get()
 		sizes := make([]core.Size, len(f.Screens))
 		for i := range f.Screens {
 			w, h := f.Size(i)
-			height := core.Points(h)
-			if i < len(hs) && hs[i] > 0 {
-				height = hs[i]
-			} else if h == 0 {
-				height = core.Points(w)
+			if w == 0 {
+				w = brokenWidth
 			}
-			sizes[i] = core.Size{Width: core.Points(w), Height: height}
+			if h == 0 {
+				h = w
+			}
+			sizes[i] = core.Size{Width: core.Points(w), Height: core.Points(h)}
+			if i < len(ms) && ms[i].Width > 0 && ms[i].Height > 0 {
+				sizes[i] = ms[i]
+			}
 		}
+		scales := showcaseScales(sizes)
 		boxes := make([]core.Size, len(sizes))
-		for i, k := range showcaseScales(sizes) {
-			sizes[i].Width, sizes[i].Height = sizes[i].Width*core.Points(k), sizes[i].Height*core.Points(k)
-			boxes[i] = core.Size{Width: sizes[i].Width, Height: sizes[i].Height + captionRoom}
+		for i, k := range scales {
+			boxes[i] = core.Size{Width: sizes[i].Width * core.Points(k), Height: sizes[i].Height*core.Points(k) + captionRoom}
 		}
 		at, total := packTight(boxes, showcaseGap)
 		for i := range at {
 			at[i].Y += captionRoom
 		}
-		return at, sizes, total
+		return at, sizes, scales, total
 	}
 	file := func() flowfile.File { return showcaseFile(entries.Get(), look.Get().parts) }
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
@@ -139,25 +184,25 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 				core.Text{Content: tr.ComponentsEmpty(), Style: core.Style{FontSize: 13, LineHeight: 19, TextAlign: core.TextAlignCenter, MaxWidth: core.Pt(320)},
 					StyleFunc: ui.Colored(colors.Muted)}}}
 		}
-		if len(heights.GetUntracked()) != len(f.Screens) {
-			heights.Set(make([]core.Points, len(f.Screens)))
+		if len(measured.GetUntracked()) != len(f.Screens) {
+			measured.Set(make([]core.Size, len(f.Screens)))
 		}
-		play := newPlayer(cx, func() string { return "" })
 		look := look.GetUntracked()
-		play.scan(f.Screens, look.parts)
-		sel := selection{selected: func() string { return "" }, frames: map[string]frame{}, laidOut: core.NewSignal(cx, 0), play: play,
-			parts: look.parts, assets: look.assets, choose: func(string) {}, tap: func(flowfile.Tap, int) {}}
+		sel := stillSelection(cx, f.Screens, look.parts, look.assets)
 		// Each draws as its own file does: the component is around its
 		// elements, which cannot use it again.
 		// A component that does not parse shows where it is.
 		list := entries.GetUntracked()
 		var nodes []core.Node
 		for i, screen := range f.Screens {
-			w, _ := f.Size(i)
 			s := sel
 			s.using = []string{screen.ID}
-			drawing := screenView(cx, f, i, s)
+			drawing := withVariants(cx, f, i, screenView(cx, f, i, s), s)
 			if list[i].kind != flowfile.Component {
+				w, _ := f.Size(i)
+				if w == 0 {
+					w = brokenWidth
+				}
 				drawing = core.View{TestID: "showcase-broken-" + screen.ID,
 					Style: core.Style{Width: core.Pt(core.Points(w)), Height: core.Pt(brokenHeight), CornerRadius: 12, BorderWidth: 1,
 						BorderStyle: core.BorderDashed, AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter},
@@ -166,38 +211,42 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 			}
 			nodes = append(nodes,
 				core.Dynamic(func(cx *core.Scope) core.Node {
-					at, sizes, _ := layout(f)
-					return caption(cx, screen.Name, at[i], int(sizes[i].Width), c.Zoom)
+					at, sizes, scales, _ := layout(f)
+					return caption(cx, screen.Name, at[i], int(float64(sizes[i].Width)*scales[i]), c.Zoom)
 				}),
-				// The drawing lays out at its own size, which the scale
-				// grows from the top left corner of its box.
+				// The drawing lays out at its own size, in room wide
+				// enough for any, which the scale grows from the top left
+				// corner of its box.
 				core.View{TestID: "showcase-" + screen.ID,
 					StyleFunc: func() core.Style {
-						at, sizes, _ := layout(f)
+						at, sizes, scales, _ := layout(f)
+						k := core.Points(scales[i])
 						return core.Style{Position: core.Absolute, Left: core.Pt(at[i].X), Top: core.Pt(at[i].Y),
-							Width: core.Pt(sizes[i].Width), Height: core.Pt(sizes[i].Height)}
+							Width: core.Pt(sizes[i].Width * k), Height: core.Pt(sizes[i].Height * k)}
 					},
-					Children: []core.Node{core.View{TestID: "showcase-drawing-" + screen.ID,
+					Children: []core.Node{core.View{PointerEvents: core.PointerEventsNone,
 						StyleFunc: func() core.Style {
-							_, sizes, _ := layout(f)
-							return core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0),
-								Transform:       core.Transform{Scale: float32(sizes[i].Width / core.Points(w))},
+							_, _, scales, _ := layout(f)
+							return core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Width: core.Pt(flowfile.MaxSize),
+								AlignItems:      core.AlignStart,
+								Transform:       core.Transform{Scale: float32(scales[i])},
 								TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pt(0)}}}
 						},
-						OnLayout: func(b core.Bounds) {
-							cx.Post(func() {
-								hs := slices.Clone(heights.GetUntracked())
-								if i < len(hs) && hs[i] != b.Size.Height {
-									hs[i] = b.Size.Height
-									heights.Set(hs)
-								}
-							})
-						},
-						Children: []core.Node{drawing}}}})
+						Children: []core.Node{core.View{TestID: "showcase-drawing-" + screen.ID,
+							OnLayout: func(b core.Bounds) {
+								cx.Post(func() {
+									ms := slices.Clone(measured.GetUntracked())
+									if i < len(ms) && ms[i] != b.Size {
+										ms[i] = b.Size
+										measured.Set(ms)
+									}
+								})
+							},
+							Children: []core.Node{drawing}}}}}})
 		}
 		return core.View{TestID: "showcase",
 			StyleFunc: func() core.Style {
-				_, _, total := layout(f)
+				_, _, _, total := layout(f)
 				return core.Style{Width: core.Pt(total.Width), Height: core.Pt(total.Height)}
 			},
 			Children: nodes}

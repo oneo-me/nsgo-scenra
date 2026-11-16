@@ -129,7 +129,7 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 		self, _ := flowfile.ComponentName(f.path)
 		var out []string
 		for _, s := range f.file.Screens {
-			for _, p := range componentProblems(s.UI, self, parts) {
+			for _, p := range componentProblems(s, self, parts) {
 				out = append(out, f.path+": "+p)
 			}
 		}
@@ -150,7 +150,7 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 	section("Classes that draw nothing:", func(f fileView) []string {
 		var classes []string
 		for _, s := range f.file.Screens {
-			for _, c := range unknownClasses(s.UI) {
+			for _, c := range unknownClasses(s) {
 				if !slices.Contains(classes, c) {
 					classes = append(classes, c)
 				}

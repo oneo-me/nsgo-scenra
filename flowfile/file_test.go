@@ -65,7 +65,7 @@ func TestParseFileErrors(t *testing.T) {
 		"component tabs":                   "unexpected \"tabs\"",
 		"design a\ndesign":                 "line 1: a file of several designs gives each an ID",
 		"flow a\nflow a":                   "two flows have the ID \"a\"",
-		"design \"a b\"":                    "unexpected \"a b\"",
+		"design \"a b\"":                   "unexpected \"a b\"",
 		"design a.b/c":                     "is not an ID",
 		"design\ndesign b gap=10":          "line 2: gap is the file's",
 		"design gap=-4":                    "gap=\"-4\" is not a gap",
@@ -98,6 +98,56 @@ func TestDesignSize(t *testing.T) {
 	}
 	if f, _ := Parse("component width=320\n"); !sizeIs(f, 320, 0) {
 		t.Fatalf("a component 320 wide: %+v", f)
+	}
+	// A component is as large as it needs unless it fills the width.
+	if f, _ := Parse("component device=tablet\n"); !sizeIs(f, 0, 0) {
+		t.Fatalf("a component of no size: %+v", f)
+	}
+	f, err = Parse("component device=tablet width=fill backdrop=\"bg-inset p-2\"\n")
+	if err != nil || !sizeIs(f, 820, 0) || f.Screens[0].Backdrop != "bg-inset p-2" ||
+		f.Format() != "component device=tablet width=fill backdrop=\"bg-inset p-2\"\n" {
+		t.Fatalf("a component filling the width: %v %+v\n%s", err, f, f.Format())
+	}
+}
+
+func TestVariants(t *testing.T) {
+	src := "component\nvariant off\nbox name=track class=\"w-10\"\n  box name=knob\n  end\nend\nvariant on track.class=\"bg-blue-600\" class=\"mt-1\" knob.class=\"ml-auto\"\n"
+	f, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := f.Screens[0]
+	if len(s.Variants) != 2 || s.Variants[1].ID != "on" || s.Variants[1].Attrs["knob.class"] != "ml-auto" {
+		t.Fatalf("variants %+v", s.Variants)
+	}
+	want := "component\nbox name=\"track\" class=\"w-10\"\n  box name=\"knob\"\n  end\nend\nvariant off\nvariant on class=\"mt-1\" knob.class=\"ml-auto\" track.class=\"bg-blue-600\"\n"
+	if f.Format() != want {
+		t.Fatalf("formatted as\n%s", f.Format())
+	}
+	// A variant draws as a use changing the component so would.
+	if got := FormatUI(Instance(s.Variants[1].Use(""), s.UI)); got != "box name=\"track\" class=\"w-10 mt-1 bg-blue-600\"\n  box name=\"knob\" class=\"ml-auto\"\n  end\nend\n" {
+		t.Fatalf("drawn as\n%s", got)
+	}
+	f.Screens[0].Variants = append(f.Screens[0].Variants, Variant{ID: "x", Attrs: map[string]string{"gone.class": "p-1"}})
+	if p := VariantProblems(f.Screens[0], "switch", func(string) ([]Element, bool) { return nil, false }); len(p) != 1 ||
+		!strings.Contains(p[0], "variant x: gone.class=\"p-1\" names nothing: no element of components/switch.scenra has name=gone") {
+		t.Fatalf("problems %v", p)
+	}
+	for src, want := range map[string]string{
+		"component\nvariant":                     "variant needs an ID",
+		"component\nvariant a\nvariant a":        "two variants have the ID \"a\"",
+		"component\nvariant a tap=close":         "a variant takes no tap",
+		"component\nvariant a title":             "unexpected \"title\"",
+		"component\nbox\n  variant a\nend":       "a variant is a line of the component's file, outside its boxes",
+		"design\nvariant a":                      "only a component has variants",
+		"component backdrop=x\nvariant a ti:t=x": "takes no attribute \"ti:t\"",
+	} {
+		if _, err := Parse(src); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: %v, want %q", src, err, want)
+		}
+	}
+	if _, err := Parse("design width=fill\n"); err == nil {
+		t.Error("a design fills a width")
 	}
 }
 
@@ -276,6 +326,15 @@ func TestOverrides(t *testing.T) {
 		"  use \"badge\" name=\"badge\" label=\"Hot\" label.class=\"font-bold\"\nend\n" {
 		t.Fatalf("drawn as\n%s", got)
 	}
+	// The use's classes go to the element at the top of its component,
+	// after its own, or to none when it has several.
+	merged, _ := ParseUI("use card class=\"w-full p-2\"\n")
+	if got := Instance(merged[0], card)[0].Attr("class"); got != "p-4 w-full p-2" {
+		t.Fatalf("the use's classes go to %q", got)
+	}
+	if two := slices.Concat(card, badge); Instance(merged[0], two)[0].Attr("class") != "p-4" {
+		t.Fatal("the use's classes went to one of several elements")
+	}
 	if FormatUI(card) != "box name=\"card\" class=\"p-4\"\n  icon \"coffee\" name=\"icon\" class=\"size-5\"\n  text \"Title\" name=\"title\" class=\"font-bold\"\n  use \"badge\" name=\"badge\"\nend\n" {
 		t.Fatal("drawing a use changed its component")
 	}
@@ -350,15 +409,15 @@ func TestSlots(t *testing.T) {
 		t.Fatalf("problems %v", p)
 	}
 	for src, want := range map[string]string{
-		"fill x\nend":                                "fill fills a slot of the component a use draws",
-		"text a\nfill x\nend":                        "put it right after the use",
-		"use a\n  fill x\n  end\nend\nfill y\nend":   "put it right after the use",
-		"use a\n  fill x\n  end\n  text b\nend":      "a use holds only fill lines",
+		"fill x\nend":         "fill fills a slot of the component a use draws",
+		"text a\nfill x\nend": "put it right after the use",
+		"use a\n  fill x\n  end\nend\nfill y\nend":     "put it right after the use",
+		"use a\n  fill x\n  end\n  text b\nend":        "a use holds only fill lines",
 		"use a\n  fill x\n  end\n  fill x\n  end\nend": "the use fills slot x twice",
 		"use a\n  fill\n  end\n  fill\n  end\nend":     "the use fills the default slot twice",
-		"use a\n  fill x class=p-2\n  end\nend":       "fill takes no attribute \"class\"",
-		"use a\n  fill x\n  end":                      "use has no end",
-		"slot \"a b\"\nend":                           "is not a name",
+		"use a\n  fill x class=p-2\n  end\nend":        "fill takes no attribute \"class\"",
+		"use a\n  fill x\n  end":                       "use has no end",
+		"slot \"a b\"\nend":                            "is not a name",
 	} {
 		if _, err := ParseUI(src); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%q: %v, want %q", src, err, want)

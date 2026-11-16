@@ -340,7 +340,7 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"home.scenra":                "design\nbox class=\"flex-1\"\n  text \"Welcome\"\n  use tab-bar class=\"mt-auto\"\n  use gone\nend\n",
-		"components/tab-bar.scenra":  "component\nbox class=\"flex-row\"\n  use nav/item\n  text \"Orders\"\nend\n",
+		"components/tab-bar.scenra":  "component width=fill\nbox class=\"flex-row\"\n  use nav/item\n  text \"Orders\"\nend\n",
 		"components/nav/item.scenra": "component\ntext \"Home tab\"\n",
 		"components/loop.scenra":     "component\nuse loop\n",
 	})
@@ -356,11 +356,18 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	// Editing a component redraws the designs using it.
 	os.WriteFile(filepath.Join(dir, "components", "nav", "item.scenra"), []byte("component\ntext \"Menu tab\"\n"), 0o644)
 	app.WaitFor("design >> text:Menu tab", 5*time.Second)
-	// A component opens on its own, at its device's width.
+	// A component opens on its own, at its device's width when it fills
+	// the width, and else as large as it needs.
 	openComponent(t, app, e, dir, "tab-bar")
 	app.WaitFor("design >> text:Orders", time.Second)
-	if w := app.Find("id:design").Frame.Size.Width; w != 390 {
+	if w := app.Find("id:component-0").Frame.Size.Width; w != 390 {
 		t.Fatalf("the component is %v wide", w)
+	}
+	app.Find("id:component-0 >> id:component-outline")
+	openComponent(t, app, e, dir, "nav/item")
+	app.WaitFor("design >> text:Menu tab", time.Second)
+	if w, text := app.Find("id:component-0").Frame.Size.Width, app.Find("id:element-0/0").Frame.Size.Width; w != text {
+		t.Fatalf("the component is %v wide around a text %v wide", w, text)
 	}
 	openComponent(t, app, e, dir, "loop")
 	app.WaitFor("id:element-0/0", time.Second)
@@ -377,7 +384,7 @@ func TestImagesShowThePicturesOfTheAssetsFolder(t *testing.T) {
 	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
 	picture := func(sel string) string { return string(app.Find(sel).Image.Source.Data) }
 	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0/0") == "latte" })
-	if got := picture("id:element-0/2:0"); got != "mocha" {
+	if got := picture("id:element-0/2"); got != "mocha" {
 		t.Fatalf("the use shows %q", got)
 	}
 	if app.Find("id:element-0/1").Image.Source.Data != nil {
@@ -386,6 +393,38 @@ func TestImagesShowThePicturesOfTheAssetsFolder(t *testing.T) {
 	// Changing a picture redraws the designs showing it.
 	os.WriteFile(filepath.Join(dir, "assets", "latte.png"), []byte("latte art"), 0o644)
 	app.WaitUntil(5*time.Second, func() bool { return picture("id:element-0/0") == "latte art" })
+}
+
+func TestAUseDrawsAsTheElementAtTheTopOfItsComponent(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra": "design\nbox class=\"flex-1 items-center\"\n  use composer class=\"w-full max-w-2xl\"\n  box class=\"h-10 w-full max-w-2xl\"\n  end\n" +
+			"  use pair class=\"w-full\"\nend\n",
+		"components/composer.scenra": "component\nbox class=\"h-10 w-20 flex-row\"\n  text \"Ask\"\nend\n",
+		"components/pair.scenra":     "component\ntext \"One\"\ntext \"Two\"\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("id:element-0/0.0 >> text:Ask", 5*time.Second)
+	// The use's classes go to the component's box, winning over its own,
+	// so it lays out as the box written in its place.
+	if use, box := app.Find("id:element-0/0.0").Frame, app.Find("id:element-0/0.1").Frame; use.Size != box.Size || use.Origin.X != box.Origin.X {
+		t.Fatalf("the use lays out at %v, the box at %v", use, box)
+	}
+	// A component of several elements is held by a box of the use's
+	// classes.
+	if w := app.Find("id:element-0/0.2").Frame.Size.Width; w != app.Find("id:element-0/0.1").Frame.Size.Width {
+		t.Fatalf("the box holding the pair is %v wide", w)
+	}
+	// Its elements still select the use, outlined where it is.
+	app.Press("design >> text:Ask")
+	if got := e.cur().element.GetUntracked(); got != "0/0.0" {
+		t.Fatalf("pressing inside the component selected %q", got)
+	}
+	app.Settle()
+	use, mark := app.Find("id:element-0/0.0").Frame, app.Find("id:design-selected").Frame
+	if mark.Size.Width != use.Size.Width+4 || mark.Size.Height != use.Size.Height+4 {
+		t.Fatalf("the use is at %v, its outline at %v", use, mark)
+	}
 }
 
 func TestAUseChangesTheNamedElementsOfItsComponent(t *testing.T) {
@@ -613,7 +652,7 @@ func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 		f, _ := readFile(filepath.Join("../examples/coffee-shop", en.path))
 		self, _ := flowfile.ComponentName(en.path)
 		for _, s := range f.Screens {
-			if p := componentProblems(s.UI, self, parts); len(p) > 0 {
+			if p := componentProblems(s, self, parts); len(p) > 0 {
 				t.Errorf("%s: %v", en.path, p)
 			}
 		}
@@ -629,7 +668,7 @@ func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 			t.Fatalf("%s: %v", path, err)
 		}
 		for _, s := range f.Screens {
-			if unknown := unknownClasses(s.UI); len(unknown) > 0 {
+			if unknown := unknownClasses(s); len(unknown) > 0 {
 				t.Errorf("%s: classes that draw nothing: %v", path, unknown)
 			}
 		}

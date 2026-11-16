@@ -44,11 +44,14 @@ func screenLayout(f flowfile.File) ([]core.Point, core.Size) {
 }
 
 // screenBounds is the frame of the design of f at index i in the plane,
-// laid out at origin; a component of no height is as high as it laid
-// out, in measured.
+// laid out at origin; a component of no width or height is as large as
+// it laid out, in measured.
 func screenBounds(f flowfile.File, i int, origin core.Point, measured map[int]core.Size) core.Bounds {
 	w, h := f.Size(i)
 	size := core.Size{Width: core.Points(w), Height: core.Points(h)}
+	if w == 0 {
+		size.Width = measured[i].Width
+	}
 	if h == 0 {
 		size.Height = measured[i].Height
 	}
@@ -318,7 +321,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		var style core.Style
 		var screens []core.Node
 		if !s.Several() {
-			screens = []core.Node{framed(0, screenView(cx, s, 0, sel))}
+			// A component's variants show beside it.
+			screens = []core.Node{withVariants(cx, s, 0, framed(0, screenView(cx, s, 0, sel)), stillSelection(cx, s.Screens, sel.parts, sel.assets))}
 		} else {
 			style.Width, style.Height = core.Pt(total.Width), core.Pt(total.Height)
 			for i, screen := range s.Screens {

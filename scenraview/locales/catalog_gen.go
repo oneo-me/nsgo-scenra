@@ -127,6 +127,7 @@ const (
 	textShowTaps
 	textComponents
 	textComponentsEmpty
+	textComponentDefault
 	numTexts
 )
 
@@ -187,6 +188,7 @@ var keyOfText = [numTexts]string{
 	"showTaps",
 	"components",
 	"componentsEmpty",
+	"componentDefault",
 }
 
 // textsEn are the messages without arguments in en.
@@ -244,7 +246,8 @@ var textsEn = i18n.NewTexts(""+
 	"Closes this screen"+
 	"Show What Can Be Tapped"+
 	"Components"+
-	"The components of this folder's components folder show here together.",
+	"The components of this folder's components folder show here together."+
+	"Default",
 	[]uint16{
 		6,
 		10,
@@ -300,6 +303,7 @@ var textsEn = i18n.NewTexts(""+
 		23,
 		10,
 		69,
+		7,
 	})
 
 // textsZhHans are the messages without arguments in zh-Hans.
@@ -357,7 +361,8 @@ var textsZhHans = i18n.NewTexts(""+
 	"关闭这个界面"+
 	"显示可点击的区域"+
 	"组件"+
-	"此文件夹 components 中的组件会在这里一起展示。",
+	"此文件夹 components 中的组件会在这里一起展示。"+
+	"默认",
 	[]uint16{
 		9,
 		12,
@@ -413,6 +418,7 @@ var textsZhHans = i18n.NewTexts(""+
 		24,
 		6,
 		63,
+		6,
 	})
 
 // texts returns the messages without arguments in lang, nil for a
@@ -1148,3 +1154,10 @@ func ComponentsEmpty(cx *core.Scope) string { return For(cx).ComponentsEmpty() }
 
 // ComponentsEmpty is the package's ComponentsEmpty in the language of msgs.
 func (msgs Messages) ComponentsEmpty() string { return msgs.text(textComponentsEmpty) }
+
+// ComponentDefault says "Default"
+// in the language the app shows under cx.
+func ComponentDefault(cx *core.Scope) string { return For(cx).ComponentDefault() }
+
+// ComponentDefault is the package's ComponentDefault in the language of msgs.
+func (msgs Messages) ComponentDefault() string { return msgs.text(textComponentDefault) }

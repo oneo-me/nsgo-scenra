@@ -37,10 +37,11 @@
 //	design sign-up name="Sign up"      # another design of the file
 //	text "Back" tap=close
 //
-//	component device=phone           # in components/tab-bar.scenra
+//	component width=fill backdrop="bg-muted"   # in components/tab-bar.scenra
 //	box class="flex-row border-t border-border px-2 pt-2 pb-7"
 //	  icon house class="size-6" name=home   # a use changes it by name
 //	end
+//	variant store home=store         # a state drawn beside it
 //
 //	use tab-bar home=store home.class="text-amber-600"   # see Instance
 //
@@ -84,15 +85,18 @@
 // primitives, listed in Elements, each shaped by Tailwind CSS classes, so
 // a design can look like anything rather than like the controls of one
 // toolkit. A design is drawn at its device's size unless its line
-// sets width or height in points. A component is drawn like a design, at
-// its device's or its own width and as high as it needs unless it sets a
-// height, and lives in the components folder at the top of
-// the project, so any design or component uses it by its path there; a
-// use is one element, a box holding the component, whatever it holds,
-// and may change the texts, classes, pictures and taps of the elements
-// the component names, as Figma's instances and Sketch's symbols do,
-// and fill the component's slots with elements of its own, which it
-// holds in fills up to its end.
+// sets width or height in points. A component is drawn bare, as large as
+// it needs unless it sets a width, or width=fill for one filling the
+// width where it is used, which shows at its device's width, or a
+// height, on the classes of its backdrop, beside the variants its file
+// declares, states a use could draw. It lives in the components folder
+// at the top of the project, so any design or component uses it by its
+// path there; a use is one element, drawn as the component's element at
+// its top, which takes the use's classes, or else a box holding the
+// component's elements, and may change the texts, classes, pictures and
+// taps of the elements the component names, as Figma's instances and
+// Sketch's symbols do, and fill the component's slots with elements of
+// its own, which it holds in fills up to its end.
 // An image shows a picture of the assets folder at the top of the
 // project, named by its path there, or one at a URL, and else a
 // placeholder its text describes.

@@ -34,6 +34,8 @@ func TestTheComponentsShowTogether(t *testing.T) {
 		"components/tab-bar.scenra":  "component name=\"Tab bar\"\nbox class=\"flex-row\"\n  use nav/item\n  text \"Orders\"\nend\n",
 		"components/nav/item.scenra": "component width=200\ntext \"Home tab\"\n",
 		"components/card.scenra":     "component\nbox\n  slot\n  end\nend\n",
+		"components/switch.scenra": "component backdrop=\"bg-inset p-1\"\nbox name=track class=\"h-6 w-10 rounded-full bg-zinc-300\"\nend\n" +
+			"variant on track.class=\"bg-blue-600\"\n",
 	})
 	app, e := startEditor(t)
 	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
@@ -49,6 +51,12 @@ func TestTheComponentsShowTogether(t *testing.T) {
 	if w := app.Find("id:showcase-drawing-nav/item").Frame.Size.Width; w != 200 {
 		t.Fatalf("the component is %v wide", w)
 	}
+	// One of no width is as wide as it needs, on its backdrop, outlined,
+	// and its variants show beside it.
+	app.Find("id:showcase-drawing-switch >> id:variant-on >> id:component-outline")
+	if w := app.Find("id:showcase-drawing-switch >> id:variant >> id:element-2/0").Frame.Size.Width; w != 40 {
+		t.Fatalf("the switch is %v wide", w)
+	}
 	// A small one shows larger, to the least area the largest gives it.
 	app.Advance(time.Second)
 	if w := app.Find("id:showcase-nav/item").Frame.Size.Width; w <= 200 {
@@ -60,7 +68,7 @@ func TestTheComponentsShowTogether(t *testing.T) {
 	}
 	// They pack apart at the heights they laid out at.
 	app.Advance(time.Second)
-	ids := []string{"card", "nav/item", "tab-bar"}
+	ids := []string{"card", "nav/item", "switch", "tab-bar"}
 	for i, a := range ids {
 		for _, b := range ids[i+1:] {
 			fa, fb := app.Find("id:showcase-"+a).Frame, app.Find("id:showcase-"+b).Frame

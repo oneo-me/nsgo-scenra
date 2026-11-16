@@ -27,7 +27,7 @@ func TestTheSkillTeachesTheWholeFormat(t *testing.T) {
 		}
 	}
 	words = append(words, "`"+string(flowfile.Component)+"`", "`"+flowfile.ComponentsDir+"/`", "`"+flowfile.AssetsDir+"/`")
-	words = append(words, "name=", "<a>/<b>=")
+	words = append(words, "name=", "<a>/<b>=", "`width=fill`", `backdrop="…"`, "`variant <id>`")
 	for _, a := range flowfile.OverrideAttrs {
 		words = append(words, "`<name>."+a+`="…"`+"`")
 	}

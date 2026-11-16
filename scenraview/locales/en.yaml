@@ -62,3 +62,4 @@ tapShows: "Shows {panel}"
 showTaps: Show What Can Be Tapped
 components: Components
 componentsEmpty: The components of this folder's components folder show here together.
+componentDefault: Default

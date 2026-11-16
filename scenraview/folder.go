@@ -45,13 +45,21 @@ const scanLimit = 20000
 
 // entry is a Scenra file found in the open folder: its path relative to
 // the folder, with slashes, what it holds, no kind when it does not
-// parse, the name it gives itself and the size its first design sets.
+// parse, the name it gives itself and the line of its first design,
+// with a component's variants, read again with the file.
 type entry struct {
-	path          string
-	kind          flowfile.Kind
-	device        string
-	name          string
-	width, height int
+	path string
+	kind flowfile.Kind
+	name string
+	head *flowfile.Screen
+}
+
+// screen is the line of the file's first design, without its elements.
+func (en entry) screen() flowfile.Screen {
+	if en.head == nil {
+		return flowfile.Screen{}
+	}
+	return *en.head
 }
 
 // scanned is what a scan read of a file, kept while the file stays the
@@ -148,8 +156,9 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 			if f, err := readFile(p); err == nil {
 				c.entry.kind, c.entry.name = f.Kind, f.Title()
 				if len(f.Screens) > 0 {
-					c.entry.device = f.Screens[0].Device
-					c.entry.width, c.entry.height = f.Screens[0].Width, f.Screens[0].Height
+					head := f.Screens[0]
+					head.UI = nil
+					c.entry.head = &head
 				}
 				if f.Kind == flowfile.Component && len(f.Screens) > 0 {
 					c.ui = f.Screens[0].UI

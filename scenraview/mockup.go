@@ -44,6 +44,19 @@ type selection struct {
 	// tapping is the tap of the element an element is in, which pressing
 	// it plays.
 	tapping *flowfile.Tap
+	// stand is the use the element drawn is drawn in place of, nil for
+	// any other.
+	stand *standIn
+}
+
+// standIn is a use whose component's element at its top draws in its
+// place: the element lays out where the use is, recording the use's
+// frame, and hides, is selected and is found by tests as the use.
+type standIn struct {
+	at       func(core.Bounds)
+	hide     func() core.Style
+	selected func() bool
+	testID   string
 }
 
 // frame is where an element was laid out in the view of its holder, by
@@ -313,31 +326,48 @@ func (pl *player) showTab(name string, screen int) {
 }
 
 // screenView draws the design of f at index i at its size: its elements
-// stack in its frame, which clips what overflows. A component without a
-// height is as high as it needs.
+// stack in its frame, which clips what overflows. A component is drawn
+// bare rather than as a card, on its backdrop when it sets one, a dashed
+// line marking its bounds, and is as large as it needs where it sets no
+// size.
 func screenView(cx *core.Scope, f flowfile.File, i int, sel selection) core.Node {
 	colors := ui.ColorsOf(cx)
 	w, h := f.Size(i)
+	sel.screen, sel.prefix = i, screenPrefix(i)
+	kids := elements(cx, f.Screens[i].UI, nil, sel)
+	if f.Kind == flowfile.Component {
+		st := core.Style{FlexShrink: 0, AlignSelf: core.AlignStart, FontSize: 15}
+		if w != 0 {
+			st.Width = core.Pt(core.Points(w))
+		}
+		if h != 0 {
+			st.Height, st.Overflow = core.Pt(core.Points(h)), core.Hidden
+		}
+		outline := core.View{TestID: "component-outline", PointerEvents: core.PointerEventsNone,
+			Style: core.Style{Position: core.Absolute, Left: core.Pt(-1), Top: core.Pt(-1), Right: core.Pt(-1), Bottom: core.Pt(-1),
+				BorderWidth: 1, BorderStyle: core.BorderDashed},
+			StyleFunc: func() core.Style { return core.Style{BorderColor: colors.Muted()} }}
+		return core.View{Class: f.Screens[i].Backdrop, Style: st, TestID: "component-" + strconv.Itoa(i),
+			StyleFunc: func() core.Style { return core.Style{Color: colors.Text()} },
+			Children:  append(kids, outline)}
+	}
 	var height core.Length
 	if h != 0 {
 		height = core.Pt(core.Points(h))
 	}
 	radius := core.Points(44)
-	switch {
-	case f.Kind == flowfile.Component:
-		radius = 12
-	case f.Screens[i].Device == "tablet":
+	switch f.Screens[i].Device {
+	case "tablet":
 		radius = 28
-	case f.Screens[i].Device == "desktop":
+	case "desktop":
 		radius = 12
 	}
-	sel.screen, sel.prefix = i, screenPrefix(i)
 	return core.View{Style: core.Style{Width: core.Pt(core.Points(w)), Height: height, CornerRadius: radius, FlexShrink: 0,
 		BorderCurve: core.BorderCurveContinuous, Overflow: core.Hidden, BorderWidth: 1, FontSize: 15},
 		StyleFunc: func() core.Style {
 			return core.Style{Background: colors.Background(), Color: colors.Text(), BorderColor: colors.Border()}
 		},
-		Children: elements(cx, f.Screens[i].UI, nil, sel)}
+		Children: kids}
 }
 
 func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selection) []core.Node {
@@ -356,14 +386,20 @@ func elements(cx *core.Scope, els []flowfile.Element, parent []int, sel selectio
 // of the assets folder or the URL its src names; one without a src, one
 // of a picture the folder lacks, an SVG NSGo cannot read, or a use of a component that is
 // missing or in which it is, draws a placeholder. A use draws its
-// component with what it changes, and the elements of a component
-// select the use; a slot draws what the use's fill of it holds, which
+// component with what it changes, in the use's place when it has one
+// element at its top, and the elements of a component select the use; a slot draws what the use's fill of it holds, which
 // selects itself, or else its own, and in the component's own file an
 // empty slot shows where it is.
 func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) core.Node {
 	class := el.Attr("class")
 	key := sel.prefix + flowfile.FormatPath(path)
+	stand := sel.stand
+	sel.stand = nil
 	layout := func(b core.Bounds) {
+		if stand != nil {
+			stand.at(b)
+			b.Origin = core.Point{}
+		}
 		sel.frames[key] = frame{b, sel.holder}
 		sel.laidOut.Update(func(n int) int { return n + 1 })
 	}
@@ -376,6 +412,12 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		sel.tapping = &t
 		selected = func() bool { return sel.play.leadsTo(t, sel.screen) }
 	}
+	if stand != nil {
+		testID = stand.testID
+		if selected == nil {
+			selected = stand.selected
+		}
+	}
 	press := func(ev core.PressEvent) {
 		if sel.tapping != nil && !ev.Modifiers.Alt {
 			sel.tap(*sel.tapping, sel.screen)
@@ -384,13 +426,20 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		sel.choose(id)
 	}
 	var hide func() core.Style
+	if stand != nil {
+		hide = stand.hide
+	}
 	if el.Attr("panel") != "" {
 		group := groupKey(sel.prefix, path[:len(path)-1])
+		outer := hide
 		hide = func() core.Style {
-			if sel.play.showing(group, el) {
-				return core.Style{}
+			if !sel.play.showing(group, el) {
+				return core.Style{Display: core.DisplayNone}
 			}
-			return core.Style{Display: core.DisplayNone}
+			if outer != nil {
+				return outer()
+			}
+			return core.Style{}
 		}
 	}
 	placeholder := func(icon func() *core.SVG) core.Node {
@@ -445,22 +494,38 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		}
 		return core.SVGView{SVG: doc, Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "use":
-		kids, ok := children()
+		els, in, under, ok := sel.inside(el, path, sel.parts)
 		if !ok {
 			return placeholder(lucide.Component)
 		}
-		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
-			Children: kids}
+		inner := sel
+		inner.scope, inner.holder = in, key
+		if !flowfile.Rooted(els) {
+			return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
+				Children: elements(cx, els, under, inner)}
+		}
+		// The component's element at its top, which took the use's
+		// classes, draws in the use's place.
+		inner.stand = &standIn{testID: testID, hide: hide, selected: selected, at: func(b core.Bounds) {
+			if stand != nil {
+				stand.at(b)
+				b.Origin = core.Point{}
+			}
+			sel.frames[key] = frame{b, sel.holder}
+		}}
+		return element(cx, els[0], append(slices.Clone(under), 0), inner)
 	}
 	return core.Group{}
 }
 
-// componentProblems are what is wrong with the components els use: those
-// missing from the folder, those used inside themselves, directly or
-// through others, the fills of slots they do not have and what uses
-// change in them that is not there. self is the name of the component
-// els are, "" for a design, whose slots are checked too.
-func componentProblems(els []flowfile.Element, self string, parts components) []string {
+// componentProblems are what is wrong with the components the design s
+// uses: those missing from the folder, those used inside themselves,
+// directly or through others, the fills of slots they do not have and
+// what uses change in them that is not there. self is the name of the
+// component s is, "" for a design, whose slots and variants are checked
+// too.
+func componentProblems(s flowfile.Screen, self string, parts components) []string {
+	els := s.UI
 	var out []string
 	// loop is the chain of uses from name back to a component of using,
 	// nil when there is none.
@@ -499,24 +564,43 @@ func componentProblems(els []flowfile.Element, self string, parts components) []
 			out = append(out, flowfile.OverrideProblems(el, find)...)
 		}
 	})
+	if self != "" {
+		out = append(out, flowfile.VariantProblems(s, self, func(name string) ([]flowfile.Element, bool) {
+			if name == self {
+				return els, true
+			}
+			return find(name)
+		})...)
+	}
 	return out
 }
 
-// unknownClasses are the classes of a design's elements that draw
-// nothing.
-func unknownClasses(els []flowfile.Element) []string {
+// unknownClasses are the classes of a design's elements, of a
+// component's backdrop and of what its variants add that draw nothing.
+func unknownClasses(s flowfile.Screen) []string {
 	var out []string
+	add := func(class string) {
+		for _, c := range core.UnknownClasses(class) {
+			if !slices.Contains(out, c) {
+				out = append(out, c)
+			}
+		}
+	}
+	add(s.Backdrop)
 	var walk func(els []flowfile.Element)
 	walk = func(els []flowfile.Element) {
 		for _, el := range els {
-			for _, c := range core.UnknownClasses(el.Attr("class")) {
-				if !slices.Contains(out, c) {
-					out = append(out, c)
-				}
-			}
+			add(el.Attr("class"))
 			walk(el.Children)
 		}
 	}
-	walk(els)
+	walk(s.UI)
+	for _, v := range s.Variants {
+		for key, value := range v.Attrs {
+			if key == "class" || strings.HasSuffix(key, ".class") {
+				add(value)
+			}
+		}
+	}
 	return out
 }

@@ -1,4 +1,4 @@
-component
+component width=fill
 box class="flex-row border-t border-zinc-200 bg-white px-2 pt-2 pb-7"
   box name=home class="group flex-1 items-center gap-1"
     icon house class="size-6 text-zinc-400 group-selected:text-amber-600"

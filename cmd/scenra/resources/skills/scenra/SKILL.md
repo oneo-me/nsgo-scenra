@@ -20,7 +20,7 @@ When a design or flow is about code at hand, read the code first and draw what i
 
 ## Format
 
-A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), and optional `width=` and `height=` in points, 100 to 4000, which replace the device's size where the screen needs another, such as `design device=desktop width=1440 height=900` or a long page; `component`, a piece designs share, with the same `device=`, `width=` and `height=`, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. Any of these lines may take `name="…"`, the name the editor shows, such as `design name="Sign in" device=phone`; the first line's names the file in place of its file name. Give one when a readable title in the user's language says more than the file name, which stays short and in English.
+A file's first line says what it holds: `design`, with `device=` phone (390 by 800 points, the default), tablet (820 by 1080) or desktop (1200 by 760), and optional `width=` and `height=` in points, 100 to 4000, which replace the device's size where the screen needs another, such as `design device=desktop width=1440 height=900` or a long page; `component`, a piece designs share, with `width=`, `width=fill`, `height=`, `device=` and `backdrop=` as Components says, or `flow`, with `direction=down` (the default) to lay it out top to bottom or `direction=right` left to right. Any of these lines may take `name="…"`, the name the editor shows, such as `design name="Sign in" device=phone`; the first line's names the file in place of its file name. Give one when a readable title in the user's language says more than the file name, which stays short and in English.
 
 A file may hold several designs, or several flows, never both: each starts with its own `design` or `flow` line, a blank line after the one before, and then each needs an ID right after the word, letters, digits, `_`, `-` or `.`, unique in the file, such as `design sign-up name="Sign up"`; the editor shows each under its name, or else its ID. A file holds one component. The editor packs a file's designs or flows in rows with the least margin, `gap=` points apart, 80 unless the file's first line sets another from 1 to 2000, such as `design sign-in gap=120`: widen it for large desktop designs or wide flows, and narrow it for small components or a few short flows.
 
@@ -83,7 +83,7 @@ A design is drawn with a few primitives, an element a line, each styled with Tai
 - `icon`: the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*
 - `image`: a picture its text describes: the one `src="…"` names, a file of `assets/` such as `src="assets/latte.jpg"` or a URL, or else a placeholder; size it with classes; see Pictures
 - `svg`: any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox
-- `use`: the component its text names, a file of `components/`, drawn as a box with its classes holding the component's elements; see Components
+- `use`: the component its text names, a file of `components/`, drawn as the component's element, its classes added; see Components
 
 Draw any interface with them, as a designer draws in Figma: buttons, fields, switches, tabs, cards, lists, charts and navigation are boxes, texts, icons and SVG shaped by classes, with exactly the look the app needs. Make designs look like a finished product, with a clear hierarchy, consistent spacing and realistic content, not wireframes.
 
@@ -101,7 +101,7 @@ Keep every picture a design shows in `assets/` at the top of the open folder, as
 
 ## Components
 
-A component is a piece of interface several designs or components share, drawn once in a file of `components/` at the top of the open folder, so changing it changes every screen using it. Its first line is `component`; the rest is elements, as in a design, drawn at its device's width, or its `width=`, and as high as they need unless it sets `height=`. `use <name>` draws the component named by its path in `components/` without `.scenra`: `use tab-bar` draws `components/tab-bar.scenra`, and `use nav/item` draws `components/nav/item.scenra`.
+A component is a piece of interface several designs or components share, drawn once in a file of `components/` at the top of the open folder, so changing it changes every screen using it. Its first line is `component`; the rest is elements, as in a design. The editor draws it bare, outlined, as large as its elements need, so a button shows as a button. Give it `width=` in points for a piece of a fixed width, or `width=fill` for one that fills the width where it is used, such as a list row, a sidebar item or a tab bar, which the editor shows at its `device=`'s width, phone unless set; `height=` fixes its height. `backdrop="…"` gives the classes of what it sits on in the app, such as `backdrop="bg-zinc-100"` for an item of a grey sidebar, so its look and selected state show as they will; its elements draw over it. `use <name>` draws the component named by its path in `components/` without `.scenra`: `use tab-bar` draws `components/tab-bar.scenra`, and `use nav/item` draws `components/nav/item.scenra`.
 
 ```
 # components/tab-bar.scenra
@@ -123,7 +123,7 @@ box class="flex-1 bg-zinc-50"
 end
 ```
 
-- A use is one element: a box with its classes holding the component's elements, so place and size it with classes as any box. It takes no end unless it fills slots.
+- A use is one element: it draws as the component's element at its top, its classes added after that element's, so they win, as React passes `className` to a component's root; `use composer class="w-full max-w-2xl"` lays out as `box class="w-full max-w-2xl"` written there. Give a component one element at its top: one of several draws inside a box with the use's classes. A use takes no end unless it fills slots.
 - Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
 - Components may use other components, and fill their slots with them, never themselves, directly or through others, as `a` using `b` whose fill uses `a`.
 - Write a component as a whole, the same on every screen, and leave what pressing it does to the designs: name the elements a use makes tappable and write no `tap=` in it, as Interactions shows.
@@ -157,6 +157,22 @@ use menu-item title="Mocha" tag.class="hidden"
 - `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.src="…"` replaces an image's picture and `<name>.tap="…"` an element's tap.
 - `<a>/<b>="…"` changes the elements named b of the component the use named a draws, and so on down.
 - Every element of a name changes, so give one name to several elements that show one value. Name the elements that vary between uses, and keep the component's own values realistic: they show where a use changes nothing.
+
+### Variants
+
+A component's file declares its states with `variant <id>` lines after its elements, each changing it as a use would, with `class="…"` and its names: the editor draws every variant beside the component, so a switch's on and off, a button's kinds or a row's selected state show at once, as the props of the code to come.
+
+```
+# components/button.scenra
+component
+box name=button class="h-10 items-center justify-center rounded-lg bg-blue-600 px-4"
+  text "Save" name=label class="font-medium text-white"
+end
+variant secondary button.class="bg-zinc-100" label.class="text-zinc-900"
+variant disabled class="opacity-50"
+```
+
+Uses still write their own changes, such as `use button button.class="bg-zinc-100" label.class="text-zinc-900"`; a variant shows the state, rather than naming it for uses.
 
 ### Slots
 

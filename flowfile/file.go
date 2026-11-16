@@ -49,7 +49,7 @@ const (
 )
 
 // File is a Scenra file's content: designs of screens, a component
-// designs use, drawn at its device's width, or flow charts. A file holds
+// designs use, or flow charts. A file holds
 // one kind, as many designs or flows as it likes but one component, and
 // the editor lays them out side by side, Gap apart unless it is 0.
 type File struct {
@@ -63,12 +63,32 @@ type File struct {
 // editor name it by, needed once a file holds several, the name the
 // editor shows it by, its Device and UI. Width and Height, when set,
 // replace the device's.
+//
+// A component is as large as its elements unless it sets a size, so a
+// button draws as a button; Fill, set by width=fill, says it fills the
+// width where it is used, which its file shows at its device's width.
+// Backdrop is the classes of what it is drawn on, such as the sidebar
+// a row sits in, and Variants the states drawn beside it.
 type Screen struct {
 	ID, Name      string
 	Device        string
 	Width, Height int
+	Fill          bool
+	Backdrop      string
 	UI            []Element
+	Variants      []Variant
 }
+
+// Variant is a state of a component its file draws beside it, such as a
+// switch's on and off or a button's kinds, as a use changing it so
+// draws it: Attrs are a use's class and what it changes by names.
+type Variant struct {
+	ID    string
+	Attrs map[string]string
+}
+
+// Use is the use of the component name drawing v.
+func (v Variant) Use(name string) Element { return Element{Kind: "use", Text: name, Attrs: v.Attrs} }
 
 // Title is the name the first design or flow gives itself, which the
 // editor calls the file by instead of its file name, "" when none.
@@ -91,13 +111,17 @@ func (f File) Spacing() int {
 }
 
 // Size is the size in points the design at i is drawn at: its device's,
-// or the width and height it sets. A component's height is 0 unless set,
-// as it is as high as it needs.
+// or the width and height it sets. A component's width and height are 0
+// unless set, as it is as large as it needs, and its width its device's
+// when it fills.
 func (f File) Size(i int) (w, h int) {
 	s := f.Screens[i]
 	w, h = DeviceSize(s.Device)
 	if f.Kind == Component {
 		h = 0
+		if !s.Fill {
+			w = 0
+		}
 	}
 	if s.Width != 0 {
 		w = s.Width
@@ -156,7 +180,7 @@ var Elements = []ElementSpec{
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
 	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the one src names, a file of the assets folder such as assets/latte.jpg or a URL, or a placeholder; size it with classes"},
 	{Kind: "svg", Doc: "any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox"},
-	{Kind: "use", Doc: "the component its text names, a file of the components folder, drawn as a box with its classes holding the component's elements; fill lines right after it, up to its end, fill the component's slots"},
+	{Kind: "use", Doc: "the component its text names, a file of the components folder, its classes added to the component's element when it has one at its top, which win over its own, or else drawn as a box with its classes holding them; fill lines right after it, up to its end, fill the component's slots"},
 	{Kind: "slot", Holds: true, Doc: "in a component, a box holding what a use's fill of the name its text gives holds, the default slot without one, or else what the slot holds"},
 	{Kind: "fill", Holds: true, Doc: "inside a use, what the slot of its component the text names draws, the default slot without one"},
 }
@@ -409,6 +433,13 @@ func Parse(src string) (File, error) {
 				return msg
 			}
 			return f.header(toks, false)
+		case word == "variant" && f.Kind == Component:
+			if len(ui.open) > 0 {
+				return "a variant is a line of the component's file, outside its boxes"
+			}
+			return f.Screens[0].variant(toks)
+		case word == "variant":
+			return "only a component has variants; draw a design's states as designs of its file"
 		case word == string(Design) || word == string(Component) || word == string(Chart):
 			return fmt.Sprintf("a file holds designs, a component or flows, never two kinds; put the %s in a file of its own", word)
 		case f.Kind == Chart:
@@ -435,6 +466,35 @@ func Parse(src string) (File, error) {
 		return File{}, &Error{1, err.Error()}
 	}
 	return f, nil
+}
+
+// variant reads a variant of the component s, and returns what is wrong
+// with it.
+func (s *Screen) variant(toks []token) string {
+	if len(toks) < 2 || toks[1].quoted || toks[1].eq >= 0 || !ValidID(toks[1].text) {
+		return "variant needs an ID of letters, digits, _, - or ., such as variant secondary"
+	}
+	v := Variant{ID: toks[1].text, Attrs: map[string]string{}}
+	if slices.ContainsFunc(s.Variants, func(o Variant) bool { return o.ID == v.ID }) {
+		return fmt.Sprintf("two variants have the ID %q; give each its own", v.ID)
+	}
+	for _, t := range toks[2:] {
+		key, value, ok := t.attr()
+		switch {
+		case !ok:
+			return fmt.Sprintf("unexpected %q; a variant changes the component as a use does, such as label.class=\"…\"", t.text)
+		case key == "class":
+		case slices.Contains(commonAttrs, key):
+			return fmt.Sprintf("a variant takes no %s; give it class and what a use changes by names", key)
+		default:
+			if _, msg := parseOverride(key, value); msg != "" {
+				return msg
+			}
+		}
+		v.Attrs[key] = value
+	}
+	s.Variants = append(s.Variants, v)
+	return ""
 }
 
 // checkIDs says what is wrong with the IDs of the file's designs or
@@ -502,6 +562,10 @@ func (f *File) header(toks []token, first bool) string {
 				return fmt.Sprintf("unknown device %q; use one of %s", value, strings.Join(Devices, ", "))
 			}
 			s.Device = value
+		case f.Kind == Component && key == "width" && value == "fill":
+			s.Fill = true
+		case f.Kind == Component && key == "backdrop":
+			s.Backdrop = strings.TrimSpace(value)
 		case f.Kind != Chart && (key == "width" || key == "height"):
 			n, err := strconv.Atoi(value)
 			if err != nil || n < MinSize || n > MaxSize {
@@ -519,6 +583,8 @@ func (f *File) header(toks []token, first bool) string {
 			default:
 				return fmt.Sprintf("unknown direction %q; use down or right", value)
 			}
+		case f.Kind == Component:
+			return fmt.Sprintf("unknown attribute %q; a component takes name, device, width, height and backdrop", key)
 		case f.Kind != Chart:
 			return fmt.Sprintf("unknown attribute %q; a %s takes name, device, width and height", key, f.Kind)
 		default:
@@ -538,6 +604,10 @@ func (f File) Clone() File {
 	f.Screens = slices.Clone(f.Screens)
 	for i := range f.Screens {
 		f.Screens[i].UI = cloneElements(f.Screens[i].UI)
+		f.Screens[i].Variants = slices.Clone(f.Screens[i].Variants)
+		for j, v := range f.Screens[i].Variants {
+			f.Screens[i].Variants[j].Attrs = maps.Clone(v.Attrs)
+		}
 	}
 	f.Flows = slices.Clone(f.Flows)
 	for i := range f.Flows {
@@ -602,14 +672,29 @@ func (f File) Format() string {
 		if s.Device != "" && s.Device != "phone" {
 			fmt.Fprintf(&b, " device=%s", s.Device)
 		}
-		if s.Width != 0 {
+		if s.Fill {
+			b.WriteString(" width=fill")
+		} else if s.Width != 0 {
 			fmt.Fprintf(&b, " width=%d", s.Width)
 		}
 		if s.Height != 0 {
 			fmt.Fprintf(&b, " height=%d", s.Height)
 		}
+		if s.Backdrop != "" {
+			fmt.Fprintf(&b, " backdrop=%s", quote(s.Backdrop))
+		}
 		b.WriteByte('\n')
 		formatUI(&b, s.UI, "")
+		for _, v := range s.Variants {
+			b.WriteString("variant " + v.ID)
+			if class, ok := v.Attrs["class"]; ok {
+				fmt.Fprintf(&b, " class=%s", quote(class))
+			}
+			for _, key := range overrideKeys(v.Attrs) {
+				fmt.Fprintf(&b, " %s=%s", key, quote(v.Attrs[key]))
+			}
+			b.WriteByte('\n')
+		}
 	}
 	return b.String()
 }

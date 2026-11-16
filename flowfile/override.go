@@ -99,13 +99,21 @@ func overrideKeys(attrs map[string]string) []string {
 // Instance returns the elements of part, the component use draws, as it
 // draws them: with what it changes changed, and what it changes inside
 // the components those elements use given to them, overriding what they
-// change themselves. part is unchanged.
+// change themselves. The use's classes go to the element at the top of
+// a component of one, after its own so they win, as React's className
+// goes to a component's root: the use draws as it rather than as a box
+// holding it, so w-full and flex-1 work where the use is. part is
+// unchanged.
 func Instance(use Element, part []Element) []Element {
 	overrides := use.Overrides()
-	if len(overrides) == 0 {
+	class := use.Attr("class")
+	if len(overrides) == 0 && (class == "" || !Rooted(part)) {
 		return part
 	}
 	out := cloneElements(part)
+	if class != "" && Rooted(out) {
+		out[0].setAttr("class", "class", class)
+	}
 	var walk func(els []Element)
 	walk = func(els []Element) {
 		for i := range els {
@@ -123,6 +131,10 @@ func Instance(use Element, part []Element) []Element {
 	walk(out)
 	return out
 }
+
+// Rooted says a component of elements part has one at its top, which a
+// use draws in its place.
+func Rooted(part []Element) bool { return len(part) == 1 }
 
 // override changes el as o, which names el first.
 func (el *Element) override(o Override) {
@@ -225,4 +237,19 @@ func overrideProblem(o Override, path []string, name string, els []Element, part
 		}
 	}
 	return ""
+}
+
+// VariantProblems are what is wrong with what the variants of s, the
+// component name, change in it, as OverrideProblems tells of a use's.
+func VariantProblems(s Screen, name string, parts func(name string) ([]Element, bool)) []string {
+	var out []string
+	for _, v := range s.Variants {
+		use := v.Use(name)
+		for _, o := range use.Overrides() {
+			if msg := overrideProblem(o, o.Path, name, Instance(use, s.UI), parts); msg != "" {
+				out = append(out, fmt.Sprintf("variant %s: %s=%s %s", v.ID, o.Key(), quote(o.Value), msg))
+			}
+		}
+	}
+	return out
 }

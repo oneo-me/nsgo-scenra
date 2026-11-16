@@ -34,7 +34,7 @@ func deviceIcon(device string) func() *core.SVG {
 func entryIcon(en entry) func() *core.SVG {
 	switch en.kind {
 	case flowfile.Design:
-		return deviceIcon(en.device)
+		return deviceIcon(en.screen().Device)
 	case flowfile.Component:
 		return lucide.Component
 	case flowfile.Chart:
