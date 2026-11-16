@@ -16,15 +16,16 @@ func statsSwitch(cx *core.Scope) core.Node {
 		Label: locales.For(cx).StatsSend()}
 }
 
-// settingsDialog turns the agents and their models on or off, and the
-// usage statistics.
-func settingsDialog(cx *core.Scope, open *core.Signal[bool], m *chatview.Model) core.Node {
+// settingsDialog turns the agents and their models on or off, sets the
+// model titling conversations, and turns the usage statistics on or off.
+func settingsDialog(cx *core.Scope, open *core.Signal[bool], m *chatview.Model, n *namer) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	return ui.Dialog{Open: open.Get, OnOpenChange: func(o bool, _ base.Reason) { open.Set(o) }, TestID: "settings",
 		Title: tr.SettingsTitle(), Style: core.Style{Width: core.Pt(520)},
 		Children: []core.Node{
 			chatview.Agents{Model: m},
+			namingSection(cx, n),
 			core.View{Style: core.Style{Gap: 4}, Children: []core.Node{
 				ui.Text(tr.StatsSection(), 15, ui.Semibold, colors.Text),
 				core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 12}, Children: []core.Node{

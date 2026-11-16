@@ -42,14 +42,17 @@ func For(cx *core.Scope) Messages {
 // Parameters names the parameters of each message that has some, by
 // its method, for the TSX declarations of the messages
 // (tsx.RegisterMessages).
-var Parameters = map[string][]string{}
+var Parameters = map[string][]string{
+	"NamingFailed": {"error_"},
+}
 
 // Translation is a language's messages another package supplies:
 // those without arguments in Texts, by key, and a function for each
 // of the others; a key or a field left out leaves the message to the
 // catalog.
 type Translation struct {
-	Texts map[string]string
+	Texts        map[string]string
+	NamingFailed func(error_ string) string
 }
 
 var supplied = map[string]Translation{}
@@ -64,6 +67,13 @@ const (
 	textRedoChange
 	textSettingsTitle
 	textDone
+	textNamingSection
+	textNamingDetail
+	textNamingURL
+	textNamingKey
+	textNamingKeyPlaceholder
+	textNamingModel
+	textNamingModelPlaceholder
 	textStatsSection
 	textStatsSend
 	textStatsDetail
@@ -81,6 +91,13 @@ var keyOfText = [numTexts]string{
 	"redoChange",
 	"settingsTitle",
 	"done",
+	"namingSection",
+	"namingDetail",
+	"namingURL",
+	"namingKey",
+	"namingKeyPlaceholder",
+	"namingModel",
+	"namingModelPlaceholder",
 	"statsSection",
 	"statsSend",
 	"statsDetail",
@@ -96,6 +113,13 @@ var textsEn = i18n.NewTexts(""+
 	"Redo Change"+
 	"Settings"+
 	"Done"+
+	"Conversation titles"+
+	"Titles a new conversation from its first message with a model behind an OpenAI-compatible API, else with that message's first line."+
+	"Base URL"+
+	"API key"+
+	"Optional for local servers"+
+	"Model"+
+	"Off when empty"+
 	"Statistics"+
 	"Send usage statistics"+
 	"Sends how often and how long the app is used, with no charts, messages or personal data, to help improve Scenra.",
@@ -108,6 +132,13 @@ var textsEn = i18n.NewTexts(""+
 		11,
 		8,
 		4,
+		19,
+		131,
+		8,
+		7,
+		26,
+		5,
+		14,
 		10,
 		21,
 		112,
@@ -123,6 +154,13 @@ var textsZhHans = i18n.NewTexts(""+
 	"重做更改"+
 	"设置"+
 	"完成"+
+	"对话命名"+
+	"用 OpenAI 兼容接口的模型根据第一条消息为新对话命名，未设置时使用该消息的首行。"+
+	"Base URL"+
+	"API Key"+
+	"本地服务可留空"+
+	"模型"+
+	"留空则不启用"+
 	"统计"+
 	"发送使用统计"+
 	"发送应用的使用次数和时长，不含流程图、消息或个人信息，帮助改进 Scenra。",
@@ -135,6 +173,13 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		6,
 		6,
+		12,
+		113,
+		8,
+		7,
+		21,
+		6,
+		18,
 		6,
 		18,
 		103,
@@ -193,7 +238,21 @@ func Supply(lang string, t Translation) {
 			}
 		}
 	}
+	s := supplied[lang]
+	if t.NamingFailed != nil {
+		s.NamingFailed = t.NamingFailed
+	}
+	supplied[lang] = s
 	Catalog.Add(lang)
+}
+
+// arg is what an argument wrote, marked in the source's message for a
+// pseudo locale.
+func (msgs Messages) arg(s string) string {
+	if msgs.mark {
+		return i18n.Arg(s)
+	}
+	return s
 }
 
 // AppName says "Scenra"
@@ -253,6 +312,79 @@ func Done(cx *core.Scope) string { return For(cx).Done() }
 
 // Done is the package's Done in the language of msgs.
 func (msgs Messages) Done() string { return msgs.text(textDone) }
+
+// NamingSection says "Conversation titles"
+// in the language the app shows under cx.
+func NamingSection(cx *core.Scope) string { return For(cx).NamingSection() }
+
+// NamingSection is the package's NamingSection in the language of msgs.
+func (msgs Messages) NamingSection() string { return msgs.text(textNamingSection) }
+
+// NamingDetail says "Titles a new conversation from its first message with a model behind an OpenAI-compatible API, else with that message's first line."
+// in the language the app shows under cx.
+func NamingDetail(cx *core.Scope) string { return For(cx).NamingDetail() }
+
+// NamingDetail is the package's NamingDetail in the language of msgs.
+func (msgs Messages) NamingDetail() string { return msgs.text(textNamingDetail) }
+
+// NamingURL says "Base URL"
+// in the language the app shows under cx.
+func NamingURL(cx *core.Scope) string { return For(cx).NamingURL() }
+
+// NamingURL is the package's NamingURL in the language of msgs.
+func (msgs Messages) NamingURL() string { return msgs.text(textNamingURL) }
+
+// NamingKey says "API key"
+// in the language the app shows under cx.
+func NamingKey(cx *core.Scope) string { return For(cx).NamingKey() }
+
+// NamingKey is the package's NamingKey in the language of msgs.
+func (msgs Messages) NamingKey() string { return msgs.text(textNamingKey) }
+
+// NamingKeyPlaceholder says "Optional for local servers"
+// in the language the app shows under cx.
+func NamingKeyPlaceholder(cx *core.Scope) string { return For(cx).NamingKeyPlaceholder() }
+
+// NamingKeyPlaceholder is the package's NamingKeyPlaceholder in the language of msgs.
+func (msgs Messages) NamingKeyPlaceholder() string { return msgs.text(textNamingKeyPlaceholder) }
+
+// NamingModel says "Model"
+// in the language the app shows under cx.
+func NamingModel(cx *core.Scope) string { return For(cx).NamingModel() }
+
+// NamingModel is the package's NamingModel in the language of msgs.
+func (msgs Messages) NamingModel() string { return msgs.text(textNamingModel) }
+
+// NamingModelPlaceholder says "Off when empty"
+// in the language the app shows under cx.
+func NamingModelPlaceholder(cx *core.Scope) string { return For(cx).NamingModelPlaceholder() }
+
+// NamingModelPlaceholder is the package's NamingModelPlaceholder in the language of msgs.
+func (msgs Messages) NamingModelPlaceholder() string { return msgs.text(textNamingModelPlaceholder) }
+
+// NamingFailed says "Naming failed: {error}"
+// in the language the app shows under cx.
+//
+// Why the last request for a title failed; error is the service's or network's message.
+func NamingFailed(cx *core.Scope, error_ string) string { return For(cx).NamingFailed(error_) }
+
+// NamingFailed is the package's NamingFailed in the language of msgs.
+func (msgs Messages) NamingFailed(error_ string) string {
+	if i18n.IsPseudo(msgs.lang) {
+		return i18n.Pseudo(msgs.lang, Messages{lang: Source, mark: true}.NamingFailed(error_))
+	}
+	for lang := msgs.lang; ; lang = i18n.Parent(lang) {
+		if f := supplied[lang].NamingFailed; f != nil {
+			return f(error_)
+		}
+		switch lang {
+		case "", "en":
+			return "Naming failed: " + msgs.arg(error_)
+		case "zh-Hans":
+			return "命名失败：" + error_
+		}
+	}
+}
 
 // StatsSection says "Statistics"
 // in the language the app shows under cx.

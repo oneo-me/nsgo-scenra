@@ -8,6 +8,16 @@ undoChange: Undo Change
 redoChange: Redo Change
 settingsTitle: Settings
 done: Done
+namingSection: Conversation titles
+namingDetail: Titles a new conversation from its first message with a model behind an OpenAI-compatible API, else with that message's first line.
+namingURL: Base URL
+namingKey: API key
+namingKeyPlaceholder: Optional for local servers
+namingModel: Model
+namingModelPlaceholder: Off when empty
+namingFailed:
+  message: "Naming failed: {error}"
+  description: Why the last request for a title failed; error is the service's or network's message.
 statsSection: Statistics
 statsSend: Send usage statistics
 statsDetail: Sends how often and how long the app is used, with no charts, messages or personal data, to help improve Scenra.

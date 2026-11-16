@@ -57,7 +57,7 @@ go tool nsgo build cmd/scenra   # build macOS, Windows and Linux into cmd/scenra
 
 ## 快速开始
 
-1. 安装并登录一个编程 agent，如 [Claude Code](https://claude.com/claude-code) 或 [Codex](https://github.com/openai/codex)；**设置**（⌘,）列出 Scenra 找到的 agent，可开关它们及其模型。
+1. 安装并登录一个编程 agent，如 [Claude Code](https://claude.com/claude-code) 或 [Codex](https://github.com/openai/codex)；**设置**（⌘,）列出 Scenra 找到的 agent，可开关它们及其模型；在**对话命名**中可填写一个 OpenAI 兼容接口的模型，它会根据第一条消息为新对话命名。
 2. 打开一个文件夹（⌘O），比如某个项目的文件夹，助手会在那里工作；也可以打开 `examples/coffee-shop` 从示例开始。
 3. 在助手中描述一个应用或流程，例如“设计一个咖啡店应用的登录界面”或“画出我们处理订单的流程”。
 4. 回答它的问题，看它新建并画出设计和流程；在左侧的树中选择要看的文件。

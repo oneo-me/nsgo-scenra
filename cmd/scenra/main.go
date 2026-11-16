@@ -45,6 +45,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 	settingsOpen := core.NewSignal(cx, false)
 	stats := newUsage(cx)
 	m, srv := startAgents(cx, agents)
+	namer := newNamer(cx, m)
 	e := scenraview.New(cx, scenraview.Options{
 		Agents:       m,
 		OpenSettings: func() { settingsOpen.Set(true) },
@@ -103,7 +104,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
 		scenraview.Window{Editor: e, TitleBar: titleBar},
-		settingsDialog(cx, settingsOpen, m),
+		settingsDialog(cx, settingsOpen, m, namer),
 		ui.Toasts{Toaster: toasts, Placement: ui.ToastBottomStart},
 	}}
 }

@@ -57,7 +57,7 @@ On macOS, `.scenra` files open with the app from the Finder; on Windows and Linu
 
 ## Getting started
 
-1. Install and sign in to a coding agent such as [Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex); **Settings** (⌘,) shows the agents Scenra found and turns them or their models on or off.
+1. Install and sign in to a coding agent such as [Claude Code](https://claude.com/claude-code) or [Codex](https://github.com/openai/codex); **Settings** (⌘,) shows the agents Scenra found and turns them or their models on or off, and under **Conversation titles** takes a model behind an OpenAI-compatible API, which names each new conversation from its first message.
 2. Open a folder (⌘O), such as a project's, which the assistant works in, or `examples/coffee-shop` to start from an example.
 3. Describe an app or a process in the assistant, such as "Design the sign-in screen of a coffee shop app" or "Chart how we handle an order".
 4. Answer its questions and watch it make and draw the designs and flows; pick one in the tree on the left.
