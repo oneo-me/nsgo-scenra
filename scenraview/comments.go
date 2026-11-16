@@ -11,22 +11,32 @@ import (
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
 )
 
-// pinSize is a pin's diameter on screen, and cardWidth the card's width.
+// pinSize is a comment pin's diameter on screen, noteSize a note tag's,
+// and cardWidth the card's width.
 const (
 	pinSize   = 22
+	noteSize  = 14
 	cardWidth = 320
 )
 
-// remarkPins mark the elements of the designs of s the user commented on or
-// noted with a pin on each one's top right corner, a note's left of a
-// comment's, their size on screen the same at any zoom.
-func remarkPins(cx *core.Scope, s flowfile.File, sel selection, zoom func() float64) []core.Node {
+// noteColor and noteInk are a sticky note's yellow and the mark on it.
+var (
+	noteColor = core.RGB(0xfacc15)
+	noteInk   = core.RGB(0x713f12)
+)
+
+// remarkPins mark the elements of the designs of s the user commented on
+// with a pin on each one's top right corner, and those noted with a small
+// yellow tag left of a comment's pin that shows only while glow is up, so
+// notes flash with the taps and stay out of the way; their size on screen
+// is the same at any zoom.
+func remarkPins(cx *core.Scope, s flowfile.File, sel selection, zoom func() float64, glow *core.AnimatedValue) []core.Node {
 	colors := ui.ColorsOf(cx)
 	commented := map[string]bool{}
 	for _, c := range s.Comments() {
 		commented[elementKey(c.Screen, c.Path)] = true
 	}
-	pin := func(path, testID string, shift bool, icon func() *core.SVG, background, color func() core.Color) core.Node {
+	pin := func(path, testID string, size, iconSize core.Points, shift bool, icon func() *core.SVG, background, color func() core.Color, animated *core.AnimatedStyle) core.Node {
 		return core.View{TestID: testID, PointerEvents: core.PointerEventsNone,
 			StyleFunc: func() core.Style {
 				sel.laidOut.Get()
@@ -34,24 +44,25 @@ func remarkPins(cx *core.Scope, s flowfile.File, sel selection, zoom func() floa
 				if !ok {
 					return core.Style{Display: core.DisplayNone}
 				}
-				x := b.Origin.X + b.Size.Width - pinSize/2
+				x := b.Origin.X + b.Size.Width - size/2
 				if shift {
-					x -= core.Points(float64(pinSize+4) / zoom())
+					x -= core.Points(float64(pinSize/2+size/2+4) / zoom())
 				}
-				return core.Style{Position: core.Absolute, Left: core.Pt(x), Top: core.Pt(b.Origin.Y - pinSize/2),
-					Width: core.Pt(pinSize), Height: core.Pt(pinSize), CornerRadius: pinSize / 2, AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter,
-					Background: background(), Transform: core.Transform{Scale: float32(1 / zoom())}}
+				return core.Style{Position: core.Absolute, Left: core.Pt(x), Top: core.Pt(b.Origin.Y - size/2),
+					Width: core.Pt(size), Height: core.Pt(size), CornerRadius: size / 2, AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter,
+					Background: background(), Transform: core.Transform{Scale: float32(1 / zoom())}, Animated: animated}
 			},
-			Children: []core.Node{ui.Icon(icon, 12, color)}}
+			Children: []core.Node{ui.Icon(icon, iconSize, color)}}
 	}
 	var out []core.Node
 	for _, c := range s.Comments() {
 		key := elementKey(c.Screen, c.Path)
-		out = append(out, pin(key, "comment-pin-"+key, false, lucide.MessageSquare, colors.Accent, colors.OnAccent))
+		out = append(out, pin(key, "comment-pin-"+key, pinSize, 12, false, lucide.MessageSquare, colors.Accent, colors.OnAccent, nil))
 	}
 	for _, n := range s.Notes() {
 		key := elementKey(n.Screen, n.Path)
-		out = append(out, pin(key, "note-pin-"+key, commented[key], lucide.StickyNote, colors.Text, colors.Background))
+		out = append(out, pin(key, "note-pin-"+key, noteSize, 9, commented[key], lucide.StickyNote,
+			func() core.Color { return noteColor }, func() core.Color { return noteInk }, &core.AnimatedStyle{Opacity: glow}))
 	}
 	return out
 }

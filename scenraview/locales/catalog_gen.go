@@ -230,7 +230,7 @@ var textsEn = i18n.NewTexts(""+
 	"Remove Note"+
 	"Closes this screen"+
 	"Closes the window"+
-	"Show What Can Be Tapped"+
+	"Show What Can Be Tapped and Notes"+
 	"Flows"+
 	"Components"+
 	"The components of this folder's components folder show here together."+
@@ -281,7 +281,7 @@ var textsEn = i18n.NewTexts(""+
 		11,
 		18,
 		17,
-		23,
+		33,
 		5,
 		10,
 		69,
@@ -335,7 +335,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"删除备注"+
 	"关闭这个界面"+
 	"关闭窗口"+
-	"显示可点击的区域"+
+	"显示可点击的区域和备注"+
 	"流程"+
 	"组件"+
 	"此文件夹 components 中的组件会在这里一起展示。"+
@@ -386,7 +386,7 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		18,
 		12,
-		24,
+		33,
 		6,
 		6,
 		63,
@@ -1089,7 +1089,7 @@ func (msgs Messages) TapShows(panel string) string {
 	}
 }
 
-// ShowTaps says "Show What Can Be Tapped"
+// ShowTaps says "Show What Can Be Tapped and Notes"
 // in the language the app shows under cx.
 func ShowTaps(cx *core.Scope) string { return For(cx).ShowTaps() }
 

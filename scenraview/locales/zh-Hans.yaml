@@ -54,7 +54,7 @@ tapCloses: 关闭这个界面
 tapClosesWindow: 关闭窗口
 tapClosesDesign: "关闭 {design}"
 tapShows: "显示 {panel}"
-showTaps: 显示可点击的区域
+showTaps: 显示可点击的区域和备注
 flows: 流程
 components: 组件
 componentsEmpty: 此文件夹 components 中的组件会在这里一起展示。

@@ -98,9 +98,9 @@ const peekDelay = 600 * time.Millisecond
 // element with a tap plays it, as do those it holds, and pressing another
 // selects it, as Alt does any, and pressing around it clears the
 // selection. What can be tapped glows a moment as a design shows or is
-// read again, and again from the toolbar. Pins mark the elements the
-// user commented on or noted, and
-// a card edits the comment and note of the element the pointer rests on
+// read again, and again from the toolbar, and with it the tags of the
+// elements the user noted. Pins mark the elements the user commented on,
+// and a card edits the comment and note of the element the pointer rests on
 // or selected, beside where it pressed or else beside the element; ask,
 // when set, sends the assistant a prompt about them.
 func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
@@ -379,7 +379,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			}
 		}
 		return core.View{TestID: "design", Style: style,
-			Children: append(append(append(screens, taps(s)), remarkPins(cx, s, sel, c.Zoom)...), hover, selected)}
+			Children: append(append(append(screens, taps(s)), remarkPins(cx, s, sel, c.Zoom, glow)...), hover, selected)}
 	})
 	// comments counts the designs' comments.
 	comments := func() int { return len(e.cur().doc.Get().Comments()) }
@@ -422,7 +422,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			tool(lucide.ZoomOut, tr.ZoomOut(), c.ZoomOut, "design-zoom-out"),
 			tool(lucide.ZoomIn, tr.ZoomIn(), c.ZoomIn, "design-zoom-in"),
 			tool(lucide.Scan, tr.Fit(), c.Fit, "design-fit"),
-			core.Show{When: func() bool { return hasTaps() }, Then: func(*core.Scope) core.Node {
+			core.Show{When: func() bool { return hasTaps() || len(e.cur().doc.Get().Notes()) > 0 }, Then: func(*core.Scope) core.Node {
 				return tool(lucide.MousePointerClick, tr.ShowTaps(), flash, "design-show-taps")
 			}},
 			core.Show{When: func() bool { return ask != nil && comments() > 0 && !e.Working() }, Then: func(*core.Scope) core.Node {
