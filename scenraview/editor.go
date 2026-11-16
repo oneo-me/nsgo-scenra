@@ -119,7 +119,10 @@ type Editor struct {
 	// panelsHidden hides the Window's sidebar and assistant, leaving the
 	// workspace the window's width.
 	panelsHidden *core.Signal[bool]
-	a            *assistant
+	// outlinesHidden hides the dashed line marking a component's bounds,
+	// kept under the Remember prefix.
+	outlinesHidden *core.Signal[bool]
+	a              *assistant
 	// probe is what the unseen layer of the Workspace lays out, probes
 	// those waiting for it, and probing counts the layers mounted.
 	probe   *core.Signal[*probe]
@@ -143,7 +146,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 		parts: core.NewSignalFunc(cx, components(nil), sameComponents), designs: core.NewSignalFunc(cx, designs(nil), sameDesigns), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		changes: core.NewSignalFunc(cx, changes(nil), sameChanges),
 		active:  core.NewSignal[*document](cx, nil),
-		camera:  &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
+		camera:  &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), outlinesHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
 		focus: core.NewSignal(cx, focusing{}), showcase: core.NewSignal(cx, false), probe: core.NewSignal[*probe](cx, nil)}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)
@@ -155,6 +158,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 	})
 	if opts.Remember != "" {
 		e.remember(opts.Remember+".folder", opts.Remember+".file")
+		e.rememberOutlines(opts.Remember + ".outlines")
 	}
 	return e
 }
@@ -170,6 +174,25 @@ func (e *Editor) remember(folder, file string) {
 			st := cx.Storage()
 			st.SetItem(folder, dir)
 			st.SetItem(file, shown)
+			return true
+		})
+	})
+}
+
+// rememberOutlines hides the components' outlines when the storage keeps
+// "off" under key, and keeps it there while they are hidden.
+func (e *Editor) rememberOutlines(key string) {
+	cx := e.cx
+	v, _ := cx.Storage().GetItem(key)
+	e.outlinesHidden.Set(v == "off")
+	cx.Effect(func() {
+		hidden := e.outlinesHidden.Get()
+		core.Untracked(cx, func() bool {
+			if hidden {
+				cx.Storage().SetItem(key, "off")
+			} else {
+				cx.Storage().RemoveItem(key)
+			}
 			return true
 		})
 	})
@@ -684,6 +707,11 @@ func (e *Editor) Fit()     { e.camera.Fit() }
 // TogglePanels shows again, so the workspace takes the window's width.
 func (e *Editor) PanelsHidden() bool { return e.panelsHidden.Get() }
 func (e *Editor) TogglePanels()      { e.panelsHidden.Set(!e.panelsHidden.GetUntracked()) }
+
+// OutlinesHidden says components draw without the dashed line marking
+// their bounds, which ToggleOutlines draws again.
+func (e *Editor) OutlinesHidden() bool { return e.outlinesHidden.Get() }
+func (e *Editor) ToggleOutlines()      { e.outlinesHidden.Set(!e.outlinesHidden.GetUntracked()) }
 
 // ShowComponents shows every component of the open folder together, and
 // Showcase says they show; choosing a file shows it again.

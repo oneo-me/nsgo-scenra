@@ -316,7 +316,16 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	if w := app.Find("id:component-0").Frame.Size.Width; w != 390 {
 		t.Fatalf("the component is %v wide", w)
 	}
-	app.Find("id:component-0 >> id:component-outline")
+	if b := app.Find("id:component-0 >> id:component-outline").Style.BorderWidth; b != 1 {
+		t.Fatalf("the outline is %v wide", b)
+	}
+	// The outline hides while the user hides them.
+	app.Post(e.ToggleOutlines)
+	app.Settle()
+	if b := app.Find("id:component-0 >> id:component-outline").Style.BorderWidth; b != 0 {
+		t.Fatalf("the hidden outline is %v wide", b)
+	}
+	app.Post(e.ToggleOutlines)
 	openComponent(t, app, e, dir, "nav-item")
 	app.WaitFor("design >> text:Menu tab", time.Second)
 	if w, text := app.Find("id:component-0").Frame.Size.Width, app.Find("id:element-0/0").Frame.Size.Width; w != text {

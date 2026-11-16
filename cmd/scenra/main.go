@@ -141,6 +141,7 @@ func menu(cx *core.Scope, e *scenraview.Editor, settingsOpen *core.Signal[bool])
 			{Separator: true},
 			{Label: w.HidePanels(), Shortcut: "mod+b", Checkable: true, Checked: e.PanelsHidden(), OnSelect: e.TogglePanels},
 			{Label: w.Components(), Shortcut: "mod+shift+k", Disabled: !e.HasComponents(), OnSelect: e.ShowComponents},
+			{Label: w.HideOutlines(), Checkable: true, Checked: e.OutlinesHidden(), OnSelect: e.ToggleOutlines},
 			{Separator: true},
 			{Label: w.LeftToRight(), Checkable: true, Checked: e.LeftToRight(), Disabled: !e.FlowOpen(), OnSelect: e.ToggleDirection},
 		}},

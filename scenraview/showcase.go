@@ -314,6 +314,7 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		}
 		look := look.GetUntracked()
 		sel := stillSelection(cx, f.Screens, look.parts, look.assets)
+		sel.bare = e.OutlinesHidden
 		// Each draws as its own file does: the component is around its
 		// elements, which cannot use it again.
 		// A component that does not parse shows where it is.

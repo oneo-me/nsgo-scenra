@@ -27,6 +27,9 @@ type selection struct {
 	// unseen says nothing drawn is seen, so tests find none of it.
 	report func(key string, f frame)
 	unseen bool
+	// bare, when set, says whether a component draws without the dashed
+	// line marking its bounds.
+	bare func() bool
 	// frames are the elements' frames in their parents', by key, which
 	// laidOut counts the changes of, and origins where each design is in
 	// the plane. A key is the index of the element's design, a slash and
@@ -490,7 +493,7 @@ func (pl *player) showTab(name string, screen int) {
 // screenView draws the design of f at index i at its size: its elements
 // stack in its frame, which clips what overflows. A component is drawn
 // bare rather than as a card, on its backdrop when it sets one, a dashed
-// line marking its bounds, and is as large as it needs where it sets no
+// line marking its bounds unless sel is bare, and is as large as it needs where it sets no
 // size.
 func screenView(cx *core.Scope, f flowfile.File, i int, sel selection) core.Node {
 	colors := ui.ColorsOf(cx)
@@ -507,8 +510,13 @@ func screenView(cx *core.Scope, f flowfile.File, i int, sel selection) core.Node
 		}
 		outline := core.View{TestID: "component-outline", PointerEvents: core.PointerEventsNone,
 			Style: core.Style{Position: core.Absolute, Left: core.Pt(-1), Top: core.Pt(-1), Right: core.Pt(-1), Bottom: core.Pt(-1),
-				BorderWidth: 1, BorderStyle: core.BorderDashed},
-			StyleFunc: func() core.Style { return core.Style{BorderColor: colors.Muted()} }}
+				BorderStyle: core.BorderDashed},
+			StyleFunc: func() core.Style {
+				if sel.bare != nil && sel.bare() {
+					return core.Style{}
+				}
+				return core.Style{BorderWidth: 1, BorderColor: colors.Muted()}
+			}}
 		// The backdrop's layers draw from the bottom, each over the one
 		// holding it.
 		layers := f.Screens[i].Layers()

@@ -194,6 +194,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		cx.Post(flash)
 	})
 	sel := selection{
+		bare:     e.OutlinesHidden,
 		selected: func() string { return e.cur().element.Get() },
 		choose: func(path string) {
 			cx.Batch(func() {
@@ -361,7 +362,9 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		var screens []core.Node
 		if !s.Several() {
 			// A component's variants show beside it.
-			screens = []core.Node{withVariants(cx, s, 0, framed(0, screenView(cx, s, 0, sel)), stillSelection(cx, s.Screens, sel.parts, sel.assets))}
+			still := stillSelection(cx, s.Screens, sel.parts, sel.assets)
+			still.bare = sel.bare
+			screens = []core.Node{withVariants(cx, s, 0, framed(0, screenView(cx, s, 0, sel)), still)}
 		} else {
 			style.Width, style.Height = core.Pt(total.Width), core.Pt(total.Height)
 			for i, screen := range s.Screens {
