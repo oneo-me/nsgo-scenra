@@ -487,7 +487,7 @@ func TestADesignIsDrawnAtTheSizeItSets(t *testing.T) {
 	app.WaitUntil(5*time.Second, func() bool { return app.Find("id:design").Frame.Size.Width == 600 })
 }
 
-func TestTheSidebarKeepsFlowsAtTheTop(t *testing.T) {
+func TestTheSidebarKeepsFlowsUnderTheComponents(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"sign-in.scenra": "design\n", "flows/sign-in.scenra": "flow name=\"Sign in\"\n", "flows/about.scenra": "flow\n",
 		"about.scenra": "design\n", "components/card.scenra": "component\n",
@@ -498,11 +498,27 @@ func TestTheSidebarKeepsFlowsAtTheTop(t *testing.T) {
 	if got := fileNames(app); !slices.Equal(got, []string{"about", "Sign in", "about", "sign-in"}) {
 		t.Fatalf("the sidebar lists %v", got)
 	}
-	flows, components := app.Find("id:files-flows").Bounds(), app.Find("id:sidebar-components").Bounds()
-	if flows.Origin.Y >= components.Origin.Y {
-		t.Fatalf("the flows group at %v sits below the components at %v", flows, components)
+	components, flows := app.Find("id:sidebar-components").Bounds(), app.Find("id:files-flows").Bounds()
+	designs := app.Find("id:files >> label:sign-in").Bounds()
+	if components.Origin.Y >= flows.Origin.Y || flows.Origin.Y >= designs.Origin.Y {
+		t.Fatalf("the components at %v, the flows group at %v and the designs at %v are out of order", components, flows, designs)
 	}
 	app.Find("id:files-flows >> label:Sign in")
+}
+
+func TestTheSidebarSpacesItsGroupsEvenly(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"pay.scenra": "design name=\"Shop/Pay\"\n", "settings.scenra": "design name=\"Me/Settings\"\n",
+		"flows/about.scenra": "flow\n", "components/card.scenra": "component\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, dir)
+	app.WaitFor("id:group-Shop", time.Second)
+	flows, me, shop := app.Find("id:files-flows").Bounds(), app.Find("id:group-Me").Bounds(), app.Find("id:group-Shop").Bounds()
+	after := func(a, b core.Bounds) core.Points { return b.Origin.Y - a.Origin.Y - a.Size.Height }
+	if gap, between := after(flows, me), after(me, shop); gap != between {
+		t.Fatalf("the flows group sits %v above the designs, whose groups sit %v apart", gap, between)
+	}
 }
 
 func TestShowingAnotherFileSavesTheOneShown(t *testing.T) {

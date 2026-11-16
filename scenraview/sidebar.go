@@ -43,9 +43,9 @@ func entryIcon(en entry) func() *core.SVG {
 // together, which no file's path can be.
 const componentsItem = "\x00components"
 
-// sidebar is the open folder's flows in a group of their own pinned at
-// its top, over a row showing its components together, which the list
-// leaves out, and its designs in the groups their names give them; in
+// sidebar is a row showing the open folder's components together, which
+// the list leaves out, over its flows in a group of their own and its
+// designs in the groups their names give them; in
 // which choosing a file shows it, with the lines Git says each changed;
 // or, while no folder is open, a way to open one.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
@@ -80,11 +80,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 		for _, en := range fs {
 			flowSection.Items = append(flowSection.Items, ui.SidebarItem{ID: en.path, Text: en.title(), TestID: "file", Content: row(cx, en, en.title())})
 		}
-		top := ui.SidebarSection{TestID: "files-top"}
-		if e.HasComponents() {
-			top.Items = append(top.Items, components)
-		}
-		out := []ui.SidebarSection{top}
+		out := []ui.SidebarSection{{TestID: "files-top"}}
 		for _, g := range gs {
 			var items []ui.SidebarItem
 			for _, en := range g.files {
@@ -97,13 +93,21 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			}
 			out = append(out, ui.SidebarSection{Title: g.name, Items: items, Collapsible: true, TestID: "group-" + g.name})
 		}
-		if len(out[0].Items) == 0 && len(gs) == 0 && len(fs) == 0 {
+		if len(out[0].Items) == 0 && len(gs) == 0 && len(fs) == 0 && !e.HasComponents() {
 			out[0].Note = core.Text{Content: tr.FilesEmpty(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)}
 		}
-		if len(fs) > 0 {
-			out = append([]ui.SidebarSection{flowSection}, out...)
+		// An empty section would still take the gap between sections.
+		if len(out[0].Items) == 0 && out[0].Note == nil {
+			out = out[1:]
 		}
-		return out
+		var head []ui.SidebarSection
+		if e.HasComponents() {
+			head = append(head, ui.SidebarSection{TestID: "files-components", Items: []ui.SidebarItem{components}})
+		}
+		if len(fs) > 0 {
+			head = append(head, flowSection)
+		}
+		return append(head, out...)
 	}
 	// The list marks the file shown, or the components while they or one
 	// of them show, and choosing a file shows it.
