@@ -5,7 +5,7 @@
 - Add Scenra, a flow chart editor whose assistant is a coding agent, such as Claude Code or Codex, run through Agio and taught the format by a bundled skill.
 - Add phone, tablet and desktop designs drawn from Tailwind-shaped primitives beside flow charts, one in each `.scenra` file.
 - Add an assistant that hears of the selection over MCP, resolves the comments users leave on design elements and works in the open folder to chart its code, saving the user's changes as a message is sent and locking the files while it works, and fixes a file that does not open from its error shown in the workspace.
-- Add folder workspaces whose plain-text `.scenra` files show as a bare tree, made from the File menu, and one at a time, named after the folder in the title bar, beside a full-height assistant, with a coffee shop example.
+- Add folder workspaces whose plain-text `.scenra` files show as a bare tree, made from the File menu, and one at a time, named after the folder in the title bar, beside a full-height assistant, both hidden with ⌘B to give the canvas the window, with a coffee shop example.
 - Let designs and components set their own `width=` and `height=`, which the assistant may change, instead of only their device's size.
 - Add components, shared pieces of designs kept in the folder's `components/` and drawn with `use`, which the assistant makes, leaving their taps to the designs using them, and the editor redraws as they change.
 - Show the folder's own pictures, kept in its `assets/` and named by an image's `src=`, which the assistant copies there and the editor redraws as they change.

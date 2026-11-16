@@ -30,7 +30,7 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 
 ## Features
 
-- Scenra works in a folder: the left shows its Scenra files as a tree, each holding designs or flow charts, the file you choose shows beside it, and the conversation runs the window's height on the right.
+- Scenra works in a folder: the left shows its Scenra files as a tree, each holding designs or flow charts, the file you choose shows beside it, and the conversation runs the window's height on the right; ⌘B hides both sides to give the canvas the whole window.
 - A screen's design `sign-in.scenra` and its flow `sign-in-flow.scenra` sit side by side, and the bar above switches between them.
 - Choosing another file saves the one shown, as does ⌘S, and the folder and its file reopen at the next start.
 - Phone, tablet and desktop designs are drawn from boxes, texts, icons, images and SVG shaped by Tailwind CSS classes, so a draft can look like anything; zoom, pan and select its elements as in the flow charts.

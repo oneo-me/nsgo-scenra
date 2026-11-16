@@ -21,6 +21,7 @@ zoomIn: Zoom In
 zoomOut: Zoom Out
 fit: Fit to Window
 leftToRight: Left to Right
+hidePanels: Hide Side Panels
 diagramLabel: "Flow chart with {nodes, plural, one {# node} other {# nodes}} and {edges, plural, one {# edge} other {# edges}}."
 openFailed: "Could not open the file: {error}"
 saveFailed: "Could not save the file: {error}"

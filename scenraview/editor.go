@@ -113,7 +113,10 @@ type Editor struct {
 	// reloads counts the times the file shown was read again as it
 	// changed, which shows its taps again.
 	reloads *core.Signal[int]
-	a       *assistant
+	// panelsHidden hides the Window's sidebar and assistant, leaving the
+	// workspace the window's width.
+	panelsHidden *core.Signal[bool]
+	a            *assistant
 	// scanning is the folder the scan reads, shared with its goroutine,
 	// and rescan asks it to read the folder now.
 	mu       sync.Mutex
@@ -129,9 +132,9 @@ func New(cx *core.Scope, opts Options) *Editor {
 		toasts = ui.NewToaster(cx)
 	}
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
-		parts:  core.NewSignalFunc(cx, components(nil), sameComponents), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
+		parts: core.NewSignalFunc(cx, components(nil), sameComponents), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		active: core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
-		camera: &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), rescan: make(chan struct{}, 1),
+		camera: &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
 		focus: core.NewSignal(cx, focusing{})}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)
@@ -455,6 +458,8 @@ func (e *Editor) askName(kind flowfile.Kind) {
 	if e.folder.GetUntracked() == "" {
 		return
 	}
+	// The sidebar holds the dialog, and the tree shows where the file goes.
+	e.panelsHidden.Set(false)
 	e.naming.Set(kind)
 }
 
@@ -722,6 +727,11 @@ func (e *Editor) LeftToRight() bool {
 func (e *Editor) ZoomIn()  { e.camera.ZoomIn() }
 func (e *Editor) ZoomOut() { e.camera.ZoomOut() }
 func (e *Editor) Fit()     { e.camera.Fit() }
+
+// PanelsHidden says the Window hides its sidebar and assistant, which
+// TogglePanels shows again, so the workspace takes the window's width.
+func (e *Editor) PanelsHidden() bool { return e.panelsHidden.Get() }
+func (e *Editor) TogglePanels()      { e.panelsHidden.Set(!e.panelsHidden.GetUntracked()) }
 
 // NewChat shows a new conversation about the folder, keeping the others
 // in the assistant's list.

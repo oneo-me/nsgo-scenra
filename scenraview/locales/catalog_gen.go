@@ -96,6 +96,7 @@ const (
 	textZoomOut
 	textFit
 	textLeftToRight
+	textHidePanels
 	textSaved
 	textAssistant
 	textNewChat
@@ -153,6 +154,7 @@ var keyOfText = [numTexts]string{
 	"zoomOut",
 	"fit",
 	"leftToRight",
+	"hidePanels",
 	"saved",
 	"assistant",
 	"newChat",
@@ -208,6 +210,7 @@ var textsEn = i18n.NewTexts(""+
 	"Zoom Out"+
 	"Fit to Window"+
 	"Left to Right"+
+	"Hide Side Panels"+
 	"Saved"+
 	"Assistant"+
 	"New Chat"+
@@ -260,6 +263,7 @@ var textsEn = i18n.NewTexts(""+
 		8,
 		13,
 		13,
+		16,
 		5,
 		9,
 		8,
@@ -315,6 +319,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"缩小"+
 	"适合窗口"+
 	"从左到右"+
+	"隐藏两侧面板"+
 	"已保存"+
 	"助手"+
 	"新对话"+
@@ -367,6 +372,7 @@ var textsZhHans = i18n.NewTexts(""+
 		6,
 		12,
 		12,
+		18,
 		9,
 		6,
 		9,
@@ -654,6 +660,13 @@ func LeftToRight(cx *core.Scope) string { return For(cx).LeftToRight() }
 
 // LeftToRight is the package's LeftToRight in the language of msgs.
 func (msgs Messages) LeftToRight() string { return msgs.text(textLeftToRight) }
+
+// HidePanels says "Hide Side Panels"
+// in the language the app shows under cx.
+func HidePanels(cx *core.Scope) string { return For(cx).HidePanels() }
+
+// HidePanels is the package's HidePanels in the language of msgs.
+func (msgs Messages) HidePanels() string { return msgs.text(textHidePanels) }
 
 // DiagramLabel says "Flow chart with {nodes, plural, one {# node} other {# nodes}} and {edges, plural, one {# edge} other {# edges}}."
 // in the language the app shows under cx.

@@ -56,6 +56,8 @@ func (a Assistant) Render(cx *core.Scope) core.Node { return assistantPane(cx, a
 // Window is Scenra's layout: the Header over the Sidebar and the
 // Workspace, beside the Assistant running the window's height, whose
 // width the user drags. With TitleBar, its top is the window's title bar.
+// While the editor's PanelsHidden, the Header and Workspace fill it; the
+// panels stay mounted, keeping the tree's and the conversation's state.
 type Window struct {
 	Editor   *Editor
 	TitleBar bool
@@ -66,11 +68,20 @@ func (w Window) Render(cx *core.Scope) core.Node {
 	tr := locales.For(cx)
 	e := w.Editor
 	chatWidth := core.NewSignal(cx, core.Points(400))
+	shown := func() bool { return !e.PanelsHidden() }
 	return ui.ResizablePanelGroup{Style: ui.FillRest, HandleLabel: tr.Assistant(), Panels: []base.ResizablePanel{
 		{MinSize: 640, Children: []core.Node{core.View{Style: ui.FillRest, Children: []core.Node{
 			Header{Editor: e, TitleBar: w.TitleBar},
-			core.View{Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{Sidebar{e}, Workspace{e}}},
+			core.View{Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{
+				core.View{StyleFunc: func() core.Style {
+					if shown() {
+						return core.Style{Direction: core.Row, FlexShrink: 0}
+					}
+					return core.Style{Display: core.DisplayNone}
+				}, Children: []core.Node{Sidebar{e}}},
+				Workspace{e},
+			}},
 		}}}},
-		{Size: chatWidth.Get, OnResize: chatWidth.Set, MinSize: 320, MaxSize: 720, Children: []core.Node{Assistant{Editor: e, TitleBar: w.TitleBar}}},
+		{Size: chatWidth.Get, Visible: shown, OnResize: chatWidth.Set, MinSize: 320, MaxSize: 720, Children: []core.Node{Assistant{Editor: e, TitleBar: w.TitleBar}}},
 	}}
 }

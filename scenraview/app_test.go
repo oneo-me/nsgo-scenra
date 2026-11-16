@@ -214,6 +214,29 @@ func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
 	}
 }
 
+func TestHidingThePanelsLeavesTheWindowToTheWorkspace(t *testing.T) {
+	app, e := startEditor(t)
+	openPath(t, app, e, writeFlow(t, "home.scenra", "design\nview\n"))
+	app.WaitFor("id:files >> label:home", time.Second)
+	waitComposer(app)
+	width := app.Find("id:header").Frame.Size.Width
+	app.Post(e.TogglePanels)
+	app.Settle()
+	if app.Exists("id:files") || app.Exists("id:composer") {
+		t.Fatal("the hidden panels still show")
+	}
+	if got := app.Find("id:header").Frame.Size.Width; got != 1280 {
+		t.Fatalf("the header is %v wide, from %v", got, width)
+	}
+	// Making a file shows the tree it goes in, holding its dialog.
+	app.Post(e.NewDesign)
+	app.WaitFor("id:new-file-dialog", time.Second)
+	app.Find("id:files >> label:home")
+	if !app.Exists("id:composer") {
+		t.Fatal("the assistant stays hidden")
+	}
+}
+
 func TestMakesFilesInTheFolder(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{"flows/old.scenra": "flow\n"})
 	app, e := startEditor(t)
