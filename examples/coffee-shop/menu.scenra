@@ -47,5 +47,5 @@ box class="flex-1 bg-zinc-50"
       end
     end
   end
-  use tab-bar
+  use tab-bar home.tap="open menu"
 end

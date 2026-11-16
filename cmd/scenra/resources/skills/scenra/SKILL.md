@@ -126,7 +126,7 @@ end
 - A use is one element: a box with its classes holding the component's elements, so place and size it with classes as any box. It takes no end unless it fills slots.
 - Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
 - Components may use other components, and fill their slots with them, never themselves, directly or through others, as `a` using `b` whose fill uses `a`.
-- Write a component as a whole, the same on every screen. A tab bar marks the screen shown by itself when its items open the screens, as Interactions shows.
+- Write a component as a whole, the same on every screen, and leave what pressing it does to the designs: name the elements a use makes tappable and write no `tap=` in it, as Interactions shows.
 - `get_view` lists the components there are and reports uses of missing ones, loops and changes that reach nothing.
 
 ### Changing a component where it is used
@@ -219,7 +219,34 @@ box class="gap-2" panel=tea
 end
 ```
 
-In a tab bar component, give each item `tap="open <screen>"` and the selected styles, so every screen using it marks its own tab. Add taps where the user asks for a clickable prototype or where they make the flow between screens clear; open only designs that exist or that you make.
+Taps belong to the designs, as the panels they show do: a component gives its items names and the selected styles but no taps, and each use gives their taps with `<name>.tap="…"`, which play and mark what shows as if written there. Where items differ by more than their taps, leave a slot and write them in the fill.
+
+```
+# components/sidebar.scenra
+component
+box class="gap-1 p-3"
+  box name=inbox class="group rounded-lg px-2 py-1.5 selected:bg-zinc-200"
+    text "Inbox" class="text-zinc-600 group-selected:font-medium"
+  end
+  box name=archive class="group rounded-lg px-2 py-1.5 selected:bg-zinc-200"
+    text "Archive" class="text-zinc-600 group-selected:font-medium"
+  end
+end
+```
+
+```
+box class="flex-1 flex-row"
+  use sidebar inbox.tap="tab inbox" archive.tap="tab archive"
+  box class="flex-1" panel=inbox
+    text "No new mail"
+  end
+  box class="flex-1" panel=archive
+    text "Nothing archived"
+  end
+end
+```
+
+A tab bar's uses open the screens instead, such as `use tab-bar home.tap="open home" orders.tap="open orders"` on each, so every screen marks its own tab. Add taps where the user asks for a clickable prototype or where they make the flow between screens clear; open only designs that exist or that you make.
 
 ## Comments and notes
 

@@ -526,11 +526,12 @@ func TestEveryIconNameDraws(t *testing.T) {
 
 func TestATabBarMarksTheScreenShown(t *testing.T) {
 	item := func(name string) string {
-		return "  box class=\"group\" tap=\"open " + name + "\"\n    text \"" + name + " tab\" class=\"text-zinc-400 group-selected:text-amber-600\"\n  end\n"
+		return "  box name=" + name + " class=\"group\"\n    text \"" + name + " tab\" class=\"text-zinc-400 group-selected:text-amber-600\"\n  end\n"
 	}
+	bar := "use tab-bar menu.tap=\"open menu\" orders.tap=\"open orders\"\n"
 	dir := folderOfFiles(t, map[string]string{
-		"menu.scenra":               "design\nuse tab-bar\n",
-		"orders.scenra":             "design\nuse tab-bar\n",
+		"menu.scenra":               "design\n" + bar,
+		"orders.scenra":             "design\n" + bar,
 		"components/tab-bar.scenra": "component\nbox class=\"flex-row\"\n" + item("menu") + item("orders") + "end\n",
 	})
 	app, e := startEditor(t)
@@ -538,6 +539,33 @@ func TestATabBarMarksTheScreenShown(t *testing.T) {
 	app.WaitFor("design >> text:orders tab", 5*time.Second)
 	if menu, orders := app.Find("design >> text:menu tab").TextStyle.Color, app.Find("design >> text:orders tab").TextStyle.Color; menu == orders {
 		t.Fatalf("the tab of the screen shown is %v as the others", menu)
+	}
+}
+
+func TestTapsAUseGivesShowThePanelsOfItsDesign(t *testing.T) {
+	item := func(name string) string {
+		return "  box name=" + name + "\n    text \"" + name + " item\"\n  end\n"
+	}
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra": "design\nbox class=\"flex-row\"\n" +
+			"  use nav inbox.tap=\"tab inbox\" archive.tap=\"tab archive\"\n" +
+			"  box panel=inbox\n    text \"No new mail\"\n  end\n" +
+			"  box panel=archive\n    text \"Nothing archived\"\n  end\n" +
+			"end\n",
+		"components/nav.scenra": "component\nbox\n" + item("inbox") + item("archive") + "end\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("design >> text:No new mail", 5*time.Second)
+	selected := func(id string) bool { return app.Find("id:" + id).Props.Selected }
+	if !selected("element-0/0.0:0.0") || selected("element-0/0.0:0.1") {
+		t.Fatal("the item of the first panel is not the selected one")
+	}
+	app.Press("design >> text:archive item")
+	app.WaitFor("design >> text:Nothing archived", time.Second)
+	app.WaitForGone("design >> text:No new mail", time.Second)
+	if !selected("element-0/0.0:0.1") || selected("element-0/0.0:0.0") {
+		t.Fatal("the item of the panel shown is not the selected one")
 	}
 }
 
