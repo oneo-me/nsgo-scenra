@@ -129,6 +129,20 @@ func showcaseFile(entries []entry, parts components) flowfile.File {
 	return f
 }
 
+// placement is where the showcase's components are in the plane, by
+// index, the sizes they laid out at, the scales they show at and the size
+// of the whole.
+type placement struct {
+	at     []core.Point
+	sizes  []core.Size
+	scales []float64
+	total  core.Size
+}
+
+func samePlacement(a, b placement) bool {
+	return slices.Equal(a.at, b.at) && slices.Equal(a.sizes, b.sizes) && slices.Equal(a.scales, b.scales) && a.total == b.total
+}
+
 // showcasePane is every component of the open folder on one canvas,
 // with its variants, packed tight under their captions, in whatever
 // order wastes the least room, once each has laid out at the size it
@@ -147,7 +161,7 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 	// out at, the scale it shows at and the size of the whole; one not
 	// laid out yet counts as wide as it sets, or brokenWidth, and as high
 	// as wide.
-	layout := func(f flowfile.File) ([]core.Point, []core.Size, []float64, core.Size) {
+	layout := func(f flowfile.File) placement {
 		ms := measured.Get()
 		sizes := make([]core.Size, len(f.Screens))
 		for i := range f.Screens {
@@ -172,7 +186,7 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		for i := range at {
 			at[i].Y += captionRoom
 		}
-		return at, sizes, scales, total
+		return placement{at, sizes, scales, total}
 	}
 	file := func() flowfile.File { return showcaseFile(entries.Get(), look.Get().parts) }
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
@@ -186,6 +200,28 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		}
 		if len(measured.GetUntracked()) != len(f.Screens) {
 			measured.Set(make([]core.Size, len(f.Screens)))
+		}
+		// Every component's place reads the one packing, packed again only
+		// when a size changes.
+		placed := core.NewMemoFunc(cx, func() placement { return layout(f) }, samePlacement)
+		// The sizes the components lay out at in one layout land
+		// together, so they pack once rather than once each.
+		var pending map[int]core.Size
+		report := func(i int, size core.Size) {
+			if pending == nil {
+				pending = map[int]core.Size{}
+				cx.Post(func() {
+					ms := slices.Clone(measured.GetUntracked())
+					for i, size := range pending {
+						if i < len(ms) {
+							ms[i] = size
+						}
+					}
+					pending = nil
+					measured.Set(ms)
+				})
+			}
+			pending[i] = size
 		}
 		look := look.GetUntracked()
 		sel := stillSelection(cx, f.Screens, look.parts, look.assets)
@@ -211,42 +247,33 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 			}
 			nodes = append(nodes,
 				core.Dynamic(func(cx *core.Scope) core.Node {
-					at, sizes, scales, _ := layout(f)
-					return caption(cx, screen.Name, at[i], int(float64(sizes[i].Width)*scales[i]), c.Zoom)
+					p := placed.Get()
+					return caption(cx, screen.Name, p.at[i], int(float64(p.sizes[i].Width)*p.scales[i]), c.Zoom)
 				}),
 				// The drawing lays out at its own size, in room wide
 				// enough for any, which the scale grows from the top left
 				// corner of its box.
 				core.View{TestID: "showcase-" + screen.ID,
 					StyleFunc: func() core.Style {
-						at, sizes, scales, _ := layout(f)
-						k := core.Points(scales[i])
-						return core.Style{Position: core.Absolute, Left: core.Pt(at[i].X), Top: core.Pt(at[i].Y),
-							Width: core.Pt(sizes[i].Width * k), Height: core.Pt(sizes[i].Height * k)}
+						p := placed.Get()
+						k := core.Points(p.scales[i])
+						return core.Style{Position: core.Absolute, Left: core.Pt(p.at[i].X), Top: core.Pt(p.at[i].Y),
+							Width: core.Pt(p.sizes[i].Width * k), Height: core.Pt(p.sizes[i].Height * k)}
 					},
 					Children: []core.Node{core.View{PointerEvents: core.PointerEventsNone,
 						StyleFunc: func() core.Style {
-							_, _, scales, _ := layout(f)
 							return core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Width: core.Pt(flowfile.MaxSize),
 								AlignItems:      core.AlignStart,
-								Transform:       core.Transform{Scale: float32(scales[i])},
+								Transform:       core.Transform{Scale: float32(placed.Get().scales[i])},
 								TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pt(0)}}}
 						},
 						Children: []core.Node{core.View{TestID: "showcase-drawing-" + screen.ID,
-							OnLayout: func(b core.Bounds) {
-								cx.Post(func() {
-									ms := slices.Clone(measured.GetUntracked())
-									if i < len(ms) && ms[i] != b.Size {
-										ms[i] = b.Size
-										measured.Set(ms)
-									}
-								})
-							},
+							OnLayout: func(b core.Bounds) { report(i, b.Size) },
 							Children: []core.Node{drawing}}}}}})
 		}
 		return core.View{TestID: "showcase",
 			StyleFunc: func() core.Style {
-				_, _, _, total := layout(f)
+				total := placed.Get().total
 				return core.Style{Width: core.Pt(total.Width), Height: core.Pt(total.Height)}
 			},
 			Children: nodes}
