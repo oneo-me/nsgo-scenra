@@ -301,6 +301,7 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 	// The components cover the document while they show, which stays, as
 	// its flow pane must.
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
+		probeLayer(cx, e),
 		core.Show{When: e.empty,
 			Then: func(*core.Scope) core.Node {
 				return core.Show{When: func() bool { return e.folder.Get() == "" },

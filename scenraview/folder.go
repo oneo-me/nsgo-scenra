@@ -67,16 +67,26 @@ func (en entry) screen() flowfile.Screen {
 type scanned struct {
 	stamp stamp
 	entry entry
-	ui    []flowfile.Element
+	part  flowfile.Part
+	file  *flowfile.File
 	data  []byte
 }
 
-// components are the elements of the components the open folder's
-// designs use, by name.
-type components map[string][]flowfile.Element
+// components are the components the open folder's designs use, by name.
+type components map[string]flowfile.Part
 
 func sameComponents(a, b components) bool {
-	return maps.EqualFunc(a, b, func(x, y []flowfile.Element) bool { return flowfile.FormatUI(x) == flowfile.FormatUI(y) })
+	return maps.EqualFunc(a, b, func(x, y flowfile.Part) bool {
+		return flowfile.FormatUI(x.UI) == flowfile.FormatUI(y.UI) && slices.EqualFunc(x.Variants, y.Variants, func(v, w flowfile.Variant) bool {
+			return v.ID == w.ID && maps.Equal(v.Attrs, w.Attrs)
+		})
+	})
+}
+
+// find finds a component of parts by its name.
+func (parts components) find(name string) (flowfile.Part, bool) {
+	p, ok := parts[name]
+	return p, ok
 }
 
 // assets are the pictures of the open folder's assets folder, by their
@@ -106,10 +116,11 @@ func skipped(name string) bool { return strings.HasPrefix(name, ".") || name == 
 // scan finds the Scenra files under root and the pictures of its assets
 // folder, reading again only those that changed since the scan whose
 // files were cache, and returns the Scenra files, the components among
-// them, the pictures and the cache of this one.
-func scan(root string, cache map[string]scanned) ([]entry, components, assets, map[string]scanned) {
+// them, the pictures, the cache of this one and the files of designs.
+func scan(root string, cache map[string]scanned) ([]entry, components, assets, map[string]scanned, designs) {
 	var out []entry
 	parts := components{}
+	docs := designs{}
 	pics := assets{}
 	next := map[string]scanned{}
 	seen := 0
@@ -160,8 +171,11 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 					head.UI = nil
 					c.entry.head = &head
 				}
+				if f.Kind == flowfile.Design {
+					c.file = &f
+				}
 				if f.Kind == flowfile.Component && len(f.Screens) > 0 {
-					c.ui = f.Screens[0].UI
+					c.part = flowfile.Part{UI: f.Screens[0].UI, Variants: f.Screens[0].Variants}
 				}
 			}
 		}
@@ -169,11 +183,14 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 		next[p] = c
 		out = append(out, c.entry)
 		if name, ok := flowfile.ComponentName(c.entry.path); ok && c.entry.kind == flowfile.Component {
-			parts[name] = c.ui
+			parts[name] = c.part
+		}
+		if c.file != nil {
+			docs[strings.TrimSuffix(rel, ".scenra")] = *c.file
 		}
 		return nil
 	})
-	return out, parts, pics, next
+	return out, parts, pics, next, docs
 }
 
 // scanNow has the scan read the open folder now.
@@ -194,7 +211,7 @@ func (e *Editor) found(en entry) {
 // changed in them, and opens those the
 // agent made in its turn: a component only when it made nothing else, so
 // the screen using it shows.
-func (e *Editor) scannedFiles(dir string, files []entry, parts components, pics assets, diffs changes, first bool) {
+func (e *Editor) scannedFiles(dir string, files []entry, parts components, docs designs, pics assets, diffs changes, first bool) {
 	if e.folder.GetUntracked() != dir {
 		return
 	}
@@ -202,6 +219,7 @@ func (e *Editor) scannedFiles(dir string, files []entry, parts components, pics 
 	e.cx.Batch(func() {
 		e.files.Set(files)
 		e.parts.Set(parts)
+		e.designs.Set(docs)
 		e.assets.Set(pics)
 		e.changes.Set(diffs)
 	})

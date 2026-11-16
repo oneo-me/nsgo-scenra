@@ -117,12 +117,12 @@ func SlotProblems(els []Element) []string {
 // FillProblems are what is wrong with the fills of use, whose component
 // parts finds by name: fills of slots it does not have. A use of a
 // missing component has none.
-func FillProblems(use Element, parts func(name string) ([]Element, bool)) []string {
+func FillProblems(use Element, parts Parts) []string {
 	part, ok := parts(use.Text)
 	if !ok {
 		return nil
 	}
-	slots := Slots(part)
+	slots := Slots(part.UI)
 	var out []string
 	for _, fill := range use.Children {
 		if slices.Contains(slots, fill.Text) {

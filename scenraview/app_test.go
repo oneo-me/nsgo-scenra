@@ -647,7 +647,7 @@ func TestTapsAUseGivesShowThePanelsOfItsDesign(t *testing.T) {
 }
 
 func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
-	files, parts, _, _ := scan("../examples/coffee-shop", nil)
+	files, parts, _, _, _ := scan("../examples/coffee-shop", nil)
 	for _, en := range files {
 		f, _ := readFile(filepath.Join("../examples/coffee-shop", en.path))
 		self, _ := flowfile.ComponentName(en.path)
@@ -657,7 +657,7 @@ func TestExamplesDrawEveryClassAndDrawing(t *testing.T) {
 			}
 		}
 	}
-	files, _, _, _ = scan("../examples", nil)
+	files, _, _, _, _ = scan("../examples", nil)
 	if len(files) < 2 {
 		t.Fatalf("examples %v", files)
 	}

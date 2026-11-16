@@ -1,8 +1,11 @@
 package scenraview
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/nsgo-dev/nsgo/core"
@@ -71,7 +74,8 @@ func (e *Editor) watch() {
 			var files []entry
 			var parts components
 			var pics assets
-			files, parts, pics, cache = scan(dir, cache)
+			var docs designs
+			files, parts, pics, cache, docs = scan(dir, cache)
 			first := dir != last
 			last = dir
 			// Git runs less often than the scan, as commits change what
@@ -80,7 +84,7 @@ func (e *Editor) watch() {
 				diffs, diffed = gitChanges(dir), time.Now()
 			}
 			found := diffs
-			e.cx.Post(func() { e.scannedFiles(dir, files, parts, pics, found, first) })
+			e.cx.Post(func() { e.scannedFiles(dir, files, parts, docs, pics, found, first) })
 		}
 	}()
 }
@@ -159,17 +163,101 @@ func (e *Editor) locked() bool { return e.a.busy() }
 func (e *Editor) Working() bool { return e.a.working() }
 
 // viewOf is what the Server tells an agent: what the user sees of the
-// open folder, and the problems of its files.
+// open folder, and the problems of its files, without how they lay out.
 func (e *Editor) viewOf() string {
 	dir := e.folder.GetUntracked()
 	if dir == "" {
 		return "No folder is open in Scenra.\n"
 	}
+	files, parts, pics := e.readFolder(dir)
+	return view(dir, files, parts, pics)
+}
+
+// viewLaidOut has done hear what viewOf tells, and what is wrong with
+// how the folder's designs and components lay out; read hears what
+// viewOf tells first, before they lay out.
+func (e *Editor) viewLaidOut(read, done func(string)) {
+	dir := e.folder.GetUntracked()
+	if dir == "" {
+		read(e.viewOf())
+		done(e.viewOf())
+		return
+	}
+	files, parts, pics := e.readFolder(dir)
+	text := view(dir, files, parts, pics)
+	read(text)
+	ds := e.allDesigns()
+	var targets []layoutTarget
+	for _, f := range files {
+		targets = append(targets, targetsOf(f.path, f.file, ds)...)
+	}
+	e.layOut(targets, func(out []laidOut) {
+		if out == nil {
+			done(text)
+			return
+		}
+		done(text + layoutSection(out))
+	})
+}
+
+// layoutOf has done hear how the designs of the file at path, relative
+// to the open folder, lay out, only that with id when it is set, or its
+// component, as variant draws it when set; or what is wrong.
+func (e *Editor) layoutOf(path, id, variant string, done func(text string, failed bool)) {
+	dir := e.folder.GetUntracked()
+	if dir == "" {
+		done("No folder is open in Scenra.", true)
+		return
+	}
+	files, _, _ := e.readFolder(dir)
+	i := slices.IndexFunc(files, func(f fileView) bool { return f.path == path || f.path == path+".scenra" })
+	if i < 0 {
+		done(fmt.Sprintf("There is no Scenra file %s in the open folder.", path), true)
+		return
+	}
+	f := files[i]
+	if f.file.Kind == "" || f.file.Kind == flowfile.Chart {
+		done(fmt.Sprintf("%s holds no design or component to lay out.", f.path), true)
+		return
+	}
+	var targets []layoutTarget
+	for _, t := range targetsOf(f.path, f.file, e.allDesigns()) {
+		switch {
+		case t.component != "" && t.variant != variant:
+		case t.component == "" && id != "" && !strings.HasSuffix(t.name, "#"+id) && !(id == f.file.Screens[0].ID && !f.file.Several()):
+		default:
+			targets = append(targets, t)
+		}
+	}
+	if len(targets) == 0 {
+		done(fmt.Sprintf("%s has no design %q or variant %q.", f.path, id, variant), true)
+		return
+	}
+	e.layOut(targets, func(out []laidOut) {
+		if out == nil {
+			done("Scenra could not lay the file out, as no workspace shows it.", true)
+			return
+		}
+		var b strings.Builder
+		for i, l := range out {
+			if i > 0 {
+				b.WriteByte('\n')
+			}
+			b.WriteString(layoutText(l))
+		}
+		done(b.String(), false)
+	})
+}
+
+// readFolder reads the open folder dir again, as an agent may just have
+// written it: its files as the server tells of them, its components and
+// its pictures.
+func (e *Editor) readFolder(dir string) ([]fileView, components, assets) {
 	var files []fileView
 	// What the agent just wrote counts.
 	e.reload(e.shown())
-	found, parts, pics, _ := scan(dir, nil)
-	e.scannedFiles(dir, found, parts, pics, e.changes.GetUntracked(), false)
+	found, parts, pics, _, docs := scan(dir, nil)
+	e.scannedFiles(dir, found, parts, docs, pics, e.changes.GetUntracked(), false)
 	shown := e.shown()
 	for _, en := range found {
 		path := filepath.Join(dir, filepath.FromSlash(en.path))
@@ -187,5 +275,5 @@ func (e *Editor) viewOf() string {
 		}
 		files = append(files, fv)
 	}
-	return view(dir, files, parts, pics)
+	return files, parts, pics
 }

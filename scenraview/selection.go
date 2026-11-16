@@ -96,25 +96,28 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 		for _, n := range f.file.Notes() {
 			out = append(out, remark(f, n))
 		}
+		for _, n := range f.file.UseNotes() {
+			out = append(out, remark(f, flowfile.Comment{Screen: n.Screen, Path: n.Path + ", its " + n.Name, Text: n.Text}))
+		}
 		return out
 	})
-	// designs are what taps open: a file of designs by its name, and each
+	// opens are what taps open: a file of designs by its name, and each
 	// of its designs with an ID by the name, # and the ID.
-	var designs []string
+	var opens []string
 	for _, f := range files {
 		if f.file.Kind != flowfile.Chart {
 			name := strings.TrimSuffix(f.path, ".scenra")
-			designs = append(designs, name)
+			opens = append(opens, name)
 			for _, s := range f.file.Screens {
 				if s.ID != "" {
-					designs = append(designs, name+"#"+s.ID)
+					opens = append(opens, name+"#"+s.ID)
 				}
 			}
 		}
 	}
 	section("Taps that lead nowhere:", func(f fileView) []string {
 		var out []string
-		for _, p := range tapProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), designs, parts) {
+		for _, p := range tapProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), opens, parts) {
 			out = append(out, f.path+": "+p)
 		}
 		return out
@@ -135,6 +138,19 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 		}
 		if f.file.Kind == flowfile.Component && self == "" {
 			out = append(out, fmt.Sprintf("%s: a component outside %s/, which nothing can use", f.path, flowfile.ComponentsDir))
+		}
+		return out
+	})
+	docs := designs{}
+	for _, f := range files {
+		if f.file.Kind == flowfile.Design {
+			docs[strings.TrimSuffix(f.path, ".scenra")] = f.file
+		}
+	}
+	section("Outlets that in= cannot fill, and outlets of one name:", func(f fileView) []string {
+		var out []string
+		for _, p := range outletProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), docs) {
+			out = append(out, f.path+": "+p)
 		}
 		return out
 	})
@@ -160,6 +176,20 @@ func view(dir string, files []fileView, parts components, pics assets) string {
 			return []string{f.path + ": " + strings.Join(classes, ", ")}
 		}
 		return nil
+	})
+	section("Suggestions, which change nothing drawn:", func(f fileView) []string {
+		self, _ := flowfile.ComponentName(f.path)
+		var out []string
+		for _, s := range f.file.Screens {
+			walk(s.UI, func(el flowfile.Element) {
+				if part, ok := parts[el.Text]; ok && el.Kind == "use" && el.Text != self {
+					for _, h := range flowfile.VariantHints(el, part) {
+						out = append(out, f.path+": "+h)
+					}
+				}
+			})
+		}
+		return out
 	})
 	return b.String()
 }
@@ -261,18 +291,16 @@ func walk(els []flowfile.Element, fn func(flowfile.Element)) {
 }
 
 // drawn runs fn on els, the elements they hold and those of the
-// components they use, each component once.
+// components they use, as the uses change them.
 func drawn(els []flowfile.Element, parts components, fn func(flowfile.Element)) {
-	seen := map[string]bool{}
-	var visit func(els []flowfile.Element)
-	visit = func(els []flowfile.Element) {
+	var visit func(els []flowfile.Element, using []string)
+	visit = func(els []flowfile.Element, using []string) {
 		walk(els, func(el flowfile.Element) {
 			fn(el)
-			if el.Kind == "use" && !seen[el.Text] {
-				seen[el.Text] = true
-				visit(parts[el.Text])
+			if part, ok := parts[el.Text]; ok && el.Kind == "use" && !slices.Contains(using, el.Text) {
+				visit(flowfile.Instance(el, part), append(slices.Clone(using), el.Text))
 			}
 		})
 	}
-	visit(els)
+	visit(els, nil)
 }

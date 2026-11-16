@@ -87,12 +87,14 @@ type Editor struct {
 	cx   *core.Scope
 	opts Options
 	// folder is the open folder, "" before one is, files the Scenra
-	// files found in it, parts the components among them and assets the
-	// pictures of its assets folder; changes are what Git says changed in
+	// files found in it, parts the components among them, designs the
+	// files of designs, by name, and assets the pictures of its assets
+	// folder; changes are what Git says changed in
 	// its files.
 	folder  *core.Signal[string]
 	files   *core.Signal[[]entry]
 	parts   *core.Signal[components]
+	designs *core.Signal[designs]
 	assets  *core.Signal[assets]
 	changes *core.Signal[changes]
 	active  *core.Signal[*document]
@@ -122,6 +124,11 @@ type Editor struct {
 	// workspace the window's width.
 	panelsHidden *core.Signal[bool]
 	a            *assistant
+	// probe is what the unseen layer of the Workspace lays out, probes
+	// those waiting for it, and probing counts the layers mounted.
+	probe   *core.Signal[*probe]
+	probes  []*probe
+	probing int
 	// scanning is the folder the scan reads, shared with its goroutine,
 	// and rescan asks it to read the folder now.
 	mu       sync.Mutex
@@ -137,11 +144,11 @@ func New(cx *core.Scope, opts Options) *Editor {
 		toasts = ui.NewToaster(cx)
 	}
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
-		parts: core.NewSignalFunc(cx, components(nil), sameComponents), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
+		parts: core.NewSignalFunc(cx, components(nil), sameComponents), designs: core.NewSignalFunc(cx, designs(nil), sameDesigns), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		changes: core.NewSignalFunc(cx, changes(nil), sameChanges),
 		active:  core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
 		camera: &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
-		focus: core.NewSignal(cx, focusing{}), showcase: core.NewSignal(cx, false)}
+		focus: core.NewSignal(cx, focusing{}), showcase: core.NewSignal(cx, false), probe: core.NewSignal[*probe](cx, nil)}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)
 	e.watch()
@@ -293,6 +300,7 @@ func (e *Editor) setFolder(dir string) {
 		e.folder.Set(dir)
 		e.files.Set(nil)
 		e.parts.Set(nil)
+		e.designs.Set(nil)
 		e.assets.Set(nil)
 		e.changes.Set(nil)
 	})

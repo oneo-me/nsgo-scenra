@@ -11,7 +11,7 @@ Scenra files (`.scenra`) are plain text, and each holds one kind of thing: desig
 
 1. Before you change files, call the `get_view` tool of the `scenra` MCP server. It names the open folder and the file the user is looking at and what they selected, lists the comments and notes on elements and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger".
 2. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads the file shown as you write it, shows the files you make, and the user cannot edit them while you work.
-3. After you write them, call `get_view` again: it reports the files that do not parse, the classes that draw nothing and the taps that lead nowhere. Fix what it reports.
+3. After you write them, call `get_view` again: it reports the files that do not parse, the classes that draw nothing, the taps that lead nowhere and what lays out wrong, such as text cut off, elements outside their design or of no size, and `w-full` filling nothing. Fix what it reports. Call `get_layout` with a file's path, and a design's ID or a component's variant, to see where each of its elements laid out, its x, y, width and height, when a layout looks off.
 4. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
 
 The editor saves files in their canonical form, which drops `#` comments, so do not keep notes in them.
@@ -71,6 +71,7 @@ a -> b -> c
 - `a -> b "label"` connects nodes, `a ..> b` dashed for optional or indirect links, and `a -> b -> c` chains them. An edge may name nodes no line declares; they take their ID as their label.
 - Node IDs are letters, digits, `_`, `-` or `.`, unique in their flow; each flow of a file has its own nodes, and edges join nodes of their own flow.
 - The file's name is its title: there is no title line.
+- Quote a value with spaces or quotes in it; inside quotes, write `\"` for a quote, `\\` for a backslash and `\n` for a new line, such as `text "Say \"hi\""`.
 
 Use `kind=start` and `kind=end` for entry and exit points and `kind=decision` for branches, with the answers as edge labels.
 
@@ -84,6 +85,7 @@ A design is drawn with a few primitives, an element a line, each styled with Tai
 - `image`: a picture its text describes: the one `src="…"` names, a file of `assets/` such as `src="assets/latte.jpg"` or a URL, or else a placeholder; size it with classes; see Pictures
 - `svg`: any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox
 - `use`: the component its text names, a file of `components/`, drawn as the component's element, its classes added; see Components
+- `box` with `outlet="…"`: a place designs of other files fill; see Windows and outlets
 
 Draw any interface with them, as a designer draws in Figma: buttons, fields, switches, tabs, cards, lists, charts and navigation are boxes, texts, icons and SVG shaped by classes, with exactly the look the app needs. Make designs look like a finished product, with a clear hierarchy, consistent spacing and realistic content, not wireframes.
 
@@ -101,7 +103,7 @@ Keep every picture a design shows in `assets/` at the top of the open folder, as
 
 ## Components
 
-A component is a piece of interface several designs or components share, drawn once in a file of `components/` at the top of the open folder, so changing it changes every screen using it. Its first line is `component`; the rest is elements, as in a design. The editor draws it bare, outlined, as large as its elements need, so a button shows as a button. Give it `width=` in points for a piece of a fixed width, or `width=fill` for one that fills the width where it is used, such as a list row, a sidebar item or a tab bar, which the editor shows at its `device=`'s width, phone unless set; `height=` fixes its height. `backdrop="…"` gives the classes of what it sits on in the app, such as `backdrop="bg-zinc-100"` for an item of a grey sidebar, so its look and selected state show as they will; its elements draw over it. `use <name>` draws the component named by its path in `components/` without `.scenra`: `use tab-bar` draws `components/tab-bar.scenra`, and `use nav/item` draws `components/nav/item.scenra`.
+A component is a piece of interface several designs or components share, drawn once in a file of `components/` at the top of the open folder, so changing it changes every screen using it. Its first line is `component`; the rest is elements, as in a design. The editor draws it bare, outlined, as large as its elements need, so a button shows as a button. Give it `width=` in points for a piece of a fixed width, or `width=fill` for one that fills the width where it is used, such as a list row, a sidebar item or a tab bar, which the editor shows `preview=` points wide, or else at its `device=`'s width, phone unless set: set `preview=` to the width it has in the app, such as `component width=fill preview=224` for a sidebar item, so its spacing and truncation show true. `width=`, `preview=` and `height=` size only the component's own drawing, never its uses, which their classes size. `backdrop="…"` gives the classes of what it sits on in the app, such as `backdrop="bg-zinc-100"` for an item of a grey sidebar, so its look and selected state show as they will; its elements draw over it. Separate layers with `>`, from the bottom, as `backdrop="bg-background > bg-foreground/5"` for a translucent sidebar over the window; one layer without `>` draws over `bg-background`, so translucent colors show right in light and dark mode. `use <name>` draws the component named by its path in `components/` without `.scenra`: `use tab-bar` draws `components/tab-bar.scenra`, and `use nav/item` draws `components/nav/item.scenra`.
 
 ```
 # components/tab-bar.scenra
@@ -155,12 +157,15 @@ use menu-item title="Mocha" tag.class="hidden"
 
 - `<name>="…"` replaces the text of the elements of that name: a text's words, an icon's name, an image's description, an SVG document, or the component a `use` draws, swapping it for another. A box has no text.
 - `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.src="…"` replaces an image's picture and `<name>.tap="…"` an element's tap.
+- `<name>.panel="…"` makes them a panel a tab shows, as `panel=` does, and `<name>.note="…"` notes them where the use is: the note is the using file's, as a note on the use itself is.
+- `<name>.variant="…"` picks the variants of the component a `use` of that name draws, and `<name>.state="…"` puts the elements in states, as Variants says.
 - `<a>/<b>="…"` changes the elements named b of the component the use named a draws, and so on down.
 - Every element of a name changes, so give one name to several elements that show one value. Name the elements that vary between uses, and keep the component's own values realistic: they show where a use changes nothing.
+- A name is letters, digits, `_` and `-`, and never a word elements take: name, class, tap, panel, comment, note, variant, state, outlet or src.
 
 ### Variants
 
-A component's file declares its states with `variant <id>` lines after its elements, each changing it as a use would, with `class="…"` and its names: the editor draws every variant beside the component, so a switch's on and off, a button's kinds or a row's selected state show at once, as the props of the code to come.
+A component's file declares its states with `variant <id>` lines after its elements, each changing it as a use would, with `class="…"` and its names: the editor draws every variant beside the component, so a switch's on and off, a button's kinds or a row's selected state show at once, as the props of the code to come. Uses pick them by ID with `variant=`, so a change to a variant reaches every use picking it.
 
 ```
 # components/button.scenra
@@ -172,7 +177,16 @@ variant secondary button.class="bg-zinc-100" label.class="text-zinc-900"
 variant disabled class="opacity-50"
 ```
 
-Uses still write their own changes, such as `use button button.class="bg-zinc-100" label.class="text-zinc-900"`; a variant shows the state, rather than naming it for uses.
+```
+use button variant=secondary label="Cancel"
+use flow-step variant="doing late" title="Open the PR"
+use settings/agent-item switch.variant=off
+```
+
+- `variant=` takes one or more variant IDs apart by spaces. The component draws first, then each variant in the order written, then what the use changes itself: the later wins, classes written later over earlier ones and a name's text set again over the one before.
+- A variant may start from others of its component with `variant=`, such as `variant late variant=next icon.class="text-rose-600"`, never in a loop.
+- `state=` puts the component's element at its top in a state, as pointing at or tapping it would: selected, hover, pressed, disabled or focus. Its `selected:` or `hover:` classes apply, and the `group-selected:` or `group-hover:` classes of what any `group` inside it holds; `state=selected@<name>` puts the elements of that name in it instead, for a component whose top is no group. Write the selected look once with `selected:` and `group-selected:` classes, and give the variant `state=selected` rather than the same classes again: `variant selected state=selected`, then `use tab variant=selected`. A use may write `state=` too; a box whose tap leads to what shows is selected as well.
+- Pick a variant rather than writing out its changes on a use: `get_view` suggests where a use's changes are a variant's, and reports variants a component does not have, variants picking each other in a loop and states that draw nothing.
 
 ### Slots
 
@@ -263,6 +277,39 @@ end
 ```
 
 A tab bar's uses open the screens instead, such as `use tab-bar home.tap="open home" orders.tap="open orders"` on each, so every screen marks its own tab. Add taps where the user asks for a clickable prototype or where they make the flow between screens clear; open only designs that exist or that you make.
+
+## Windows and outlets
+
+Draw a window's frame, such as a sidebar beside a content area, once, and let the designs of what it shows fill its content: mark the box they replace with `outlet=<name>`, whose own elements show until one does, and start each design filling it with `in="<file>#<outlet>"`, naming the design's file without `.scenra` and the outlet, or `in="<file>#<design>/<outlet>"` for an outlet of another design of a file of several; `#<design>/<outlet>` alone names one of the same file.
+
+```
+# main.scenra
+design device=desktop name="Main window"
+box class="flex-1 flex-row"
+  box class="w-56 shrink-0"
+    box class="group selected:bg-zinc-200" tap="open issues"
+      text "Issues" class="group-selected:font-medium"
+    end
+  end
+  box class="flex-1 rounded-xl bg-white" outlet=content
+    text "New task"
+  end
+end
+```
+
+```
+# issues.scenra
+design in="main#content" name="Issues"
+box class="flex-1"
+  text "Issues" class="text-xl font-semibold"
+end
+```
+
+- A design filling an outlet draws alone at the size the outlet lays out at, so it needs no `device=`, `width=` or `height=`; those it writes win.
+- It plays inside its host: opening it, from the host or a design its outlet shows, swaps only the outlet's content, so the rest of the window stays and keeps working, and what opens it is selected. `tap="close"` returns the outlet to what it showed before, or to its own elements.
+- A host may fill an outlet of its own, as the categories of a settings window fill its content, which fills the main window.
+- The first design's `in=` stands for the others of its file that write none.
+- `get_view` reports outlets `in=` names that are not there, designs filling each other in a loop and two outlets of one name in a design.
 
 ## Comments and notes
 

@@ -31,19 +31,25 @@
 //	  image "A cup of coffee" class="h-40 rounded-2xl"
 //	  image "Latte art" src="assets/latte.jpg" class="h-40"   # or a URL
 //	  svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
+//	  box class="flex-1" outlet=content   # designs of other files fill it
+//	    text "Pick a tab"
+//	  end
 //	  use tab-bar class="mt-auto"      # components/tab-bar.scenra
 //	end
 //
 //	design sign-up name="Sign up"      # another design of the file
 //	text "Back" tap=close
 //
-//	component width=fill backdrop="bg-muted"   # in components/tab-bar.scenra
-//	box class="flex-row border-t border-border px-2 pt-2 pb-7"
+//	design in="main#content"         # fills main.scenra's outlet content
+//
+//	component width=fill preview=360 backdrop="bg-muted > bg-black/5"   # in components/tab-bar.scenra
+//	box class="group flex-row border-t border-border px-2 pt-2 pb-7 selected:bg-muted"
 //	  icon house class="size-6" name=home   # a use changes it by name
 //	end
-//	variant store home=store         # a state drawn beside it
+//	variant store home=store         # a state drawn beside it, uses pick
+//	variant chosen variant=store state=selected
 //
-//	use tab-bar home=store home.class="text-amber-600"   # see Instance
+//	use tab-bar variant=chosen home.class="text-amber-600"   # see Instance
 //
 //	component                        # in components/card.scenra
 //	box class="gap-2 p-4"
@@ -87,9 +93,11 @@
 // toolkit. A design is drawn at its device's size unless its line
 // sets width or height in points. A component is drawn bare, as large as
 // it needs unless it sets a width, or width=fill for one filling the
-// width where it is used, which shows at its device's width, or a
-// height, on the classes of its backdrop, beside the variants its file
-// declares, states a use could draw. It lives in the components folder
+// width where it is used, which shows at its preview width or else its
+// device's, or a height, on the layers of classes of its backdrop,
+// beside the variants its file declares, states uses pick by ID. Those
+// sizes are its drawing's alone: its uses take the sizes their classes
+// give. It lives in the components folder
 // at the top of the project, so any design or component uses it by its
 // path there; a use is one element, drawn as the component's element at
 // its top, which takes the use's classes, or else a box holding the
@@ -106,7 +114,9 @@
 // editor plays a design: pressing an element with a tap opens another
 // design, of its file or another, closes the one shown, returning to the
 // one that opened it, or shows the panels of a name in place of their
-// siblings. The element whose tap opens the design holding it or shows
+// siblings. A design may fill a box of another that marks itself an
+// outlet, as a window's content area, which it plays in, so the rest of
+// the window stays; see Host. The element whose tap opens the design holding it or shows
 // the tab shown is selected, which selected: and group-selected: classes
 // style. An edge may name nodes no line of its flow declares; they take
 // their ID as their label.

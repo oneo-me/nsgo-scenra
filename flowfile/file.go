@@ -64,24 +64,49 @@ type File struct {
 // editor shows it by, its Device and UI. Width and Height, when set,
 // replace the device's.
 //
+// A design's In, set by in=, names the outlet of another design it fills,
+// whose size it takes unless it sets its own.
+//
 // A component is as large as its elements unless it sets a size, so a
-// button draws as a button; Fill, set by width=fill, says it fills the
-// width where it is used, which its file shows at its device's width.
-// Backdrop is the classes of what it is drawn on, such as the sidebar
-// a row sits in, and Variants the states drawn beside it.
+// button draws as a button; its width and height size only its own
+// drawing, not its uses, which their classes size. Fill, set by
+// width=fill, says it fills the width where it is used, which its file
+// shows at Preview points, or else its device's width. Backdrop is the
+// classes of what it is drawn on, such as the sidebar a row sits in, in
+// layers from the bottom apart by >, and Variants the states drawn
+// beside it.
 type Screen struct {
 	ID, Name      string
 	Device        string
 	Width, Height int
+	In            string
 	Fill          bool
+	Preview       int
 	Backdrop      string
 	UI            []Element
 	Variants      []Variant
 }
 
+// Layers are the classes of the component's backdrop, from the bottom:
+// those apart by >, or else the theme's background under the one given,
+// so a translucent one shows as it will in light and dark mode.
+func (s Screen) Layers() []string {
+	var out []string
+	for _, layer := range strings.Split(s.Backdrop, ">") {
+		if layer = strings.TrimSpace(layer); layer != "" {
+			out = append(out, layer)
+		}
+	}
+	if len(out) == 1 && !strings.Contains(s.Backdrop, ">") {
+		out = append([]string{"bg-background"}, out...)
+	}
+	return out
+}
+
 // Variant is a state of a component its file draws beside it, such as a
-// switch's on and off or a button's kinds, as a use changing it so
-// draws it: Attrs are a use's class and what it changes by names.
+// switch's on and off or a button's kinds, which uses pick by its ID:
+// Attrs are a use's class, what it changes by names, the variants it
+// starts from and the states it sets.
 type Variant struct {
 	ID    string
 	Attrs map[string]string
@@ -119,8 +144,11 @@ func (f File) Size(i int) (w, h int) {
 	w, h = DeviceSize(s.Device)
 	if f.Kind == Component {
 		h = 0
-		if !s.Fill {
+		switch {
+		case !s.Fill:
 			w = 0
+		case s.Preview != 0:
+			w = s.Preview
 		}
 	}
 	if s.Width != 0 {
@@ -175,7 +203,7 @@ type ElementSpec struct {
 // primitives that classes shape into anything, rather than ready-made
 // controls whose look cannot change.
 var Elements = []ElementSpec{
-	{Kind: "box", Holds: true, Doc: "a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line"},
+	{Kind: "box", Holds: true, Attrs: []string{"outlet"}, Doc: "a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line; outlet= names it a place designs of other files fill, what it holds showing until one does"},
 	{Kind: "text", Doc: "its text, which wraps; size, weight and color it with classes"},
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
 	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the one src names, a file of the assets folder such as assets/latte.jpg or a URL, or a placeholder; size it with classes"},
@@ -198,7 +226,7 @@ var commonAttrs = []string{"name", "class", "tap", "panel", "comment", "note"}
 
 // attrOrder is the order Format writes attributes in.
 // What a use changes in its component goes before the comment.
-var attrOrder = []string{"name", "src", "class", "tap", "panel", "comment", "note"}
+var attrOrder = []string{"name", "variant", "state", "src", "class", "tap", "panel", "outlet", "comment", "note"}
 
 // Spec returns the spec of the element kind.
 func Spec(kind string) (ElementSpec, bool) {
@@ -284,6 +312,11 @@ func (r *uiReader) line(toks []token) string {
 			return fmt.Sprintf("unexpected %q; quote text with spaces, and write attributes as key=value", t.text)
 		case spec.Kind == "fill" && !slices.Contains(fillAttrs, key):
 			return fmt.Sprintf("fill takes no attribute %q; use %s, and shape what it holds", key, strings.Join(fillAttrs, ", "))
+		case spec.Kind == "use" && slices.Contains(useAttrs, key):
+			if msg := checkUseAttr(key, value); msg != "" {
+				return msg
+			}
+			el.setAttr(key, "", value)
 		case spec.Kind == "use" && !slices.Contains(commonAttrs, key):
 			if _, msg := parseOverride(key, value); msg != "" {
 				return msg
@@ -319,7 +352,10 @@ func (r *uiReader) line(toks []token) string {
 // tap or its panel.
 func checkElement(el Element) string {
 	if name, ok := el.Attrs["name"]; ok && !ValidName(name) {
-		return fmt.Sprintf("name %q is not a name of letters, digits, _ or -, nor an attribute such as class", name)
+		return fmt.Sprintf("name %q is not a name of letters, digits, _ or -, nor one of the words elements take: %s", name, strings.Join(ReservedNames(), ", "))
+	}
+	if outlet, ok := el.Attrs["outlet"]; ok && !ValidName(outlet) {
+		return fmt.Sprintf("outlet %q is not a name of letters, digits, _ or -", outlet)
 	}
 	if tap, ok := el.Attrs["tap"]; ok {
 		if _, err := ParseTap(tap); err != nil {
@@ -482,10 +518,14 @@ func (s *Screen) variant(toks []token) string {
 		key, value, ok := t.attr()
 		switch {
 		case !ok:
-			return fmt.Sprintf("unexpected %q; a variant changes the component as a use does, such as label.class=\"…\"", t.text)
+			return fmt.Sprintf("unexpected %q; a variant changes the component as a use does, such as label.class=\"…\", variant= or state=", t.text)
 		case key == "class":
+		case slices.Contains(useAttrs, key):
+			if msg := checkUseAttr(key, value); msg != "" {
+				return msg
+			}
 		case slices.Contains(commonAttrs, key):
-			return fmt.Sprintf("a variant takes no %s; give it class and what a use changes by names", key)
+			return fmt.Sprintf("a variant takes no %s; give it class, variant=, state= and what a use changes by names", key)
 		default:
 			if _, msg := parseOverride(key, value); msg != "" {
 				return msg
@@ -564,6 +604,17 @@ func (f *File) header(toks []token, first bool) string {
 			s.Device = value
 		case f.Kind == Component && key == "width" && value == "fill":
 			s.Fill = true
+		case f.Kind == Component && key == "preview":
+			n, err := strconv.Atoi(value)
+			if err != nil || n < 1 || n > MaxSize {
+				return fmt.Sprintf("preview=%q is not a width; use whole points from 1 to %d", value, MaxSize)
+			}
+			s.Preview = n
+		case f.Kind == Design && key == "in":
+			if _, err := ParseHost(value); err != nil {
+				return err.Error()
+			}
+			s.In = value
 		case f.Kind == Component && key == "backdrop":
 			s.Backdrop = strings.TrimSpace(value)
 		case f.Kind != Chart && (key == "width" || key == "height"):
@@ -584,12 +635,15 @@ func (f *File) header(toks []token, first bool) string {
 				return fmt.Sprintf("unknown direction %q; use down or right", value)
 			}
 		case f.Kind == Component:
-			return fmt.Sprintf("unknown attribute %q; a component takes name, device, width, height and backdrop", key)
+			return fmt.Sprintf("unknown attribute %q; a component takes name, device, width, preview, height and backdrop", key)
 		case f.Kind != Chart:
-			return fmt.Sprintf("unknown attribute %q; a %s takes name, device, width and height", key, f.Kind)
+			return fmt.Sprintf("unknown attribute %q; a %s takes name, device, width, height and in", key, f.Kind)
 		default:
 			return fmt.Sprintf("unknown attribute %q; a flow takes name and direction", key)
 		}
+	}
+	if s.Preview != 0 && !s.Fill {
+		return "preview= sets the width a width=fill component shows at; add width=fill, or set width="
 	}
 	if f.Kind == Chart {
 		f.Flows = append(f.Flows, d)
@@ -674,11 +728,17 @@ func (f File) Format() string {
 		}
 		if s.Fill {
 			b.WriteString(" width=fill")
+			if s.Preview != 0 {
+				fmt.Fprintf(&b, " preview=%d", s.Preview)
+			}
 		} else if s.Width != 0 {
 			fmt.Fprintf(&b, " width=%d", s.Width)
 		}
 		if s.Height != 0 {
 			fmt.Fprintf(&b, " height=%d", s.Height)
+		}
+		if s.In != "" {
+			fmt.Fprintf(&b, " in=%s", quote(s.In))
 		}
 		if s.Backdrop != "" {
 			fmt.Fprintf(&b, " backdrop=%s", quote(s.Backdrop))
@@ -687,8 +747,10 @@ func (f File) Format() string {
 		formatUI(&b, s.UI, "")
 		for _, v := range s.Variants {
 			b.WriteString("variant " + v.ID)
-			if class, ok := v.Attrs["class"]; ok {
-				fmt.Fprintf(&b, " class=%s", quote(class))
+			for _, key := range []string{"variant", "state", "class"} {
+				if value, ok := v.Attrs[key]; ok {
+					fmt.Fprintf(&b, " %s=%s", key, quote(value))
+				}
 			}
 			for _, key := range overrideKeys(v.Attrs) {
 				fmt.Fprintf(&b, " %s=%s", key, quote(v.Attrs[key]))

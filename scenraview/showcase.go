@@ -82,9 +82,10 @@ const variantGap = 32
 // show them: nothing selects or plays.
 func stillSelection(cx *core.Scope, screens []flowfile.Screen, parts components, pics assets) selection {
 	play := newPlayer(cx, func() string { return "" })
-	play.scan(screens, parts)
-	return selection{selected: func() string { return "" }, frames: map[string]frame{}, laidOut: core.NewSignal(cx, 0), play: play,
-		parts: parts, assets: pics, choose: func(string) {}, tap: func(flowfile.Tap, int) {}}
+	sel := selection{selected: func() string { return "" }, frames: map[string]frame{}, laidOut: core.NewSignal(cx, 0), play: play,
+		parts: parts, assets: pics, choose: func(string) {}, tap: func(flowfile.Tap, int, string) {}}
+	play.scan(screens, parts, sel.top)
+	return sel
 }
 
 // withVariants is drawing, of the component that is f's design at i,
@@ -105,7 +106,7 @@ func withVariants(cx *core.Scope, f flowfile.File, i int, drawing core.Node, sti
 	for _, v := range variants {
 		vf := f
 		vf.Screens = slices.Clone(f.Screens)
-		vf.Screens[i].UI = flowfile.Instance(v.Use(f.Screens[i].ID), f.Screens[i].UI)
+		vf.Screens[i].UI = flowfile.Instance(v.Use(f.Screens[i].ID), flowfile.Part{UI: f.Screens[i].UI, Variants: variants})
 		states = append(states, state(v.ID, screenView(cx, vf, i, still), "variant-"+v.ID))
 	}
 	return core.View{Style: core.Style{Direction: core.Row, Gap: variantGap, AlignItems: core.AlignStart}, Children: states}
@@ -123,7 +124,7 @@ func showcaseFile(entries []entry, parts components) flowfile.File {
 			title = keyName(en.path)
 		}
 		s := en.screen()
-		s.ID, s.Name, s.UI = name, title, parts[name]
+		s.ID, s.Name, s.UI = name, title, parts[name].UI
 		f.Screens = append(f.Screens, s)
 	}
 	return f

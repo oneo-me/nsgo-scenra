@@ -125,11 +125,11 @@ func TestVariants(t *testing.T) {
 		t.Fatalf("formatted as\n%s", f.Format())
 	}
 	// A variant draws as a use changing the component so would.
-	if got := FormatUI(Instance(s.Variants[1].Use(""), s.UI)); got != "box name=\"track\" class=\"w-10 mt-1 bg-blue-600\"\n  box name=\"knob\" class=\"ml-auto\"\n  end\nend\n" {
+	if got := FormatUI(Instance(s.Variants[1].Use(""), Part{UI: s.UI, Variants: s.Variants})); got != "box name=\"track\" class=\"w-10 mt-1 bg-blue-600\"\n  box name=\"knob\" class=\"ml-auto\"\n  end\nend\n" {
 		t.Fatalf("drawn as\n%s", got)
 	}
 	f.Screens[0].Variants = append(f.Screens[0].Variants, Variant{ID: "x", Attrs: map[string]string{"gone.class": "p-1"}})
-	if p := VariantProblems(f.Screens[0], "switch", func(string) ([]Element, bool) { return nil, false }); len(p) != 1 ||
+	if p := VariantProblems(f.Screens[0], "switch", func(string) (Part, bool) { return Part{}, false }); len(p) != 1 ||
 		!strings.Contains(p[0], "variant x: gone.class=\"p-1\" names nothing: no element of components/switch.scenra has name=gone") {
 		t.Fatalf("problems %v", p)
 	}
@@ -312,8 +312,8 @@ func TestOverrides(t *testing.T) {
 		t.Fatal(err)
 	}
 	badge, _ := ParseUI("text \"New\" name=label class=\"text-xs\"\n")
-	parts := map[string][]Element{"card": card, "badge": badge, "pill": badge}
-	find := func(name string) ([]Element, bool) { p, ok := parts[name]; return p, ok }
+	parts := map[string]Part{"card": {UI: card}, "badge": {UI: badge}, "pill": {UI: badge}}
+	find := func(name string) (Part, bool) { p, ok := parts[name]; return p, ok }
 	use, err := ParseUI("use card title=\"Latte\" title.class=\"text-rose-600\" icon=home badge/label=Hot badge/label.class=\"font-bold\" card.tap=\"open menu\" comment=\"x\"\n")
 	if err != nil {
 		t.Fatal(err)
@@ -321,7 +321,7 @@ func TestOverrides(t *testing.T) {
 	if got := FormatUI(use); got != "use \"card\" badge/label=\"Hot\" badge/label.class=\"font-bold\" card.tap=\"open menu\" icon=\"home\" title=\"Latte\" title.class=\"text-rose-600\" comment=\"x\"\n" {
 		t.Fatalf("formatted as\n%s", got)
 	}
-	inst := Instance(use[0], card)
+	inst := Instance(use[0], Part{UI: card})
 	if got := FormatUI(inst); got != "box name=\"card\" class=\"p-4\" tap=\"open menu\"\n  icon \"house\" name=\"icon\" class=\"size-5\"\n  text \"Latte\" name=\"title\" class=\"font-bold text-rose-600\"\n"+
 		"  use \"badge\" name=\"badge\" label=\"Hot\" label.class=\"font-bold\"\nend\n" {
 		t.Fatalf("drawn as\n%s", got)
@@ -329,16 +329,16 @@ func TestOverrides(t *testing.T) {
 	// The use's classes go to the element at the top of its component,
 	// after its own, or to none when it has several.
 	merged, _ := ParseUI("use card class=\"w-full p-2\"\n")
-	if got := Instance(merged[0], card)[0].Attr("class"); got != "p-4 w-full p-2" {
+	if got := Instance(merged[0], Part{UI: card})[0].Attr("class"); got != "p-4 w-full p-2" {
 		t.Fatalf("the use's classes go to %q", got)
 	}
-	if two := slices.Concat(card, badge); Instance(merged[0], two)[0].Attr("class") != "p-4" {
+	if two := slices.Concat(card, badge); Instance(merged[0], Part{UI: two})[0].Attr("class") != "p-4" {
 		t.Fatal("the use's classes went to one of several elements")
 	}
 	if FormatUI(card) != "box name=\"card\" class=\"p-4\"\n  icon \"coffee\" name=\"icon\" class=\"size-5\"\n  text \"Title\" name=\"title\" class=\"font-bold\"\n  use \"badge\" name=\"badge\"\nend\n" {
 		t.Fatal("drawing a use changed its component")
 	}
-	if got := FormatUI(Instance(inst[0].Children[2], badge)); got != "text \"Hot\" name=\"label\" class=\"text-xs font-bold\"\n" {
+	if got := FormatUI(Instance(inst[0].Children[2], Part{UI: badge})); got != "text \"Hot\" name=\"label\" class=\"text-xs font-bold\"\n" {
 		t.Fatalf("the badge drawn as\n%s", got)
 	}
 	if p := OverrideProblems(use[0], find); len(p) != 0 {
@@ -355,7 +355,7 @@ func TestOverrides(t *testing.T) {
 	}
 	for src, want := range map[string]string{
 		"use card ti:tle=x":       "use takes no attribute \"ti:tle\"",
-		"use card title.note=x":   "use cannot change \"note\" of title",
+		"use card title.size=x":   "use cannot change \"size\" of title",
 		"use card title.a.b=x":    "use cannot change \"a.b\"",
 		"use card title.tap=jump": "tap takes",
 		"use card src=x":          "use takes no attribute \"src\"",
@@ -395,8 +395,8 @@ func TestSlots(t *testing.T) {
 	if got := Uses(use); !slices.Equal(got, []string{"card"}) {
 		t.Fatalf("uses %v", got)
 	}
-	parts := map[string][]Element{"card": card}
-	find := func(name string) ([]Element, bool) { p, ok := parts[name]; return p, ok }
+	parts := map[string]Part{"card": {UI: card}}
+	find := func(name string) (Part, bool) { p, ok := parts[name]; return p, ok }
 	if p := FillProblems(use[0], find); len(p) != 0 {
 		t.Fatalf("problems %v", p)
 	}

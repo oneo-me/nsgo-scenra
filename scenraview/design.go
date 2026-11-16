@@ -1,6 +1,7 @@
 package scenraview
 
 import (
+	"maps"
 	"slices"
 	"time"
 
@@ -26,14 +27,15 @@ const (
 
 // screenLayout is where each design of f is in the plane, packed
 // f.Spacing() apart under their captions, and the size of the whole, 0
-// for a file of one, which is as large as it lays out.
-func screenLayout(f flowfile.File) ([]core.Point, core.Size) {
+// for a file of one, which is as large as it lays out; designs filling
+// outlets are as large as hosted says.
+func screenLayout(f flowfile.File, hosted map[int]hosting) ([]core.Point, core.Size) {
 	if !f.Several() {
 		return []core.Point{{}}, core.Size{}
 	}
 	sizes := make([]core.Size, len(f.Screens))
 	for i := range f.Screens {
-		w, h := f.Size(i)
+		w, h := sizeOf(f, i, hosted)
 		sizes[i] = core.Size{Width: core.Points(w), Height: core.Points(h + captionRoom)}
 	}
 	at, total := pack(sizes, core.Points(f.Spacing()))
@@ -45,9 +47,10 @@ func screenLayout(f flowfile.File) ([]core.Point, core.Size) {
 
 // screenBounds is the frame of the design of f at index i in the plane,
 // laid out at origin; a component of no width or height is as large as
-// it laid out, in measured.
-func screenBounds(f flowfile.File, i int, origin core.Point, measured map[int]core.Size) core.Bounds {
-	w, h := f.Size(i)
+// it laid out, in measured, and a design filling an outlet as hosted
+// says.
+func screenBounds(f flowfile.File, i int, origin core.Point, measured map[int]core.Size, hosted map[int]hosting) core.Bounds {
+	w, h := sizeOf(f, i, hosted)
 	size := core.Size{Width: core.Points(w), Height: core.Points(h)}
 	if w == 0 {
 		size.Width = measured[i].Width
@@ -73,12 +76,13 @@ func caption(cx *core.Scope, text string, at core.Point, width int, zoom func() 
 		}}
 }
 
-// lookOf is what a design is drawn from: its text, and the components
-// and pictures it may use.
+// lookOf is what a design is drawn from: its text, and the components,
+// pictures and the designs it may use or fill.
 type lookOf struct {
-	text   string
-	parts  components
-	assets assets
+	text    string
+	parts   components
+	assets  assets
+	designs designs
 }
 
 // peekDelay is how long the pointer rests on an element before its card
@@ -109,11 +113,20 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	measured := map[int]core.Size{}
 	pane := core.NewSignal(cx, core.Size{})
 	// A design is drawn again as it, a component or a picture changes.
-	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{e.cur().doc.Get().Format(), e.parts.Get(), e.assets.Get()} },
-		func(a, b lookOf) bool {
-			return a.text == b.text && sameComponents(a.parts, b.parts) && sameAssets(a.assets, b.assets)
-		})
+	look := core.NewMemoFunc(cx, func() lookOf {
+		return lookOf{e.cur().doc.Get().Format(), e.parts.Get(), e.assets.Get(), e.designs.Get()}
+	}, func(a, b lookOf) bool {
+		return a.text == b.text && sameComponents(a.parts, b.parts) && sameAssets(a.assets, b.assets) && sameDesigns(a.designs, b.designs)
+	})
 	play := newPlayer(cx, func() string { return e.designName(e.cur().path) })
+	// The outlets play the folder's designs, the one shown as it is here.
+	play.designs = func() designs {
+		d := e.cur()
+		return look.Get().designs.with(e.designName(d.path), d.doc.Get())
+	}
+	// hosted are the outlets the designs filling them lay out at, by the
+	// designs' index.
+	hosted := core.NewSignalFunc(cx, map[int]hosting(nil), maps.Equal[map[int]hosting])
 	hovered := core.NewSignal(cx, "")
 	// tappable says the pointer is over an element pressing which plays a
 	// tap.
@@ -135,6 +148,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		shown.Get()
 		core.Untracked(cx, func() bool {
 			play.tabs.Set(nil)
+			play.shown.Set(nil)
+			hosted.Set(nil)
 			peek.Set("")
 			clicked.Set(click{})
 			return true
@@ -152,8 +167,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				c.Fit()
 				return
 			}
-			origins, _ := screenLayout(f)
-			b := screenBounds(f, i, origins[i], measured)
+			origins, _ := screenLayout(f, hosted.GetUntracked())
+			b := screenBounds(f, i, origins[i], measured, hosted.GetUntracked())
 			b.Origin.Y -= captionRoom
 			b.Size.Height += captionRoom
 			c.FitBounds(b)
@@ -186,13 +201,17 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				peek.Set(path)
 			})
 		},
-		tap: func(t flowfile.Tap, screen int) {
+		tap: func(t flowfile.Tap, screen int, outlet string) {
 			peek.Set("")
 			switch t.Action {
 			case flowfile.TapOpen:
-				e.tapOpen(t, screen)
+				if !play.open(t, screen) {
+					e.tapOpen(t, screen)
+				}
 			case flowfile.TapClose:
-				e.tapClose()
+				if !play.close(outlet) {
+					e.tapClose()
+				}
 			case flowfile.TapTab:
 				play.showTab(t.Target, screen)
 			}
@@ -245,7 +264,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	allTaps := func(sel selection, f flowfile.File) []string {
 		var out []string
 		for i, s := range f.Screens {
-			out = append(out, sel.taps(s.UI, scope{prefix: screenPrefix(i)}, nil)...)
+			out = append(out, sel.taps(s.UI, sel.top(i), nil)...)
 		}
 		return out
 	}
@@ -274,23 +293,23 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	}
 	// hasTaps says an element of the designs has a tap, in any panel.
 	hasTaps := func() bool {
-		return len(allTaps(selection{parts: look.Get().parts}, e.cur().doc.Get())) > 0
+		return len(allTaps(selection{parts: look.Get().parts, fills: play.fill}, e.cur().doc.Get())) > 0
 	}
 	// targetAt is the element of the designs at a point of them, the tap
 	// pressing there plays and the index of its design.
-	targetAt := func(at core.Point) (string, *flowfile.Tap, int) {
+	targetAt := func(at core.Point) (string, *flowfile.Tap, int, string) {
 		s := e.cur().doc.Get()
 		for i := range s.Screens {
 			if i >= len(sel.origins) {
 				break
 			}
-			b := screenBounds(s, i, sel.origins[i], measured)
+			b := screenBounds(s, i, sel.origins[i], measured, hosted.Get())
 			if at.X >= b.Origin.X && at.Y >= b.Origin.Y && at.X < b.Origin.X+b.Size.Width && at.Y < b.Origin.Y+b.Size.Height {
-				path, tap := target(sel.hits(s.Screens[i].UI, scope{prefix: screenPrefix(i)}, nil, sel.origins[i], at))
-				return path, tap, i
+				path, tap, outlet := target(sel.hits(s.Screens[i].UI, sel.top(i), nil, sel.origins[i], at))
+				return path, tap, i, outlet
 			}
 		}
-		return "", nil, 0
+		return "", nil, 0, ""
 	}
 	// A changed design is laid out afresh, the pointer over nothing until
 	// it moves.
@@ -301,9 +320,14 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	})
 	picture := core.Dynamic(func(cx *core.Scope) core.Node {
 		sel.parts, sel.assets = look.Get().parts, look.Get().assets
+		// What the outlets show draws again as it changes, and the
+		// designs filling outlets as their outlets lay out.
+		shown, ds := play.shown.Get(), play.designs()
+		sel.hosted = hosted.Get()
+		sel.fills = func(key string) ([]flowfile.Element, bool) { return fillOf(shown, ds, key) }
 		s := core.Untracked(cx, func() flowfile.File { return e.cur().doc.Get() })
 		clear(sel.frames)
-		play.scan(s.Screens, sel.parts)
+		play.scan(s.Screens, sel.parts, sel.top)
 		if !slices.ContainsFunc(s.Screens, func(s flowfile.Screen) bool { return len(s.UI) > 0 }) {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
 				AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Gap: 10}, Children: []core.Node{
@@ -311,7 +335,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				core.Text{Content: tr.DesignEmpty(), Style: core.Style{FontSize: 13, LineHeight: 19, TextAlign: core.TextAlignCenter, MaxWidth: core.Pt(320)},
 					StyleFunc: ui.Colored(colors.Muted)}}}
 		}
-		origins, total := screenLayout(s)
+		origins, total := screenLayout(s, sel.hosted)
 		sel.origins = origins
 		clear(measured)
 		// framed records the size a design laid out at.
@@ -326,7 +350,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 		} else {
 			style.Width, style.Height = core.Pt(total.Width), core.Pt(total.Height)
 			for i, screen := range s.Screens {
-				w, _ := s.Size(i)
+				w, _ := sizeOf(s, i, sel.hosted)
 				name := screen.Name
 				if name == "" {
 					name = screen.ID
@@ -391,9 +415,9 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	// plays a tap, unless Alt is held, or selects, and empty space leaves
 	// a double press to zoom.
 	press := func(at core.Point, ev core.PressEvent) bool {
-		path, tap, screen := targetAt(at)
+		path, tap, screen, outlet := targetAt(at)
 		if tap != nil && !ev.Modifiers.Alt {
-			sel.tap(*tap, screen)
+			sel.tap(*tap, screen, outlet)
 			return true
 		}
 		clicked.Set(click{path, at})
@@ -403,7 +427,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	pointAt := func(at core.Point, over bool) {
 		path, tap := "", (*flowfile.Tap)(nil)
 		if over {
-			path, tap, _ = targetAt(at)
+			path, tap, _, _ = targetAt(at)
 		}
 		cx.Batch(func() {
 			hovered.Set(path)
@@ -424,5 +448,64 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			}},
 		}}
 	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
-		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{canvas}}
+		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{hostsOf(cx, e, look, hosted), canvas}}
+}
+
+// unseen holds views laid out but neither seen, pressed nor heard by
+// assistive technology.
+func unseen(testID string, kids []core.Node) core.Node {
+	return core.View{TestID: testID, PointerEvents: core.PointerEventsNone, AccessibilityElementsHidden: func() bool { return true },
+		Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Opacity: core.Alpha(0)}, Children: kids}
+}
+
+// hostsOf lays out, unseen, the designs holding those of the file shown
+// that fill outlets, each showing the design in its outlet as it plays,
+// and keeps the size each outlet lays out at in hosted, which the
+// designs filling them take.
+func hostsOf(cx *core.Scope, e *Editor, look *core.Memo[lookOf], hosted *core.Signal[map[int]hosting]) core.Node {
+	return core.Dynamic(func(cx *core.Scope) core.Node {
+		lk := look.Get()
+		d := core.Untracked(cx, e.cur)
+		name, f := e.designName(d.path), d.doc.GetUntracked()
+		ds := lk.designs.with(name, f)
+		var pending map[int]hosting
+		record := func(i int, h hosting) {
+			if pending == nil {
+				pending = map[int]hosting{}
+				cx.Post(func() {
+					out := maps.Clone(hosted.GetUntracked())
+					if out == nil {
+						out = map[int]hosting{}
+					}
+					maps.Copy(out, pending)
+					pending = nil
+					hosted.Set(out)
+				})
+			}
+			pending[i] = h
+		}
+		var nodes []core.Node
+		for i := range f.Screens {
+			if _, ok := f.HostOf(i); !ok {
+				continue
+			}
+			hops, msg := ds.hosts(place{name, i})
+			if msg != "" || len(hops) == 0 {
+				continue
+			}
+			one, shown, key := composed(ds, hops, place{name, i})
+			still := stillSelection(cx, one.Screens, lk.parts, lk.assets)
+			still.fills = func(k string) ([]flowfile.Element, bool) { return fillOf(shown, ds, k) }
+			still.unseen = true
+			device := one.Screens[0].Device
+			still.report = func(k string, fr frame) {
+				if k == key {
+					record(i, hosting{fr.Size, device})
+				}
+			}
+			nodes = append(nodes, core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0)},
+				Children: []core.Node{screenView(cx, one, 0, still)}})
+		}
+		return unseen("design-hosts", nodes)
+	})
 }

@@ -270,3 +270,34 @@ func SetAttr(els []Element, path, key, value string) ([]Element, error) {
 	}
 	return ReplaceElement(els, path, []Element{el})
 }
+
+// UseNote is a note a use keeps on an element of its component, by the
+// element's name, as name.note=: the index of the design among the
+// file's, the use's path in it, the name, as the use writes it, and the
+// text.
+type UseNote struct {
+	Screen           int
+	Path, Name, Text string
+}
+
+// UseNotes are the notes f's uses keep on the elements of their
+// components, in the order the uses are written.
+func (f File) UseNotes() []UseNote {
+	var out []UseNote
+	for s, screen := range f.Screens {
+		var walk func(els []Element, parent []int)
+		walk = func(els []Element, parent []int) {
+			for i, el := range els {
+				path := append(slices.Clone(parent), i)
+				for _, o := range el.Overrides() {
+					if o.Attr == "note" && o.Value != "" {
+						out = append(out, UseNote{s, FormatPath(path), strings.Join(o.Path, "/"), o.Value})
+					}
+				}
+				walk(el.Children, path)
+			}
+		}
+		walk(screen.UI, nil)
+	}
+	return out
+}
