@@ -45,12 +45,13 @@ const scanLimit = 20000
 
 // entry is a Scenra file found in the open folder: its path relative to
 // the folder, with slashes, what it holds, no kind when it does not
-// parse, and the name it gives itself.
+// parse, the name it gives itself and the size its first design sets.
 type entry struct {
-	path   string
-	kind   flowfile.Kind
-	device string
-	name   string
+	path          string
+	kind          flowfile.Kind
+	device        string
+	name          string
+	width, height int
 }
 
 // scanned is what a scan read of a file, kept while the file stays the
@@ -148,6 +149,7 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 				c.entry.kind, c.entry.name = f.Kind, f.Title()
 				if len(f.Screens) > 0 {
 					c.entry.device = f.Screens[0].Device
+					c.entry.width, c.entry.height = f.Screens[0].Width, f.Screens[0].Height
 				}
 				if f.Kind == flowfile.Component && len(f.Screens) > 0 {
 					c.ui = f.Screens[0].UI
@@ -179,10 +181,11 @@ func (e *Editor) found(en entry) {
 	e.files.Set(append(files, en))
 }
 
-// scannedFiles takes the files a scan of dir found, and opens those the
+// scannedFiles takes the files a scan of dir found and what Git says
+// changed in them, and opens those the
 // agent made in its turn: a component only when it made nothing else, so
 // the screen using it shows.
-func (e *Editor) scannedFiles(dir string, files []entry, parts components, pics assets, first bool) {
+func (e *Editor) scannedFiles(dir string, files []entry, parts components, pics assets, diffs changes, first bool) {
 	if e.folder.GetUntracked() != dir {
 		return
 	}
@@ -191,6 +194,7 @@ func (e *Editor) scannedFiles(dir string, files []entry, parts components, pics 
 		e.files.Set(files)
 		e.parts.Set(parts)
 		e.assets.Set(pics)
+		e.changes.Set(diffs)
 	})
 	if first || !e.a.busy() {
 		return

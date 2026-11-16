@@ -30,6 +30,10 @@ func stampOf(path string) stamp {
 	return stamp{info.Size(), info.ModTime()}
 }
 
+// diffEvery is how often the editor asks Git what changed in the open
+// folder, at most.
+const diffEvery = 3 * time.Second
+
 // scanEvery is how many times the editor looks at the open files for
 // each time it reads the open folder for its Scenra files.
 const scanEvery = 4
@@ -44,6 +48,8 @@ func (e *Editor) watch() {
 		tick := time.NewTicker(watchEvery)
 		defer tick.Stop()
 		var cache map[string]scanned
+		var diffs changes
+		var diffed time.Time
 		ticks, last := 0, ""
 		for {
 			select {
@@ -68,7 +74,13 @@ func (e *Editor) watch() {
 			files, parts, pics, cache = scan(dir, cache)
 			first := dir != last
 			last = dir
-			e.cx.Post(func() { e.scannedFiles(dir, files, parts, pics, first) })
+			// Git runs less often than the scan, as commits change what
+			// it tells without changing the files.
+			if first || time.Since(diffed) >= diffEvery {
+				diffs, diffed = gitChanges(dir), time.Now()
+			}
+			found := diffs
+			e.cx.Post(func() { e.scannedFiles(dir, files, parts, pics, found, first) })
 		}
 	}()
 }
@@ -157,7 +169,7 @@ func (e *Editor) viewOf() string {
 	// What the agent just wrote counts.
 	e.reload(e.shown())
 	found, parts, pics, _ := scan(dir, nil)
-	e.scannedFiles(dir, found, parts, pics, false)
+	e.scannedFiles(dir, found, parts, pics, e.changes.GetUntracked(), false)
 	shown := e.shown()
 	for _, en := range found {
 		path := filepath.Join(dir, filepath.FromSlash(en.path))

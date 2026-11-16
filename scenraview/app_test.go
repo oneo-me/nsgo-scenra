@@ -69,6 +69,14 @@ func startEditor(t *testing.T, opts ...nsgotest.Option) (*nsgotest.App, *Editor)
 // shownName is the name the header gives the file shown.
 func shownName(app *nsgotest.App) string { return app.Find("id:header >> id:file-name").Text }
 
+// openComponent opens the component named name of the folder dir, as
+// making it or an agent's turn does.
+func openComponent(t *testing.T, app *nsgotest.App, e *Editor, dir, name string) {
+	t.Helper()
+	app.Post(func() { e.open(filepath.Join(dir, "components", filepath.FromSlash(name)+".scenra")) })
+	app.WaitFor("id:design", time.Second)
+}
+
 // treeNames are the names of the tree's rows, in order.
 func treeNames(app *nsgotest.App) []string {
 	var names []string
@@ -294,7 +302,10 @@ func TestMakesFilesInTheFolder(t *testing.T) {
 	if data, err := os.ReadFile(filepath.Join(dir, "components", "tab-bar.scenra")); err != nil || string(data) != "component\n" {
 		t.Fatalf("the component: %q %v", data, err)
 	}
-	app.Find("id:files >> label:tab-bar")
+	if app.Exists("id:files >> label:tab-bar") {
+		t.Fatal("the tree shows the component")
+	}
+	app.Find("id:sidebar-components")
 	// A flow goes in the folder selected.
 	app.Press(`id:files >> text:"flows"`)
 	create("new-flow", "checkout")
@@ -341,13 +352,12 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "components", "nav", "item.scenra"), []byte("component\ntext \"Menu tab\"\n"), 0o644)
 	app.WaitFor("design >> text:Menu tab", 5*time.Second)
 	// A component opens on its own, at its device's width.
-	app.Press("id:files >> label:tab-bar")
+	openComponent(t, app, e, dir, "tab-bar")
 	app.WaitFor("design >> text:Orders", time.Second)
 	if w := app.Find("id:design").Frame.Size.Width; w != 390 {
 		t.Fatalf("the component is %v wide", w)
 	}
-	app.WaitFor("id:files >> label:loop", time.Second)
-	app.Press("id:files >> label:loop")
+	openComponent(t, app, e, dir, "loop")
 	app.WaitFor("id:element-0/0", time.Second)
 }
 
@@ -450,9 +460,9 @@ func TestAUseFillsTheSlotsOfItsComponent(t *testing.T) {
 		}
 	}
 	// A component in a loop still opens, and its own file shows its slots.
-	app.Press("id:files >> label:c")
+	openComponent(t, app, e, dir, "c")
 	app.WaitFor("id:element-0/0", time.Second)
-	app.Press("id:files >> label:card")
+	openComponent(t, app, e, dir, "card")
 	app.WaitFor("id:element-0/0.0 >> text:Untitled", time.Second)
 	app.Find("id:element-0/0.1:0.0")
 }

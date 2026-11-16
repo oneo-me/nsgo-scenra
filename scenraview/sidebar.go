@@ -4,6 +4,7 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/nsgo-dev/nsgo/base"
@@ -43,24 +44,34 @@ func entryIcon(en entry) func() *core.SVG {
 }
 
 // sidebar is the open folder's Scenra files as a tree, in which choosing
-// a file shows it; or, while no folder is open, a way to open one. It
+// a file shows it, with the lines Git says each changed, under a row
+// showing its components together, which the tree leaves out; or, while no folder is open, a way
+// to open one. It
 // holds the dialog naming a new file, which the app's menu or the empty
 // workspace asks for.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
-	tree := core.NewMemoFunc(cx, func() fileTree { return treeOf(e.files.Get()) }, func(a, b fileTree) bool { return false })
+	// Components show in the showcase instead.
+	tree := core.NewMemoFunc(cx, func() fileTree {
+		return treeOf(slices.DeleteFunc(slices.Clone(e.files.Get()), func(f entry) bool { return isComponentFile(f.path) }))
+	}, func(a, b fileTree) bool { return false })
 	collapsed := core.NewSignalFunc(cx, []string(nil), slices.Equal)
 	selection := ui.NewSelection(cx, false)
-	// The tree selects the file shown, and choosing a file shows it.
+	// The tree selects the file shown, none while the components show, and
+	// choosing a file shows it.
 	cx.Effect(func() {
-		d := e.cur()
-		if d == e.blank {
+		d, showcase := e.cur(), e.showcase.Get()
+		if d == e.blank && !showcase {
 			return
 		}
 		key := e.rel(d.path)
 		core.Untracked(cx, func() bool {
-			if selection.Cursor() != any(key) {
+			switch {
+			case showcase:
+				selection.Clear()
+				selection.SetCursor(nil)
+			case selection.Cursor() != any(key):
 				selection.Set(key)
 			}
 			return true
@@ -69,7 +80,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 	cx.Effect(func() {
 		key, _ := selection.Cursor().(string)
 		cx.Untrack(func() {
-			if key == "" || strings.HasSuffix(key, "/") || e.rel(e.shown().path) == key {
+			if key == "" || strings.HasSuffix(key, "/") || e.rel(e.shown().path) == key && !e.showcase.GetUntracked() {
 				return
 			}
 			if _, ok := tree.GetUntracked().files[key]; ok {
@@ -119,6 +130,8 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 					ui.IconOf(icon, 14, colors.Muted),
 					core.Text{ContentFunc: func() string { return tree.Get().rowName(key()) }, MaxLines: 1,
 						Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}), StyleFunc: ui.Colored(colors.Text)},
+					core.View{Style: core.Style{FlexGrow: 1}},
+					changeCounts(cx, func() (change, bool) { c, ok := e.changes.Get()[key()]; return c, ok }),
 				}}
 		},
 		Empty: core.View{Style: core.Style{Padding: core.Symmetric(4, 10)}, Children: []core.Node{
@@ -137,10 +150,53 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			core.Show{When: func() bool { return e.folder.Get() == "" },
 				Then: func(*core.Scope) core.Node { return noFolder },
 				Else: func(*core.Scope) core.Node {
-					return core.View{Style: ui.FillRest.Merge(core.Style{Padding: core.Symmetric(0, 4)}), Children: []core.Node{files}}
+					return core.View{Style: ui.FillRest.Merge(core.Style{Padding: core.Symmetric(0, 4)}), Children: []core.Node{
+						core.Show{When: e.HasComponents, Then: func(cx *core.Scope) core.Node { return componentsRow(cx, e) }},
+						files,
+					}}
 				}},
 			newFileDialog(cx, e),
 		}}
+}
+
+// componentsRow shows the open folder's components together, and is
+// selected while they or one of them show.
+func componentsRow(cx *core.Scope, e *Editor) core.Node {
+	tr := locales.For(cx)
+	colors := ui.ColorsOf(cx)
+	count := func() int { return len(componentEntries(e.files.Get())) }
+	return base.Button{TestID: "sidebar-components", Label: tr.Components(), OnPress: func(core.PressEvent) { e.ShowComponents() },
+		Selected: func() bool {
+			return e.showcase.Get() || e.cur() != e.blank && isComponentFile(e.rel(e.cur().path))
+		},
+		Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, MinHeight: core.Pt(ui.RowHeight - 8),
+			Padding: core.Symmetric(0, 10), Margin: core.Symmetric(0, 4), CornerRadius: ui.RadiusControl, FlexShrink: 0},
+		StyleFunc: func() core.Style {
+			return core.Style{Hover: ui.Hovered(cx), Selected: &core.Style{Background: ui.Alpha(colors.Text(), 0.1)}}
+		},
+		Children: []core.Node{
+			ui.IconOf(lucide.LayoutGrid, 14, colors.Muted),
+			core.Text{Content: tr.Components(), MaxLines: 1, Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}),
+				StyleFunc: ui.Colored(colors.Text)},
+			core.View{Style: core.Style{FlexGrow: 1}},
+			core.Text{ContentFunc: func() string { return strconv.Itoa(count()) }, Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
+		}}
+}
+
+// changeCounts are the lines a file added and removed since the last
+// commit, as Git tells them, nothing while it tells none.
+func changeCounts(cx *core.Scope, of func() (change, bool)) core.Node {
+	colors := ui.ColorsOf(cx)
+	count := func(sign string, n func(change) int, color func() core.Color, testID string) core.Node {
+		return core.Show{When: func() bool { c, ok := of(); return ok && n(c) > 0 }, Then: func(*core.Scope) core.Node {
+			return core.Text{ContentFunc: func() string { c, _ := of(); return sign + strconv.Itoa(n(c)) }, TestID: testID,
+				Style: ui.TypeCaption.Merge(core.Style{FlexShrink: 0, FontVariant: core.FontTabularNums}), StyleFunc: ui.Colored(color)}
+		}}
+	}
+	return core.View{Style: core.Style{Direction: core.Row, Gap: 4, FlexShrink: 0}, Children: []core.Node{
+		count("+", func(c change) int { return c.added }, colors.Up, "change-added"),
+		count("−", func(c change) int { return c.removed }, colors.Down, "change-removed"),
+	}}
 }
 
 // newFileDialog asks the name of the file of the kind e.naming says,
@@ -215,7 +271,8 @@ func newFileDialog(cx *core.Scope, e *Editor) core.Node {
 }
 
 // workspacePane is the file shown: a design, or a flow chart; or a way to
-// open a folder, or to make a file in the one open.
+// open a folder, or to make a file in the one open; or the folder's
+// components together.
 func workspacePane(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -241,6 +298,8 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 				StyleFunc: ui.Filled(colors.Background), Children: []core.Node{brokenPane(cx, e, e.a.ask())}}
 		}},
 	}}
+	// The components cover the document while they show, which stays, as
+	// its flow pane must.
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
 		core.Show{When: e.empty,
 			Then: func(*core.Scope) core.Node {
@@ -256,6 +315,10 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 					}}
 			},
 			Else: func(*core.Scope) core.Node { return body }},
+		core.Show{When: func() bool { return e.showcase.Get() && e.folder.Get() != "" }, Then: func(cx *core.Scope) core.Node {
+			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
+				Children: []core.Node{showcasePane(cx, e)}}
+		}},
 	}}
 }
 

@@ -8,6 +8,8 @@
 - Add folder workspaces whose plain-text `.scenra` files show as a bare tree, made from the File menu, and one at a time, named after the folder in the title bar, beside a full-height assistant, both hidden with ⌘B to give the canvas the window, with a coffee shop example.
 - Let designs and components set their own `width=` and `height=`, which the assistant may change, instead of only their device's size.
 - Add components, shared pieces of designs kept in the folder's `components/` and drawn with `use`, which the assistant makes, leaving their taps to the designs using them, and the editor redraws as they change.
+- Show every component of the folder together, in place of their rows in the tree, from **Components** atop it or the View menu, scaling small ones up to a least area.
+- Show beside each file in a Git repository the lines it added and removed since the last commit.
 - Show the folder's own pictures, kept in its `assets/` and named by an image's `src=`, which the assistant copies there and the editor redraws as they change.
 - Let a use change the texts, icons, classes, pictures, taps and nested components of the elements its component names, as Figma's instances and Sketch's symbols do, and fill its component's slots with elements of its own, which components may pass on, reporting loops of components through their fills by the chain of uses.
 - Keep each folder's conversations with the assistant, resumed when the folder opens again and switched or deleted from a menu atop the conversation.

@@ -88,14 +88,19 @@ type Editor struct {
 	opts Options
 	// folder is the open folder, "" before one is, files the Scenra
 	// files found in it, parts the components among them and assets the
-	// pictures of its assets folder.
-	folder *core.Signal[string]
-	files  *core.Signal[[]entry]
-	parts  *core.Signal[components]
-	assets *core.Signal[assets]
-	active *core.Signal[*document]
+	// pictures of its assets folder; changes are what Git says changed in
+	// its files.
+	folder  *core.Signal[string]
+	files   *core.Signal[[]entry]
+	parts   *core.Signal[components]
+	assets  *core.Signal[assets]
+	changes *core.Signal[changes]
+	active  *core.Signal[*document]
 	// blank stands for the document shown while none is open.
 	blank *document
+	// showcase says the folder's components show together in place of
+	// the document, which stays open beneath them.
+	showcase *core.Signal[bool]
 	// naming is the kind of file the new file dialog makes, "" while it
 	// is closed, and into the folder it goes in, relative to the open one.
 	naming *core.Signal[flowfile.Kind]
@@ -133,9 +138,10 @@ func New(cx *core.Scope, opts Options) *Editor {
 	}
 	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
 		parts: core.NewSignalFunc(cx, components(nil), sameComponents), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
-		active: core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
+		changes: core.NewSignalFunc(cx, changes(nil), sameChanges),
+		active:  core.NewSignal[*document](cx, nil), naming: core.NewSignal[flowfile.Kind](cx, ""),
 		camera: &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
-		focus: core.NewSignal(cx, focusing{})}
+		focus: core.NewSignal(cx, focusing{}), showcase: core.NewSignal(cx, false)}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)
 	e.watch()
@@ -244,6 +250,7 @@ func (e *Editor) empty() bool { return e.active.Get() == nil }
 func (e *Editor) show(d *document) {
 	e.cx.Batch(func() {
 		e.active.Set(d)
+		e.showcase.Set(false)
 		e.focusOn("")
 	})
 	e.cx.Post(e.camera.Fit)
@@ -287,6 +294,7 @@ func (e *Editor) setFolder(dir string) {
 		e.files.Set(nil)
 		e.parts.Set(nil)
 		e.assets.Set(nil)
+		e.changes.Set(nil)
 	})
 	e.scanNow()
 }
@@ -304,6 +312,7 @@ func (e *Editor) openFolder(dir string) bool {
 	e.trail = nil
 	e.cx.Batch(func() {
 		e.active.Set(nil)
+		e.showcase.Set(false)
 		e.setFolder(dir)
 	})
 	return true
@@ -349,6 +358,7 @@ func (e *Editor) OpenPath(path string) error {
 // open shows the file at path, which the sidebar chose.
 func (e *Editor) open(path string) {
 	if e.shown().path == path {
+		e.showcase.Set(false)
 		return
 	}
 	e.trail = nil
@@ -694,8 +704,12 @@ func (e *Editor) Empty() bool { return e.empty() }
 func (e *Editor) Name() string { return e.cur().name() }
 
 // Title is the name the document shown gives itself, or else its file
-// name without the extension, "" while none is open.
+// name without the extension, "" while none is open; or the components'
+// while they show.
 func (e *Editor) Title() string {
+	if e.showcase.Get() {
+		return locales.For(e.cx).Components()
+	}
 	if name := e.cur().doc.Get().Title(); name != "" {
 		return name
 	}
@@ -732,6 +746,18 @@ func (e *Editor) Fit()     { e.camera.Fit() }
 // TogglePanels shows again, so the workspace takes the window's width.
 func (e *Editor) PanelsHidden() bool { return e.panelsHidden.Get() }
 func (e *Editor) TogglePanels()      { e.panelsHidden.Set(!e.panelsHidden.GetUntracked()) }
+
+// ShowComponents shows every component of the open folder together, and
+// Showcase says they show; choosing a file shows it again.
+func (e *Editor) ShowComponents() {
+	if e.folder.GetUntracked() != "" {
+		e.showcase.Set(true)
+	}
+}
+func (e *Editor) Showcase() bool { return e.showcase.Get() }
+
+// HasComponents says the open folder has components.
+func (e *Editor) HasComponents() bool { return len(componentEntries(e.files.Get())) > 0 }
 
 // NewChat shows a new conversation about the folder, keeping the others
 // in the assistant's list.

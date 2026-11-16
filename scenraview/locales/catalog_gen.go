@@ -125,6 +125,8 @@ const (
 	textRemoveNote
 	textTapCloses
 	textShowTaps
+	textComponents
+	textComponentsEmpty
 	numTexts
 )
 
@@ -183,6 +185,8 @@ var keyOfText = [numTexts]string{
 	"removeNote",
 	"tapCloses",
 	"showTaps",
+	"components",
+	"componentsEmpty",
 }
 
 // textsEn are the messages without arguments in en.
@@ -238,7 +242,9 @@ var textsEn = i18n.NewTexts(""+
 	"What should others know here?"+
 	"Remove Note"+
 	"Closes this screen"+
-	"Show What Can Be Tapped",
+	"Show What Can Be Tapped"+
+	"Components"+
+	"The components of this folder's components folder show here together.",
 	[]uint16{
 		6,
 		10,
@@ -292,6 +298,8 @@ var textsEn = i18n.NewTexts(""+
 		11,
 		18,
 		23,
+		10,
+		69,
 	})
 
 // textsZhHans are the messages without arguments in zh-Hans.
@@ -347,7 +355,9 @@ var textsZhHans = i18n.NewTexts(""+
 	"这里有什么需要说明的？"+
 	"删除备注"+
 	"关闭这个界面"+
-	"显示可点击的区域",
+	"显示可点击的区域"+
+	"组件"+
+	"此文件夹 components 中的组件会在这里一起展示。",
 	[]uint16{
 		9,
 		12,
@@ -401,6 +411,8 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		18,
 		24,
+		6,
+		63,
 	})
 
 // texts returns the messages without arguments in lang, nil for a
@@ -1122,3 +1134,17 @@ func ShowTaps(cx *core.Scope) string { return For(cx).ShowTaps() }
 
 // ShowTaps is the package's ShowTaps in the language of msgs.
 func (msgs Messages) ShowTaps() string { return msgs.text(textShowTaps) }
+
+// Components says "Components"
+// in the language the app shows under cx.
+func Components(cx *core.Scope) string { return For(cx).Components() }
+
+// Components is the package's Components in the language of msgs.
+func (msgs Messages) Components() string { return msgs.text(textComponents) }
+
+// ComponentsEmpty says "The components of this folder's components folder show here together."
+// in the language the app shows under cx.
+func ComponentsEmpty(cx *core.Scope) string { return For(cx).ComponentsEmpty() }
+
+// ComponentsEmpty is the package's ComponentsEmpty in the language of msgs.
+func (msgs Messages) ComponentsEmpty() string { return msgs.text(textComponentsEmpty) }

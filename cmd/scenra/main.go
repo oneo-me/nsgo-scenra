@@ -82,6 +82,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		cx.Effect(func() {
 			title := e.Title()
 			switch {
+			case e.Showcase():
 			case e.Empty() && e.Folder() != "":
 				title = filepath.Base(e.Folder())
 			case e.Empty():
@@ -143,6 +144,8 @@ func menu(cx *core.Scope, e *scenraview.Editor, settingsOpen *core.Signal[bool])
 			{Label: w.Fit(), Shortcut: "mod+0", OnSelect: e.Fit},
 			{Separator: true},
 			{Label: w.HidePanels(), Shortcut: "mod+b", Checkable: true, Checked: e.PanelsHidden(), OnSelect: e.TogglePanels},
+			{Label: w.Components(), Shortcut: "mod+shift+k", Disabled: !e.HasComponents(), OnSelect: e.ShowComponents},
+			{Separator: true},
 			{Label: w.LeftToRight(), Checkable: true, Checked: e.LeftToRight(), Disabled: !e.FlowOpen(), OnSelect: e.ToggleDirection},
 		}},
 	}

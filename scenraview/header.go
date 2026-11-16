@@ -30,7 +30,8 @@ func chrome(cx *core.Scope, titleBar bool) (core.Edges, core.WindowDrag) {
 
 // header is the bar over the document shown: the open folder's name and
 // the document's title, a dot while it has unsaved changes, and, when a
-// design and its flow are both in the folder, a switch between them.
+// design and its flow are both in the folder, a switch between them; or
+// the components' title while they show.
 func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
@@ -75,17 +76,17 @@ func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 					Style:     ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}),
 					StyleFunc: ui.Colored(colors.Muted)}
 			}},
-			core.Show{When: func() bool { return e.folder.Get() != "" && !e.empty() }, Then: func(*core.Scope) core.Node {
+			core.Show{When: func() bool { return e.folder.Get() != "" && (!e.empty() || e.showcase.Get()) }, Then: func(*core.Scope) core.Node {
 				return core.Text{Content: "/", Style: ui.TypeBody.Merge(core.Style{FlexShrink: 0}), StyleFunc: ui.Colored(colors.Muted)}
 			}},
 			core.Text{ContentFunc: e.Title, MaxLines: 1, TestID: "file-name",
 				Style:     ui.TypeBody.Merge(core.Style{FontWeight: ui.Medium, FlexShrink: 1, MinWidth: core.Pt(0)}),
 				StyleFunc: ui.Colored(colors.Text)},
-			core.Show{When: func() bool { return e.cur().dirty.Get() }, Then: func(*core.Scope) core.Node {
+			core.Show{When: func() bool { return e.cur().dirty.Get() && !e.showcase.Get() }, Then: func(*core.Scope) core.Node {
 				return core.View{Style: core.Style{Width: core.Pt(7), Height: core.Pt(7), CornerRadius: 3.5, FlexShrink: 0},
 					StyleFunc: ui.Filled(colors.Muted), Label: tr.Edited(), TestID: "file-edited"}
 			}},
 			core.View{Style: core.Style{FlexGrow: 1}},
-			core.Show{When: func() bool { return pair.Get()[0] != "" }, Then: func(*core.Scope) core.Node { return toggle }},
+			core.Show{When: func() bool { return pair.Get()[0] != "" && !e.showcase.Get() }, Then: func(*core.Scope) core.Node { return toggle }},
 		}}
 }
