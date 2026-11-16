@@ -54,7 +54,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 	groups := core.NewMemoFunc(cx, func() []fileGroup { return groupFiles(e.files.Get()) }, func(a, b []fileGroup) bool { return false })
 	flows := core.NewMemoFunc(cx, func() []entry { return flowEntries(e.files.Get()) }, func(a, b []entry) bool { return false })
 	row := func(cx *core.Scope, en entry, name string) core.Node {
-		return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, MinWidth: core.Pt(0)},
+		return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0)},
 			Children: []core.Node{
 				ui.IconOf(entryIcon(en), 14, colors.Muted),
 				core.Text{Content: name, MaxLines: 1,
@@ -64,7 +64,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			}}
 	}
 	components := ui.SidebarItem{ID: componentsItem, Text: tr.Components(), TestID: "sidebar-components",
-		Content: core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, MinWidth: core.Pt(0)},
+		Content: core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0)},
 			Children: []core.Node{
 				ui.IconOf(lucide.LayoutGrid, 14, colors.Muted),
 				core.Text{Content: tr.Components(), MaxLines: 1, Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}),
