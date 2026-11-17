@@ -171,6 +171,44 @@ func TestOpeningAFileOpensItsFolder(t *testing.T) {
 	}
 }
 
+func TestAFolderWithoutAProjectOpensItsDesignFolder(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"main.go":                      "package main\n",
+		"design/home.scenra":           "design\ntext \"Welcome\"\n",
+		"design/settings.scenra":       "design\ntext \"Settings\"\n",
+		"design/flows/start.scenra":    "flow\nnode a \"Start\"\n",
+		"design/components/tab.scenra": "component\ntext \"Tab\"\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, dir)
+	app.WaitFor("id:files >> label:home", time.Second)
+	if got := fileNames(app); !slices.Equal(got, []string{"start", "home", "settings"}) {
+		t.Fatalf("the sidebar lists %v", got)
+	}
+	if got := core.Untracked(e.cx, e.Folder); got != dir {
+		t.Fatalf("folder %q, want %q", got, dir)
+	}
+	if got := app.Find("id:header >> id:folder-name").Text; got != filepath.Base(dir) {
+		t.Fatalf("the header names the folder %q", got)
+	}
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome", time.Second)
+	if got := e.rel(e.cur().path); got != "home.scenra" {
+		t.Fatalf("shows %q", got)
+	}
+	// Agents hear where the files are.
+	if got := core.Untracked(e.cx, e.viewOf); !strings.Contains(got, "in "+filepath.Join(dir, "design")) {
+		t.Fatalf("the view tells %q", got)
+	}
+
+	// A folder with a project of its own keeps it.
+	os.WriteFile(filepath.Join(dir, "top.scenra"), []byte("flow\n"), 0o644)
+	app.WaitFor("id:files >> label:top", 5*time.Second)
+	if app.Exists("id:files >> label:settings") {
+		t.Fatal("the sidebar still lists the design folder")
+	}
+}
+
 func TestDesignSelectsWhatThePointerIsOver(t *testing.T) {
 	shop := writeFlow(t, "shop.scenra", "design\n"+
 		"box class=\"flex-1 gap-4 p-6\"\n"+

@@ -33,15 +33,19 @@ const (
 	NotesNone = "none"
 )
 
-// view tells an agent what the user sees of the folder dir and the
-// problems of its files: the file shown and what is selected in it, the
+// view tells an agent what the user sees of the folder dir, whose
+// project is root, and the problems of its files: the file shown and what is selected in it, the
 // components designs can use, the user's comments, the notes of the
 // files notes says, the files that do not parse, the components missing
 // or used in a loop, the pictures missing and the classes that draw
 // nothing.
-func view(dir string, files []fileView, parts components, pics assets, notes string) string {
+func view(dir, root string, files []fileView, parts components, pics assets, notes string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "The open folder is %s; the paths below are relative to it.\n", dir)
+	if root == dir {
+		fmt.Fprintf(&b, "The open folder is %s; the paths below are relative to it.\n", dir)
+	} else {
+		fmt.Fprintf(&b, "The open folder is %s, whose Scenra files are in %s, as it has none of its own; the paths below are relative to %[2]s.\n", dir, root)
+	}
 	if len(files) == 0 {
 		b.WriteString("It has no Scenra files yet.\n")
 	}

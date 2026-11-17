@@ -505,7 +505,7 @@ func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
 	tag, _ := flowfile.Parse("component\ntext \"Tag\" note=\"Tagged\"\n")
 	pill, _ := flowfile.Parse("component\ntext \"Pill\" note=\"Unused\"\n")
 	flows, _ := flowfile.Parse("flow pay\nnode a\n\nflow refund\nnode b\n")
-	out := view("/p", []fileView{{path: "auth.scenra", file: f, shown: &location{element: "1/0"}}, {path: "home.scenra", file: home},
+	out := view("/p", "/p", []fileView{{path: "auth.scenra", file: f, shown: &location{element: "1/0"}}, {path: "home.scenra", file: home},
 		{path: "flows/pay.scenra", file: flows}}, nil, nil, NotesAll)
 	for _, want := range []string{"design auth.scenra open, which holds the designs sign-in, sign-up.", "selected element 0 of design sign-up:",
 		`auth.scenra, design sign-in, element 0: "Warmer"`, `auth.scenra: tap "open #reset": auth.scenra has no design reset`} {
@@ -518,7 +518,7 @@ func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
 		{path: "components/tag.scenra", file: tag}, {path: "components/pill.scenra", file: pill}}
 	parts := components{"tag": {UI: tag.Screens[0].UI}, "pill": {UI: pill.Screens[0].UI}}
 	for notes, want := range map[string][]string{NotesAll: {"Up there", "Down here", "Tagged", "Unused"}, NotesOpen: {"Up there", "Tagged"}, NotesNone: nil} {
-		out := view("/p", files, parts, nil, notes)
+		out := view("/p", "/p", files, parts, nil, notes)
 		for _, note := range []string{"Up there", "Down here", "Tagged", "Unused"} {
 			if strings.Contains(out, note) != slices.Contains(want, note) {
 				t.Errorf("notes=%s tells of %q wrongly:\n%s", notes, note, out)
@@ -531,7 +531,7 @@ func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
 	if _, taps, _ := strings.Cut(out, "Taps that lead nowhere:"); strings.Contains(taps, "home#top") || strings.Contains(taps, "auth#sign-up") {
 		t.Errorf("taps that lead somewhere are reported:\n%s", out)
 	}
-	out = view("/p", []fileView{{path: "flows/pay.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil, NotesAll)
+	out = view("/p", "/p", []fileView{{path: "flows/pay.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil, NotesAll)
 	if !strings.Contains(out, `selected node "b" of flow refund`) || !strings.Contains(out, "which holds the flows pay, refund") {
 		t.Errorf("the view of flows:\n%s", out)
 	}

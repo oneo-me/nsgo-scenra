@@ -126,7 +126,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			e.ShowComponents()
 			return
 		}
-		e.open(filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(id)))
+		e.open(filepath.Join(e.root.GetUntracked(), filepath.FromSlash(id)))
 	}
 	files := ui.Sidebar{TestID: "files", SectionsFunc: sections, Selected: selected, OnSelect: choose}
 	noFolder := core.View{Style: core.Style{Padding: core.Symmetric(8, 12), Gap: 10}, Children: []core.Node{

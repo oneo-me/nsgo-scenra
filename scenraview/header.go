@@ -59,7 +59,7 @@ func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 			if flow {
 				to = pair.GetUntracked()[1]
 			}
-			e.open(filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(to)))
+			e.open(filepath.Join(e.root.GetUntracked(), filepath.FromSlash(to)))
 		}}
 	_, drag := chrome(cx, isTitleBar)
 	return core.View{TestID: "header", Desktop: core.DesktopViewProps{WindowDrag: drag},

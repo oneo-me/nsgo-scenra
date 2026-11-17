@@ -75,16 +75,17 @@ func (e *Editor) watch() {
 			var parts components
 			var pics assets
 			var docs designs
-			files, parts, pics, cache, docs = scan(dir, cache)
-			first := dir != last
-			last = dir
+			root := projectDir(dir)
+			files, parts, pics, cache, docs = scan(root, cache)
+			first := root != last
+			last = root
 			// Git runs less often than the scan, as commits change what
 			// it tells without changing the files.
 			if first || time.Since(diffed) >= diffEvery {
-				diffs, diffed = gitChanges(dir), time.Now()
+				diffs, diffed = gitChanges(root), time.Now()
 			}
 			found := diffs
-			e.cx.Post(func() { e.scannedFiles(dir, files, parts, docs, pics, found, first) })
+			e.cx.Post(func() { e.scannedFiles(dir, root, files, parts, docs, pics, found, first) })
 		}
 	}()
 }
@@ -173,8 +174,8 @@ func (e *Editor) viewNoting(notes string) string {
 	if dir == "" {
 		return "No folder is open in Scenra.\n"
 	}
-	files, parts, pics := e.readFolder(dir)
-	return view(dir, files, parts, pics, notes)
+	root, files, parts, pics := e.readFolder(dir)
+	return view(dir, root, files, parts, pics, notes)
 }
 
 // viewLaidOut has done hear what viewNoting tells, and what is wrong
@@ -187,8 +188,8 @@ func (e *Editor) viewLaidOut(notes string, read, done func(string)) {
 		done(e.viewNoting(notes))
 		return
 	}
-	files, parts, pics := e.readFolder(dir)
-	text := view(dir, files, parts, pics, notes)
+	root, files, parts, pics := e.readFolder(dir)
+	text := view(dir, root, files, parts, pics, notes)
 	read(text)
 	ds := e.allDesigns()
 	var targets []layoutTarget
@@ -215,7 +216,7 @@ func (e *Editor) layoutOf(path, id, variant string, element string, depth int, d
 		done("No folder is open in Scenra.", true)
 		return
 	}
-	files, _, _ := e.readFolder(dir)
+	_, files, _, _ := e.readFolder(dir)
 	i := slices.IndexFunc(files, func(f fileView) bool { return f.path == path || f.path == path+".scenra" })
 	if i < 0 {
 		done(fmt.Sprintf("There is no Scenra file %s in the open folder.", path), true)
@@ -263,18 +264,19 @@ func (e *Editor) layoutOf(path, id, variant string, element string, depth int, d
 	})
 }
 
-// readFolder reads the open folder dir again, as an agent may just have
-// written it: its files as the server tells of them, its components and
-// its pictures.
-func (e *Editor) readFolder(dir string) ([]fileView, components, assets) {
+// readFolder reads the project of the open folder dir again, as an agent
+// may just have written it: the project's folder, its files as the
+// server tells of them, its components and its pictures.
+func (e *Editor) readFolder(dir string) (string, []fileView, components, assets) {
 	var files []fileView
 	// What the agent just wrote counts.
 	e.reload(e.shown())
-	found, parts, pics, _, docs := scan(dir, nil)
-	e.scannedFiles(dir, found, parts, docs, pics, e.changes.GetUntracked(), false)
+	root := projectDir(dir)
+	found, parts, pics, _, docs := scan(root, nil)
+	e.scannedFiles(dir, root, found, parts, docs, pics, e.changes.GetUntracked(), false)
 	shown := e.shown()
 	for _, en := range found {
-		path := filepath.Join(dir, filepath.FromSlash(en.path))
+		path := filepath.Join(root, filepath.FromSlash(en.path))
 		fv := fileView{path: en.path}
 		if shown.path == path {
 			fv.file, fv.broken = shown.doc.GetUntracked(), shown.broken.GetUntracked()
@@ -289,5 +291,5 @@ func (e *Editor) readFolder(dir string) ([]fileView, components, assets) {
 		}
 		files = append(files, fv)
 	}
-	return files, parts, pics
+	return root, files, parts, pics
 }

@@ -109,6 +109,40 @@ func sameAssets(a, b assets) bool {
 // video in the assets folder does not fill the memory.
 const assetLimit = 20 << 20
 
+// designDir is the folder of a project kept beside other work, such as
+// an app's code, which the editor opens when the folder has no project of
+// its own.
+const designDir = "design"
+
+// projectDir is the folder holding the project of the folder dir: dir,
+// unless no Scenra file is where a project keeps them there and it has a
+// design folder, as a repository keeps its designs beside its code. The
+// assistant still works in dir.
+func projectDir(dir string) string {
+	if hasProject(dir) {
+		return dir
+	}
+	design := filepath.Join(dir, designDir)
+	if info, err := os.Stat(design); err == nil && info.IsDir() {
+		return design
+	}
+	return dir
+}
+
+// hasProject says the folder dir has a Scenra file at its top or in its
+// flows or components folder.
+func hasProject(dir string) bool {
+	for _, sub := range []string{"", flowsDir, flowfile.ComponentsDir} {
+		entries, _ := os.ReadDir(filepath.Join(dir, sub))
+		for _, en := range entries {
+			if !en.IsDir() && strings.HasSuffix(en.Name(), ".scenra") && !skipped(en.Name()) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // skipped says a scan leaves out the folder or file named name: hidden
 // ones and installed packages.
 func skipped(name string) bool { return strings.HasPrefix(name, ".") || name == "node_modules" }
@@ -202,16 +236,20 @@ func (e *Editor) scanNow() {
 	}
 }
 
-// scannedFiles takes the files a scan of dir found and what Git says
-// changed in them, and opens those the
+// scannedFiles takes the files a scan of root, the project of the folder
+// dir, found and what Git says changed in them, and opens those the
 // agent made in its turn: a component only when it made nothing else, so
 // the screen using it shows.
-func (e *Editor) scannedFiles(dir string, files []entry, parts components, docs designs, pics assets, diffs changes, first bool) {
+func (e *Editor) scannedFiles(dir, root string, files []entry, parts components, docs designs, pics assets, diffs changes, first bool) {
 	if e.folder.GetUntracked() != dir {
 		return
 	}
+	// A project the folder only now has, or no longer has, opens no
+	// files.
+	first = first || root != e.root.GetUntracked()
 	before := e.files.GetUntracked()
 	e.cx.Batch(func() {
+		e.root.Set(root)
 		e.files.Set(files)
 		e.parts.Set(parts)
 		e.designs.Set(docs)
@@ -231,7 +269,7 @@ func (e *Editor) scannedFiles(dir string, files []entry, parts components, docs 
 		made = slices.DeleteFunc(made, func(f entry) bool { return f.kind == flowfile.Component })
 	}
 	for _, f := range made {
-		e.open(filepath.Join(dir, filepath.FromSlash(f.path)))
+		e.open(filepath.Join(root, filepath.FromSlash(f.path)))
 	}
 }
 

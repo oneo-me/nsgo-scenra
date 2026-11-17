@@ -86,12 +86,14 @@ type focusing struct {
 type Editor struct {
 	cx   *core.Scope
 	opts Options
-	// folder is the open folder, "" before one is, files the Scenra
-	// files found in it, parts the components among them, designs the
-	// files of designs, by name, and assets the pictures of its assets
-	// folder; changes are what Git says changed in
-	// its files.
+	// folder is the open folder, "" before one is, which the assistant
+	// works in, and root the project in it, the folder or its design
+	// folder; files are the Scenra files found in root, parts the
+	// components among them, designs the files of designs, by name, and
+	// assets the pictures of its assets folder; changes are what Git says
+	// changed in its files.
 	folder  *core.Signal[string]
+	root    *core.Signal[string]
 	files   *core.Signal[[]entry]
 	parts   *core.Signal[components]
 	designs *core.Signal[designs]
@@ -142,7 +144,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 	if toasts == nil {
 		toasts = ui.NewToaster(cx)
 	}
-	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
+	e := &Editor{cx: cx, opts: opts, folder: core.NewSignal(cx, ""), root: core.NewSignal(cx, ""), files: core.NewSignalFunc(cx, []entry(nil), slices.Equal[[]entry]),
 		parts: core.NewSignalFunc(cx, components(nil), sameComponents), designs: core.NewSignalFunc(cx, designs(nil), sameDesigns), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		changes: core.NewSignalFunc(cx, changes(nil), sameChanges),
 		active:  core.NewSignal[*document](cx, nil),
@@ -288,9 +290,9 @@ func (e *Editor) focusOn(id string) {
 	e.focus.Set(focusing{id, e.focus.GetUntracked().n + 1})
 }
 
-// inside says path is in the open folder.
+// inside says path is in the open project.
 func (e *Editor) inside(path string) bool {
-	dir := e.folder.GetUntracked()
+	dir := e.root.GetUntracked()
 	if dir == "" {
 		return false
 	}
@@ -298,16 +300,17 @@ func (e *Editor) inside(path string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
-// rel is path relative to the open folder, with slashes.
+// rel is path relative to the open project, with slashes.
 func (e *Editor) rel(path string) string {
-	rel, err := filepath.Rel(e.folder.GetUntracked(), path)
+	rel, err := filepath.Rel(e.root.GetUntracked(), path)
 	if err != nil {
 		return path
 	}
 	return filepath.ToSlash(rel)
 }
 
-// setFolder opens the folder at dir, whose files the scan finds.
+// setFolder opens the folder at dir, whose project's files the scan
+// finds.
 func (e *Editor) setFolder(dir string) {
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
@@ -317,6 +320,7 @@ func (e *Editor) setFolder(dir string) {
 	e.mu.Unlock()
 	e.cx.Batch(func() {
 		e.folder.Set(dir)
+		e.root.Set(projectDir(dir))
 		e.files.Set(nil)
 		e.parts.Set(nil)
 		e.designs.Set(nil)
@@ -433,7 +437,7 @@ func (e *Editor) tapOpen(t flowfile.Tap, screen int) {
 		e.focusOn(id)
 		return
 	}
-	path := filepath.Join(e.folder.GetUntracked(), filepath.FromSlash(flowfile.DesignPath(name)))
+	path := filepath.Join(e.root.GetUntracked(), filepath.FromSlash(flowfile.DesignPath(name)))
 	d, err := e.load(path)
 	if err == nil && d.broken.GetUntracked() == "" {
 		if _, ok := d.doc.GetUntracked().Screen(id); !ok {
