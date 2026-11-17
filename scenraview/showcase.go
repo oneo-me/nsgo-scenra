@@ -240,6 +240,8 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	c := &camera.State{}
+	pane := core.NewSignal(cx, core.Size{})
+	(&paneCamera{state: c, size: pane.GetUntracked}).mount(cx, &e.showcaseCanvas)
 	entries := core.NewMemoFunc(cx, func() []entry { return componentEntries(e.files.Get()) }, slices.Equal[[]entry])
 	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{parts: e.parts.Get(), assets: e.assets.Get()} },
 		func(a, b lookOf) bool { return sameComponents(a.parts, b.parts) && sameAssets(a.assets, b.assets) })
@@ -394,5 +396,5 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 	canvas := camera.View{TestID: "showcase-camera", State: c, Content: picture, FitMargin: designFitMargin,
 		Children: []core.Node{toolbar}}
 	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
-		Children: []core.Node{canvas}}
+		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{canvas}}
 }

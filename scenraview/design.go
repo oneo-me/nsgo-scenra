@@ -112,6 +112,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 	// the pane's.
 	measured := map[int]core.Size{}
 	pane := core.NewSignal(cx, core.Size{})
+	(&paneCamera{state: c, size: pane.GetUntracked}).mount(cx, &e.designCanvas)
 	// A design is drawn again as it, a component or a picture changes.
 	look := core.NewMemoFunc(cx, func() lookOf {
 		return lookOf{e.cur().doc.Get().Format(), e.parts.Get(), e.assets.Get(), e.designs.Get()}

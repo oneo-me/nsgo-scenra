@@ -7,6 +7,7 @@ files: 文件
 filesEmpty: 这个文件夹中的设计和流程会出现在这里。
 expand: 展开
 settings: 设置…
+actualSize: 实际大小
 zoomIn: 放大
 zoomOut: 缩小
 fit: 适合窗口

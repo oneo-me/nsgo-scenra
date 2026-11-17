@@ -197,6 +197,8 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 			tool(lucide.ZoomIn, tr.ZoomIn(), full, e.camera.ZoomIn, "zoom-in"),
 			tool(lucide.Scan, tr.Fit(), full, e.camera.Fit, "fit"),
 		}}
+	pane := core.NewSignal(cx, core.Size{})
+	(&paneCamera{state: e.camera, size: pane.GetUntracked}).mount(cx, &e.flowCanvas)
 	count := core.NewMemo(cx, func() int { return len(e.cur().doc.Get().Flows) })
 	layout := func() ([]core.Point, core.Size) {
 		return flowLayout(e.cur().doc.Get(), func(i int) core.Size { return e.chart(i).Size() })
@@ -307,7 +309,7 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 	empty := core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
 		AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Padding: core.All(24)}, PointerEvents: core.PointerEventsNone,
 		Children: []core.Node{core.Text{Content: tr.FlowEmpty(), Style: ui.TypeBody, StyleFunc: ui.Colored(colors.Muted)}}}
-	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{canvas,
+	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{canvas,
 		core.Show{When: func() bool { return !full() }, Then: func(*core.Scope) core.Node { return empty }}}}
 }
 

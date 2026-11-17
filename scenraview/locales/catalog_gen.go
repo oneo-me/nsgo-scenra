@@ -84,6 +84,7 @@ const (
 	textFilesEmpty
 	textExpand
 	textSettings
+	textActualSize
 	textZoomIn
 	textZoomOut
 	textFit
@@ -138,6 +139,7 @@ var keyOfText = [numTexts]string{
 	"filesEmpty",
 	"expand",
 	"settings",
+	"actualSize",
 	"zoomIn",
 	"zoomOut",
 	"fit",
@@ -190,6 +192,7 @@ var textsEn = i18n.NewTexts(""+
 	"The designs and flows of this folder appear here."+
 	"Expand"+
 	"Settings…"+
+	"Actual Size"+
 	"Zoom In"+
 	"Zoom Out"+
 	"Fit to Window"+
@@ -238,6 +241,7 @@ var textsEn = i18n.NewTexts(""+
 		5,
 		49,
 		6,
+		11,
 		11,
 		7,
 		8,
@@ -291,6 +295,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"这个文件夹中的设计和流程会出现在这里。"+
 	"展开"+
 	"设置…"+
+	"实际大小"+
 	"放大"+
 	"缩小"+
 	"适合窗口"+
@@ -340,6 +345,7 @@ var textsZhHans = i18n.NewTexts(""+
 		57,
 		6,
 		9,
+		12,
 		6,
 		6,
 		12,
@@ -543,6 +549,13 @@ func Settings(cx *core.Scope) string { return For(cx).Settings() }
 
 // Settings is the package's Settings in the language of msgs.
 func (msgs Messages) Settings() string { return msgs.text(textSettings) }
+
+// ActualSize says "Actual Size"
+// in the language the app shows under cx.
+func ActualSize(cx *core.Scope) string { return For(cx).ActualSize() }
+
+// ActualSize is the package's ActualSize in the language of msgs.
+func (msgs Messages) ActualSize() string { return msgs.text(textActualSize) }
 
 // ZoomIn says "Zoom In"
 // in the language the app shows under cx.

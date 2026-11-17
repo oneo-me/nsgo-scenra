@@ -1,6 +1,7 @@
 package scenraview
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"slices"
@@ -959,5 +960,55 @@ func TestAFileHoldsSeveralFlows(t *testing.T) {
 	f := e.cur().doc.GetUntracked()
 	if f.Flows[0].Direction != "" || f.Flows[1].Direction != flowfile.Down {
 		t.Fatalf("turned %q and %q", f.Flows[0].Direction, f.Flows[1].Direction)
+	}
+}
+
+func TestTheViewMenuZoomsTheCanvasShown(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra":              "design width=2000 height=2000\ntext \"Big\"\n",
+		"flows/pay.scenra":         "flow\nnode card \"Charge card\"\ncard -> receipt\n",
+		"components/button.scenra": "component\ntext \"Button\"\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("design >> text:Big", time.Second)
+	run := func(fn func()) float64 {
+		app.Post(fn)
+		app.Settle()
+		return e.canvas().state.Zoom()
+	}
+	if e.canvas() != e.designCanvas {
+		t.Fatal("the menu zooms another canvas than the design")
+	}
+	// The middle of the pane stays where it is at 100%.
+	middle := func() core.Point {
+		size := e.canvas().size()
+		return e.canvas().state.ToContent(core.Point{X: size.Width / 2, Y: size.Height / 2})
+	}
+	before := middle()
+	if got := run(e.ActualSize); got != 1 {
+		t.Fatalf("the design shows at %v at its actual size", got)
+	}
+	if after := middle(); math.Abs(float64(after.X-before.X)) > 1 || math.Abs(float64(after.Y-before.Y)) > 1 {
+		t.Fatalf("the middle moved from %v to %v", before, after)
+	}
+	if got := run(e.ZoomIn); got <= 1 {
+		t.Fatalf("zooming in shows the design at %v", got)
+	}
+	if got := run(e.Fit); got >= 1 {
+		t.Fatalf("fitting shows the design at %v", got)
+	}
+	app.Post(e.ShowComponents)
+	app.WaitFor("id:showcase-camera", time.Second)
+	if e.canvas() != e.showcaseCanvas {
+		t.Fatal("the menu zooms another canvas than the components")
+	}
+	app.Post(func() { e.open(filepath.Join(dir, "flows", "pay.scenra")) })
+	app.WaitFor("flow >> label:Charge card", 5*time.Second)
+	if e.canvas() != e.flowCanvas {
+		t.Fatal("the menu zooms another canvas than the flow chart")
+	}
+	if got := run(e.ZoomOut); got >= 1 {
+		t.Fatalf("zooming out shows the flows at %v", got)
 	}
 }

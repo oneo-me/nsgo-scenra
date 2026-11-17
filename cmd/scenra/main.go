@@ -99,6 +99,10 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		cx.OnKey("mod+o", e.OpenFolder)
 		cx.OnKey("mod+s", e.Save)
 		cx.OnKey("mod+b", e.TogglePanels)
+		cx.OnKey("mod+1", e.ActualSize)
+		cx.OnKey("mod+2", e.Fit)
+		cx.OnKey("mod+=", e.ZoomIn)
+		cx.OnKey("mod+-", e.ZoomOut)
 	}
 
 	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
@@ -135,9 +139,10 @@ func menu(cx *core.Scope, e *scenraview.Editor, settingsOpen *core.Signal[bool])
 			{Label: tr.RedoChange(), Shortcut: "mod+alt+shift+z", Disabled: !e.CanRedo(), OnSelect: e.Redo},
 		}},
 		{Label: tr.ViewMenu(), Items: []desktop.MenuItem{
+			{Label: w.ActualSize(), Shortcut: "mod+1", OnSelect: e.ActualSize},
+			{Label: w.Fit(), Shortcut: "mod+2", OnSelect: e.Fit},
 			{Label: w.ZoomIn(), Shortcut: "mod+=", OnSelect: e.ZoomIn},
 			{Label: w.ZoomOut(), Shortcut: "mod+-", OnSelect: e.ZoomOut},
-			{Label: w.Fit(), Shortcut: "mod+0", OnSelect: e.Fit},
 			{Separator: true},
 			{Label: w.HidePanels(), Shortcut: "mod+b", Checkable: true, Checked: e.PanelsHidden(), OnSelect: e.TogglePanels},
 			{Label: w.Components(), Shortcut: "mod+shift+k", Disabled: !e.HasComponents(), OnSelect: e.ShowComponents},

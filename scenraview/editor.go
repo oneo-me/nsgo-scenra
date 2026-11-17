@@ -110,6 +110,9 @@ type Editor struct {
 	camera *camera.State
 	charts []*uiflow.State
 	toasts *ui.Toaster
+	// flowCanvas, designCanvas and showcaseCanvas are the cameras of the
+	// panes mounted, which zooming moves on the one on top.
+	flowCanvas, designCanvas, showcaseCanvas *paneCamera
 	// trail is the designs whose taps opened the designs shown since,
 	// which closing one returns through, and focus the design of the file
 	// shown a tap opened, which the canvas moves to.
@@ -725,10 +728,52 @@ func (e *Editor) LeftToRight() bool {
 	return len(which) > 0 && f.Flows[which[0]].Direction == flowfile.Right
 }
 
-// ZoomIn, ZoomOut and Fit move the flow chart's camera.
-func (e *Editor) ZoomIn()  { e.camera.ZoomIn() }
-func (e *Editor) ZoomOut() { e.camera.ZoomOut() }
-func (e *Editor) Fit()     { e.camera.Fit() }
+// ZoomIn, ZoomOut, Fit and ActualSize move the camera of the canvas
+// shown: the components, a design or the flow chart.
+func (e *Editor) ZoomIn()     { e.canvas().state.ZoomIn() }
+func (e *Editor) ZoomOut()    { e.canvas().state.ZoomOut() }
+func (e *Editor) Fit()        { e.canvas().state.Fit() }
+func (e *Editor) ActualSize() { e.canvas().actualSize() }
+
+// canvas is the camera of the canvas shown, as the components cover the
+// document and a design covers the flow pane.
+func (e *Editor) canvas() *paneCamera {
+	switch {
+	case e.showcaseCanvas != nil:
+		return e.showcaseCanvas
+	case e.designCanvas != nil:
+		return e.designCanvas
+	case e.flowCanvas != nil:
+		return e.flowCanvas
+	}
+	return &paneCamera{state: e.camera, size: func() core.Size { return core.Size{} }}
+}
+
+// paneCamera is a pane's camera and the pane's size.
+type paneCamera struct {
+	state *camera.State
+	size  func() core.Size
+}
+
+// mount keeps c in *at while the pane of cx shows.
+func (c *paneCamera) mount(cx *core.Scope, at **paneCamera) {
+	*at = c
+	cx.Cleanup(func() {
+		if *at == c {
+			*at = nil
+		}
+	})
+}
+
+// actualSize shows the content at its size around the middle of the
+// pane: a fit is no larger than the content's size, so fitting a point
+// shows it at 100%.
+func (c *paneCamera) actualSize() {
+	size := c.size()
+	x, y, zoom := c.state.Camera()
+	mid := core.Point{X: core.Points((float64(size.Width)/2 - x) / zoom), Y: core.Points((float64(size.Height)/2 - y) / zoom)}
+	c.state.FitBounds(core.Bounds{Origin: core.Point{X: mid.X - .5, Y: mid.Y - .5}, Size: core.Size{Width: 1, Height: 1}})
+}
 
 // PanelsHidden says the Window hides its sidebar and assistant, which
 // TogglePanels shows again, so the workspace takes the window's width.
