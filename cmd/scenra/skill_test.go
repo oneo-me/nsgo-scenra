@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/oneo-me/nsgo-scenra/flowfile"
+	"github.com/oneo-me/nsgo-scenra/scenraview"
 )
 
 // The skill is written by hand, so it must keep naming what the format
@@ -29,7 +30,7 @@ func TestTheSkillTeachesTheWholeFormat(t *testing.T) {
 		}
 	}
 	words = append(words, "`"+string(flowfile.Component)+"`", "`"+flowfile.ComponentsDir+"/`", "`flows/`", "`views/`", "`"+flowfile.AssetsDir+"/`")
-	words = append(words, "name=", "<a>/<b>=", "`width=fill`", "`preview=`", `backdrop="…"`, "`>`", "`variant <id>`", "`variant=`", "`state=`", "`in=\"<file>#<outlet>\"`", "`get_layout`", `\"`)
+	words = append(words, "name=", "<a>/<b>=", "`width=fill`", "`preview=`", `backdrop="…"`, "`>`", "`variant <id>`", "`variant=`", "`state=`", "`in=\"<file>#<outlet>\"`", `\"`)
 	words = append(words, flowfile.States...)
 	words = append(words, flowfile.ReservedNames()...)
 	for _, a := range flowfile.OverrideAttrs {
@@ -50,7 +51,31 @@ func TestTheSkillTeachesTheWholeFormat(t *testing.T) {
 	}
 }
 
-// The skill's references ship beside it, so each it links must be there.
+// The app's skill must name the server's tools and what they take.
+func TestTheAppSkillTeachesTheServer(t *testing.T) {
+	data, err := os.ReadFile("resources/skills/scenra-app/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	skill := string(data)
+	if !strings.HasPrefix(skill, "---\nname: scenra-app\n") {
+		t.Fatal("the skill does not name itself scenra-app")
+	}
+	for _, w := range []string{"`" + scenraview.ServerName + "`", "`" + scenraview.ToolView + "`", "`" + scenraview.ToolLayout + "`", "`tab`",
+		`notes="` + scenraview.NotesOpen + `"`, `notes="` + scenraview.NotesNone + `"`, "`element=`", "`depth=`"} {
+		if !strings.Contains(skill, w) {
+			t.Errorf("the skill does not mention %s", w)
+		}
+	}
+	// The format's skill stays the same wherever the files are edited.
+	format, _ := os.ReadFile("resources/skills/scenra/SKILL.md")
+	if strings.Contains(string(format), scenraview.ToolView) {
+		t.Error("the format's skill names the app's tools")
+	}
+}
+
+// The skills' references ship beside them, so each one links must be
+// there.
 func TestTheSkillLinksItsReferences(t *testing.T) {
 	data, err := os.ReadFile("resources/skills/scenra/SKILL.md")
 	if err != nil {

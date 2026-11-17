@@ -1,11 +1,11 @@
 ---
 name: scenra
-description: Design app screens and draw flow charts in Scenra files (.scenra), which the user sees drawn in the Scenra editor. Use when asked to design, draw or change an app's screens, interfaces or flows in a .scenra file, or to build its designs in an NSGo app.
+description: The Scenra file format (.scenra) of app designs and flow charts, and how a project of them is laid out. Use when asked to design, draw or change an app's screens, interfaces or flows in a .scenra file, or to build its designs in an NSGo app.
 ---
 
 # Scenra files
 
-Scenra files (`.scenra`) are plain text, and each holds one kind of thing: designs, drafts of how screens of an app look, or flow charts of workflows, such as how an order is paid and shipped, never both. The user opens a folder in the Scenra editor, which lists the folder's Scenra files on the left and draws the one open in the middle, laying out the designs or flows of a file side by side. A project is a folder of them, each kind in its place, so the user finds everything from the windows and screens the app opens:
+Scenra files (`.scenra`) are plain text, and each holds one kind of thing: designs, drafts of how screens of an app look, or flow charts of workflows, such as how an order is paid and shipped, never both. An editor, such as the Scenra app, lists a folder's Scenra files and draws the one open, laying out the designs or flows of a file side by side. A project is a folder of them, each kind in its place, so the user finds everything from the windows and screens the app opens:
 
 - The top of the open folder holds those windows and screens, a design file each, named after it, such as `sign-in.scenra` or `settings.scenra`.
 - `views/` holds the views, the designs that fill a box of another design, such as a settings window's pages or a main window's content, each starting with `in=`, as Windows and outlets says, such as `views/settings-theme.scenra`. A design whose first line has `in=` goes there, and one without it at the top.
@@ -16,10 +16,10 @@ Let a design show what happens on it, as the user sees it there: taps opening th
 
 ## Working on files
 
-1. Before you change files, call the `get_view` tool of the `scenra` MCP server. Give it and `get_layout` the `tab` your instructions name: each tab of Scenra shows another folder. It names the open folder, and the folder holding its Scenra files when that is its `design/` folder, as a repository with no Scenra files of its own keeps them there; you still work in the open folder, so write files where it names. It names the file the user is looking at and what they selected, lists the comments and notes on elements and the problems of the folder's files. Work on what is selected when a request may be about it, such as "make this bigger". Once you have read the notes, pass `notes="open"` for only those of the open file and the components it uses, or `notes="none"`; the problems show in full either way.
-2. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so. The editor reloads the file shown as you write it, shows the files you make, and the user cannot edit them while you work.
-3. After you write them, call `get_view` again: it reports the files that do not parse, the classes that draw nothing, the taps that lead nowhere and what lays out wrong, such as text cut off, elements outside their design or of no size, and `w-full` filling nothing. Fix what it reports. Call `get_layout` with a file's path, and a design's ID or a component's variant, to see where each of its elements laid out, its x, y, width and height, when a layout looks off; give it `element=` a path, such as `0.2.1`, for only that element and what it holds, and `depth=` to list only that many levels under it, counting the rest.
-4. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
+1. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so.
+2. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
+
+When the editor tells you what the user sees and reports the problems of the files, as the Scenra app's MCP server does, the scenra-app skill says how to ask it; the problems it reports are those this skill names.
 
 The editor saves files in their canonical form, which drops `#` comments, so do not keep notes in them.
 
@@ -106,9 +106,9 @@ An icon takes the name of any Lucide icon (lucide.dev), by its current name or a
 
 ## Pictures
 
-Keep every picture a design shows in `assets/` at the top of the open folder, as a PNG, JPEG, GIF or WebP file, and name it by its path there: `image "Latte art seen from above" src="assets/latte.jpg" class="h-40 rounded-2xl"`. When the user gives you a picture, or the code at hand has the app's own, such as its logo or its photos, copy it into `assets/`, in folders such as `assets/products/` as they grow, under a short English name, rather than pointing at it where it is: the editor shows only pictures in `assets/`, so the folder keeps working wherever it moves. Use a URL only for a picture that stays online. Without a picture, leave `src` out: the editor draws a placeholder its text describes, so write the text as what the picture shows. Never write a picture's path you have not made. `get_view` reports the pictures images cannot show.
+Keep every picture a design shows in `assets/` at the top of the open folder, as a PNG, JPEG, GIF or WebP file, and name it by its path there: `image "Latte art seen from above" src="assets/latte.jpg" class="h-40 rounded-2xl"`. When the user gives you a picture, or the code at hand has the app's own, such as its logo or its photos, copy it into `assets/`, in folders such as `assets/products/` as they grow, under a short English name, rather than pointing at it where it is: the editor shows only pictures in `assets/`, so the folder keeps working wherever it moves. Use a URL only for a picture that stays online. Without a picture, leave `src` out: the editor draws a placeholder its text describes, so write the text as what the picture shows. Never write a picture's path you have not made. The editor reports the pictures images cannot show.
 
-`get_view` names elements by their paths: an element's index among its siblings at each level from 0, joined by dots, so 1.0 is the first element the second top-level element holds of its design, which it names by its ID in a file of several.
+Elements are named by their paths: an element's index among its siblings at each level from 0, joined by dots, so 1.0 is the first element the second top-level element holds of its design, which it names by its ID in a file of several.
 
 ## Components
 
@@ -138,7 +138,7 @@ end
 - Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
 - Components may use other components, and fill their slots with them, never themselves, directly or through others, as `a` using `b` whose fill uses `a`.
 - Write a component as a whole, the same on every screen, and leave what pressing it does to the designs: name the elements a use makes tappable and write no `tap=` in it, as Interactions shows.
-- `get_view` lists the components there are and reports uses of missing ones, loops and changes that reach nothing.
+- The editor lists the components there are and reports uses of missing ones, loops and changes that reach nothing.
 
 ### Changing a component where it is used
 
@@ -195,7 +195,7 @@ use settings/agent-item switch.variant=off
 - `variant=` takes one or more variant IDs apart by spaces. The component draws first, then each variant in the order written, then what the use changes itself: the later wins, classes written later over earlier ones and a name's text set again over the one before.
 - A variant may start from others of its component with `variant=`, such as `variant late variant=next icon.class="text-rose-600"`, never in a loop.
 - `state=` puts the component's element at its top in a state, as pointing at or tapping it would: selected, hover, pressed, disabled or focus. Its `selected:` or `hover:` classes apply, and the `group-selected:` or `group-hover:` classes of what any `group` inside it holds; `state=selected@<name>` puts the elements of that name in it instead, for a component whose top is no group. Write the selected look once with `selected:` and `group-selected:` classes, and give the variant `state=selected` rather than the same classes again: `variant selected state=selected`, then `use tab variant=selected`. A use may write `state=` too; a box whose tap leads to what shows is selected as well.
-- Pick a variant rather than writing out its changes on a use: `get_view` suggests where a use's changes are a variant's, and reports variants a component does not have, variants picking each other in a loop and states that draw nothing.
+- Pick a variant rather than writing out its changes on a use: the editor suggests where a use's changes are a variant's, and reports variants a component does not have, variants picking each other in a loop and states that draw nothing.
 
 ### Slots
 
@@ -229,8 +229,8 @@ end
 - Use a slot where uses differ by more than values, such as a card's body, a sheet's content or a bar's actions; change values by names instead.
 - What a fill holds belongs to the file using the component: it is selected, commented and noted there, and its paths run through the use and the fill, so `0.1.0` is the first element of the second fill of the use at `0`.
 - A fill inside a component may hold that component's own slot, passing on what its uses fill.
-- A slot's name names it as `name=` does, and it may have a `name=` too: a variant or a use shapes it with `<name>.class="…"`, such as `variant stacked control.class="w-full"` or `use settings/item control.class="justify-end"`, its classes adding up as an element's do, the component's, then each variant's, then the use's. That is all a use changes of a slot: its text, tap and the rest are what the fill holds, which stays the using file's, and `get_view` reports `control="…"` or `control.tap="…"` on one.
-- A fill takes only `comment=` and `note=`; a design has no slots. `get_view` reports fills of slots a component does not have and slots of one name written twice.
+- A slot's name names it as `name=` does, and it may have a `name=` too: a variant or a use shapes it with `<name>.class="…"`, such as `variant stacked control.class="w-full"` or `use settings/item control.class="justify-end"`, its classes adding up as an element's do, the component's, then each variant's, then the use's. That is all a use changes of a slot: its text, tap and the rest are what the fill holds, which stays the using file's, and the editor reports `control="…"` or `control.tap="…"` on one.
+- A fill takes only `comment=` and `note=`; a design has no slots. The editor reports fills of slots a component does not have and slots of one name written twice.
 
 ## Interactions
 
@@ -321,7 +321,7 @@ end
 - It plays inside its host: opening it, from the host or a design its outlet shows, swaps only the outlet's content, so the rest of the window stays and keeps working, and what opens it is selected. `tap="close"` returns the outlet to what it showed before, or to its own elements; `tap="close window"` closes the whole window, as Interactions says.
 - A host may fill an outlet of its own, as the categories of a settings window fill its content, which fills the main window.
 - The first design's `in=` stands for the others of its file that write none.
-- `get_view` reports outlets `in=` names that are not there, designs filling each other in a loop, two outlets of one name in a design, and designs with `in=` at the top or without it in `views/`.
+- The editor reports outlets `in=` names that are not there, designs filling each other in a loop, two outlets of one name in a design, and designs with `in=` at the top or without it in `views/`.
 
 ## Comments and notes
 

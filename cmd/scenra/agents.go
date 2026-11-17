@@ -22,24 +22,28 @@ const (
 	keyDisabledModels = "agents.disabledModels"
 )
 
-// skillDir is the scenra skill among the app's resources, which NSGo puts
-// in the bundle's Contents/Resources on macOS and beside the executable
-// elsewhere, as NSGo names that directory to no app; "" when it is not
-// there, as in tests.
-func skillDir() string {
+// skillDirs are the skills among the app's resources, scenra teaching
+// the files and scenra-app working in the app, which NSGo puts in the
+// bundle's Contents/Resources on macOS and beside the executable
+// elsewhere, as NSGo names that directory to no app; none when they are
+// not there, as in tests.
+func skillDirs() []string {
 	exe, err := os.Executable()
 	if err != nil {
-		return ""
+		return nil
 	}
 	root := filepath.Dir(exe)
 	if runtime.GOOS == "darwin" {
 		root = filepath.Join(root, "..", "Resources")
 	}
-	dir := filepath.Join(root, "skills", "scenra")
-	if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err != nil {
-		return ""
+	var dirs []string
+	for _, name := range []string{"scenra", "scenra-app"} {
+		dir := filepath.Join(root, "skills", name)
+		if _, err := os.Stat(filepath.Join(dir, "SKILL.md")); err == nil {
+			dirs = append(dirs, dir)
+		}
 	}
-	return dir
+	return dirs
 }
 
 // lines splits a stored list.
@@ -59,9 +63,7 @@ func startAgents(cx *core.Scope, opts host.Options) (*chatview.Model, *scenravie
 		opts.Disabled = append(opts.Disabled, agent.Tool(t))
 	}
 	opts.DisabledModels = lines(models)
-	if dir := skillDir(); dir != "" {
-		opts.Skills = append(opts.Skills, dir)
-	}
+	opts.Skills = append(opts.Skills, skillDirs()...)
 	srv, err := scenraview.Listen()
 	if err == nil {
 		opts.MCPServers = append(opts.MCPServers, srv.Agent())

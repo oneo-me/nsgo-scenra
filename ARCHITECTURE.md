@@ -16,7 +16,8 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | `scenraview/server.go`, `selection.go` | The MCP server telling agents what the user sees of a file. |
 | `scenraview/locales/` | The views' messages, which an app's catalogs may supply other languages of. |
 | `cmd/scenra/` | Scenra, the app: the window, its tabs and home page of recent folders, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, `nsgo.yaml`, assets and its own `locales/`. |
-| `cmd/scenra/resources/skills/scenra/` | The skill teaching agents the format and the NSGo components designs become, which ships among the app's resources. |
+| `cmd/scenra/resources/skills/scenra/` | The skill teaching agents the format and the NSGo components designs become, wherever the files are edited, which ships among the app's resources. |
+| `cmd/scenra/resources/skills/scenra-app/` | The skill teaching agents in the app to ask its server, naming their tab, what the user sees and what their files got wrong. |
 | `website/` | The official static site, in English and Simplified Chinese, deployed to GitHub Pages. |
 
 ## Boundaries
@@ -41,7 +42,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 - The folder is scanned off the UI's goroutine, leaving out hidden folders and `node_modules` and stopping after a limit, so a large folder stays responsive; a file the agent makes in its turn opens.
 - Every change to a document goes through the editor, which records it for undo. What an agent writes in one turn undoes together.
 - The files are the only channel between the user and the agent, so sending a message saves the user's changes, and the user cannot change the documents while the agent works. A file an agent leaves unparsable keeps the last version that parsed, and the server tells the agent why; one that never parsed shows its error in the workspace, which offers to ask the agent to fix it, and is never saved over.
-- The skill is a resource, not embedded, so agents read it from the app's package; NSGo names no resource directory, so the app finds it where NSGo's packages put resources.
+- The skills are resources, not embedded, so agents read them from the app's package; NSGo names no resource directory, so the app finds them where NSGo's packages put resources. The format's skill names no tool, so it serves agents editing the files anywhere, such as in another app showing them; the app's own skill teaches its server.
 - A design is a draft drawn from a few primitives shaped by Tailwind CSS classes, not from ready-made controls, so the agent can draw any look. Classes NSGo does not know reach the agent through the server.
 - A design lays out at its size, its device's or the one its line sets so agents can change it, and a flow at the size its diagram's layout takes. The panes compose NSGo's `camera.View`, which pans and zooms them, with their content and tools, since NSGo's zooming scroll views exist only on Apple platforms and NSGo's flow diagram has no camera of its own. A file's designs or flows pack in rows, in order and the file's gap apart, where the whole fits a landscape pane at the largest scale, each under a caption the same size on screen at any zoom.
 - Platforms hit-test views without the camera's transform, so the camera hands the pointer on at points of the content and the panes find the element under it from the elements' frames, or the flow whose diagram finds the node. Elements are named by their paths, which the selection and the server use.

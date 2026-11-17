@@ -2,7 +2,7 @@
 
 A Scenra design is a draft drawn from a few primitives, so a button, a field and a tab bar are all boxes there. Building it in an NSGo app means telling which boxes stand for controls, which for what the platform draws, and which stay views. This maps Scenra to NSGo; read the `nsgo` skill, when you have it, and the NSGo source of the app's version for each API, as NSGo changes quickly.
 
-Before writing code, call `get_view` for the notes and problems, read the design's file, the components it uses, the views filling its outlets and the flows it starts, and `get_layout` for the sizes when a value is unclear. Comments are requests not yet resolved, not part of the design.
+Before writing code, read the design's file with its notes, the components it uses, the views filling its outlets and the flows it starts; in the Scenra app, ask its MCP server for the problems and, when a value is unclear, the sizes, as the scenra-app skill says. Comments are requests not yet resolved, not part of the design.
 
 ## Primitives
 

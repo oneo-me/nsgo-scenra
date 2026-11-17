@@ -26,7 +26,7 @@
 - Keep the views filling other designs' outlets, such as a settings window's pages, in `views/`, listed in a Views group and named by their file names alone in taps and `in=`, so the top of the folder holds only the windows and screens the app opens, and open a file of `flows/`, `views/` or `components/` from the Finder in its project.
 - Let a file hold several designs or several flows, which the assistant draws only when asked for them together, each with an ID and opened by taps such as `open #sign-up`, packed with the least margin `gap=` points apart, which the assistant sets to suit their sizes.
 - Open folders, or Scenra files with their folder, from the Finder on macOS or the command line, showing a folder's `design/` when it has no Scenra files of its own while the assistant still works in the folder, save files in place when another file, folder or the window takes their place, and reopen them at the next start.
-- Open each folder in a tab of its own with its own conversations, after a Home tab showing the folders opened lately, each by a design as its cover, and the settings as a page, and have agents name their tab to the MCP server's tools.
+- Open each folder in a tab of its own with its own conversations, after a Home tab showing the folders opened lately, each by a design as its cover, and the settings as a page, and have agents name their tab to the MCP server's tools, as a `scenra-app` skill teaches apart from the format's `scenra` skill.
 - Add macOS, Windows and Linux builds in English and Simplified Chinese, for desktops only.
 - Add opt-out anonymous usage statistics.
 - Add an official website in English and Simplified Chinese on GitHub Pages, with anonymous statistics
