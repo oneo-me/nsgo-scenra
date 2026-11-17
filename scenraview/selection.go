@@ -152,7 +152,7 @@ func view(dir, root string, files []fileView, parts components, pics assets, not
 		}
 		return []string{f.path}
 	})
-	section(fmt.Sprintf("Flows outside %s/, and designs in it, where the editor does not pair them; keep a design's flow in %s/ under the design's file name:", flowsDir, flowsDir), func(f fileView) []string {
+	section(fmt.Sprintf("Flows outside %s/, and designs in it, which the editor lists with the wrong kind; keep every flow in %s/ and every design at the top:", flowsDir, flowsDir), func(f fileView) []string {
 		if isFlowFile(f.path) == (f.file.Kind == flowfile.Chart) || f.file.Kind == "" || !inLayout(f.path) {
 			return nil
 		}

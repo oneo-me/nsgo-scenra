@@ -20,7 +20,7 @@
 - Play designs as the app would, opening screens, closing them, or the window a page shows in, and switching tabs with `tap` and `panel`, marking the tab shown with `selected:` classes, and flash what can be tapped as a design opens or reloads, and from the toolbar.
 - Show an element's comment card where the pointer rests instead of on press, and add notes beside comments, which the assistant reads and keeps true, their small yellow tags flashing with what can be tapped, from the same toolbar button.
 - Let a file give itself a `name=`, which the assistant may set and the sidebar, header and window title show instead of its file name.
-- Keep a screen's flow as `flows/<name>.scenra` for its design `<name>.scenra`, and switch between the two from the header.
+- Keep flows in `flows/` as workflows of their own, named for what they do, while each screen shows what happens on it in its design through taps, outlets and notes.
 - Let a file hold several designs or several flows, which the assistant draws only when asked for them together, each with an ID and opened by taps such as `open #sign-up`, packed with the least margin `gap=` points apart, which the assistant sets to suit their sizes.
 - Open folders, or Scenra files with their folder, from the Finder on macOS or the command line, showing a folder's `design/` when it has no Scenra files of its own while the assistant still works in the folder, save files in place when another file, folder or the window takes their place, and reopen them at the next start.
 - Add macOS, Windows and Linux builds in English and Simplified Chinese, for desktops only.

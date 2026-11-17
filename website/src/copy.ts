@@ -91,7 +91,7 @@ const en = {
     lead: 'The assistant runs the full height of the window while designs and flow charts fill the canvas beside it. Select anything to point the conversation at it.',
     points: [
       'Phone, tablet and desktop designs share the canvas with every flow chart.',
-      'A screen’s design and its flow sit side by side, one switch apart.',
+      'Screens play their own taps and pages; flows chart the workflows between them.',
       'One conversation per folder, which the assistant reads and draws in.',
     ],
     preview: {
@@ -119,7 +119,7 @@ const en = {
   file: {
     kicker: 'Plain text',
     title: 'A file you can read, diff and commit.',
-    lead: 'Each screen is a .scenra design, with its flow of the same name in flows/: plain text that sits beside the code it describes. Review it in a pull request, edit it by hand, or keep it in version control.',
+    lead: 'Each screen is a .scenra design and each workflow a flow in flows/: plain text that sits beside the code it describes. Review it in a pull request, edit it by hand, or keep it in version control.',
   },
   privacy: {
     kicker: 'Statistics',
@@ -340,7 +340,7 @@ const zh: typeof en = {
     lead: '助手占据窗口整列高度，界面设计和流程图在旁边的画布上铺开。选中任意元素，对话就围绕它继续。',
     points: [
       '手机、平板和桌面设计，与所有流程图共享同一块画布。',
-      '界面的设计与流程并排存放，一键切换。',
+      '界面自己演示点击和页面，流程图画出它们之间的工作流。',
       '每个文件夹一段对话，助手在其中阅读和绘制。',
     ],
     preview: {
@@ -368,7 +368,7 @@ const zh: typeof en = {
   file: {
     kicker: '纯文本',
     title: '一份能读、能 diff、能提交的文件',
-    lead: '每个界面是一个 .scenra 设计，它的流程就在 flows/ 里的同名文件中：纯文本，放在它所描述的代码旁边。可以在 pull request 里审阅、手写修改，或者纳入版本控制。',
+    lead: '每个界面是一个 .scenra 设计，每个工作流是 flows/ 里的一张流程图：纯文本，放在它所描述的代码旁边。可以在 pull request 里审阅、手写修改，或者纳入版本控制。',
   },
   privacy: {
     kicker: '使用统计',

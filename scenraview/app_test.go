@@ -289,28 +289,19 @@ func TestHidingThePanelsLeavesTheWindowToTheWorkspace(t *testing.T) {
 	}
 }
 
-func TestTheHeaderSwitchesADesignAndItsFlow(t *testing.T) {
+func TestAFlowOpensFromTheFlowsGroupAlone(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
-		"Sign in.scenra":        "design\n",
-		"flows/Sign in.scenra":  "flow\n",
+		"checkout.scenra":       "design\n",
 		"flows/checkout.scenra": "flow\n",
 	})
 	app, e := startEditor(t)
-	openPath(t, app, e, filepath.Join(dir, "Sign in.scenra"))
-	app.WaitFor("id:pair", time.Second)
-	app.Press("id:pair-flow")
-	if got := e.rel(e.cur().path); got != "flows/Sign in.scenra" {
-		t.Fatalf("the switch showed %q", got)
-	}
-	app.Press("id:pair-design")
-	if got := e.rel(e.cur().path); got != "Sign in.scenra" {
-		t.Fatalf("the switch showed %q", got)
-	}
-	// A flow without its design does not switch.
+	openPath(t, app, e, filepath.Join(dir, "checkout.scenra"))
+	// A flow named as a design is still a workflow of its own, opened
+	// only from the Flows group.
 	app.Press("id:files-flows >> label:checkout")
 	app.Settle()
-	if app.Exists("id:pair") {
-		t.Fatal("a flow without its design switches")
+	if got := e.rel(e.cur().path); got != "flows/checkout.scenra" {
+		t.Fatalf("the Flows group opened %q", got)
 	}
 
 	// Saving writes the file the document came from.

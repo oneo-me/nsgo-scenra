@@ -76,9 +76,6 @@ var supplied = map[string]Translation{}
 // The indexes of the messages without arguments in the tables.
 const (
 	textEdited = iota
-	textDesign
-	textFlow
-	textDesignOrFlow
 	textOpenFolder
 	textSave
 	textNoFolder
@@ -132,9 +129,6 @@ const (
 // index, by which Supply reads a Translation's Texts.
 var keyOfText = [numTexts]string{
 	"edited",
-	"design",
-	"flow",
-	"designOrFlow",
 	"openFolder",
 	"save",
 	"noFolder",
@@ -186,9 +180,6 @@ var keyOfText = [numTexts]string{
 // textsEn are the messages without arguments in en.
 var textsEn = i18n.NewTexts(""+
 	"Edited"+
-	"Design"+
-	"Flow"+
-	"Design or Flow"+
 	"Open Folder…"+
 	"Save"+
 	"Open a folder to design an app in its Scenra files, a design or a flow chart each."+
@@ -237,9 +228,6 @@ var textsEn = i18n.NewTexts(""+
 	"Default",
 	[]uint16{
 		6,
-		6,
-		4,
-		14,
 		14,
 		4,
 		82,
@@ -291,9 +279,6 @@ var textsEn = i18n.NewTexts(""+
 // textsZhHans are the messages without arguments in zh-Hans.
 var textsZhHans = i18n.NewTexts(""+
 	"已编辑"+
-	"设计"+
-	"流程"+
-	"设计或流程"+
 	"打开文件夹…"+
 	"保存"+
 	"打开一个文件夹，在其中的 Scenra 文件里设计应用，每个文件是一张设计图或一张流程图。"+
@@ -342,9 +327,6 @@ var textsZhHans = i18n.NewTexts(""+
 	"默认",
 	[]uint16{
 		9,
-		6,
-		6,
-		15,
 		18,
 		6,
 		119,
@@ -499,27 +481,6 @@ func Edited(cx *core.Scope) string { return For(cx).Edited() }
 
 // Edited is the package's Edited in the language of msgs.
 func (msgs Messages) Edited() string { return msgs.text(textEdited) }
-
-// Design says "Design"
-// in the language the app shows under cx.
-func Design(cx *core.Scope) string { return For(cx).Design() }
-
-// Design is the package's Design in the language of msgs.
-func (msgs Messages) Design() string { return msgs.text(textDesign) }
-
-// Flow says "Flow"
-// in the language the app shows under cx.
-func Flow(cx *core.Scope) string { return For(cx).Flow() }
-
-// Flow is the package's Flow in the language of msgs.
-func (msgs Messages) Flow() string { return msgs.text(textFlow) }
-
-// DesignOrFlow says "Design or Flow"
-// in the language the app shows under cx.
-func DesignOrFlow(cx *core.Scope) string { return For(cx).DesignOrFlow() }
-
-// DesignOrFlow is the package's DesignOrFlow in the language of msgs.
-func (msgs Messages) DesignOrFlow() string { return msgs.text(textDesignOrFlow) }
 
 // OpenFolder says "Open Folder…"
 // in the language the app shows under cx.

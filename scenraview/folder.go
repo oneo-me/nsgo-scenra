@@ -13,12 +13,9 @@ import (
 )
 
 // flowsDir is the folder of a project's flows, at its top and without
-// folders of its own: flows/sign-in.scenra is the flow of sign-in.scenra.
+// folders of its own; each is a workflow of its own, named for what it
+// does rather than for a screen.
 const flowsDir = "flows"
-
-// flowPath is the path of the flow named name, relative to the open
-// folder, with slashes.
-func flowPath(name string) string { return flowsDir + "/" + name + ".scenra" }
 
 // isFlowFile says the file at path, relative to the open folder with
 // slashes, is a file of the flows folder, which the sidebar keeps at its
@@ -27,16 +24,6 @@ func isFlowFile(path string) bool {
 	rest, ok := strings.CutPrefix(pathpkg.Clean(path), flowsDir+"/")
 	name, scenra := strings.CutSuffix(rest, ".scenra")
 	return ok && scenra && name != "" && !strings.Contains(name, "/")
-}
-
-// pairOf is the design and the flow named alike as the file at path,
-// when it is one of them.
-func pairOf(path string) (design, flow string, ok bool) {
-	if strings.Contains(path, "/") && !isFlowFile(path) {
-		return "", "", false
-	}
-	name := keyName(path)
-	return name + ".scenra", flowPath(name), true
 }
 
 // scanLimit is how many files and folders a scan of the open folder looks

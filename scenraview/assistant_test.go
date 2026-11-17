@@ -484,7 +484,7 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		`components/card.scenra: use "card": components use each other`, "stray.scenra: a component outside components/",
 		"which the editor does not show", "- a/nested.scenra\n", `deep.scenra: name="A/B/C"`,
 		`plan.scenra: src "assets/lost.jpg": there is no assets/lost.jpg`,
-		`plan.scenra: src "a/stray.png": put the picture in assets/`, "where the editor does not pair them",
+		`plan.scenra: src "a/stray.png": put the picture in assets/`, "which the editor lists with the wrong kind",
 		"- loose-flow.scenra\n", "- flows/screen.scenra\n"} {
 		if failed || !strings.Contains(out, want) {
 			t.Fatalf("the view tells nothing of %q: %s", want, out)

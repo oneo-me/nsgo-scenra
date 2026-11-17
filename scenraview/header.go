@@ -2,11 +2,9 @@ package scenraview
 
 import (
 	"path/filepath"
-	"slices"
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/desktop"
-	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 
 	"github.com/oneo-me/nsgo-scenra/scenraview/locales"
@@ -28,39 +26,11 @@ func chrome(cx *core.Scope, titleBar bool) (core.Edges, core.WindowDrag) {
 }
 
 // header is the bar over the document shown: the open folder's name and
-// the document's title, a dot while it has unsaved changes, and, when a
-// design and its flow are both in the folder, a switch between them; or
-// the components' title while they show.
+// the document's title and a dot while it has unsaved changes, or the
+// components' title while they show.
 func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
-	// pair is the shown file's design and flow, relative to the folder,
-	// when both are in it.
-	pair := core.NewMemoFunc(cx, func() [2]string {
-		d := e.cur()
-		if d == e.blank {
-			return [2]string{}
-		}
-		design, flow, ok := pairOf(e.rel(d.path))
-		files := e.files.Get()
-		has := func(p string) bool { return slices.ContainsFunc(files, func(f entry) bool { return f.path == p }) }
-		if !ok || !has(design) || !has(flow) {
-			return [2]string{}
-		}
-		return [2]string{design, flow}
-	}, func(a, b [2]string) bool { return a == b })
-	showsFlow := func() bool { d := e.cur(); return d != e.blank && isFlowFile(e.rel(d.path)) }
-	toggle := ui.Tabs[bool]{Size: ui.SizeSmall, Label: tr.DesignOrFlow(), TestID: "pair",
-		Options: []ui.Option[bool]{{Value: false, Label: tr.Design(), Icon: lucide.AppWindow, TestID: "pair-design"},
-			{Value: true, Label: tr.Flow(), Icon: lucide.Workflow, TestID: "pair-flow"}},
-		Value: showsFlow,
-		OnChange: func(flow bool) {
-			to := pair.GetUntracked()[0]
-			if flow {
-				to = pair.GetUntracked()[1]
-			}
-			e.open(filepath.Join(e.root.GetUntracked(), filepath.FromSlash(to)))
-		}}
 	_, drag := chrome(cx, isTitleBar)
 	return core.View{TestID: "header", Desktop: core.DesktopViewProps{WindowDrag: drag},
 		StyleFunc: func() core.Style {
@@ -85,7 +55,5 @@ func header(cx *core.Scope, e *Editor, isTitleBar bool) core.Node {
 				return core.View{Style: core.Style{Width: core.Pt(7), Height: core.Pt(7), CornerRadius: 3.5, FlexShrink: 0},
 					StyleFunc: ui.Filled(colors.Muted), Label: tr.Edited(), TestID: "file-edited"}
 			}},
-			core.View{Style: core.Style{FlexGrow: 1}},
-			core.Show{When: func() bool { return pair.Get()[0] != "" && !e.showcase.Get() }, Then: func(*core.Scope) core.Node { return toggle }},
 		}}
 }

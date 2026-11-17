@@ -31,7 +31,7 @@ Scenra is a coined word: *scene*, the screens an app is made of, joined by *-ra*
 ## Features
 
 - Scenra works in a folder: the left lists its Scenra files, each holding designs or flow charts, designs kept at the folder's top and grouped by names such as `Orders/Detail` under the components and a Flows group holding the flows of `flows/`, the file you choose shows beside it, and the conversation runs the window's height on the right; ⌘B hides both sides to give the canvas the whole window. In a Git repository, each file shows the lines it added and removed since the last commit.
-- A screen's design `sign-in.scenra` and its flow `flows/sign-in.scenra` share a name, and the bar above switches between them.
+- A screen shows what happens on it in its own design, through taps, outlets and notes; flows in `flows/` are workflows of their own, such as checkout, named for what they do rather than for a screen.
 - Choosing another file saves the one shown, as does ⌘S, and the folder and its file reopen at the next start.
 - Phone, tablet and desktop designs are drawn from boxes, texts, icons, images and SVG shaped by Tailwind CSS classes, so a draft can look like anything; zoom, pan and select its elements as in the flow charts.
 - The assistant is a coding agent you have installed, such as Claude Code, Codex, pi or CodeBuddy Code: it asks what it needs, then writes and makes the folder's files as the Scenra skill teaches, and each redraws as it writes.
