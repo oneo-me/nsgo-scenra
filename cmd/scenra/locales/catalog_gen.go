@@ -65,8 +65,13 @@ const (
 	textViewMenu
 	textUndoChange
 	textRedoChange
+	textHome
+	textRecent
+	textRecentEmpty
+	textRemoveRecent
+	textCloseTab
+	textTabs
 	textSettingsTitle
-	textDone
 	textNamingSection
 	textNamingDetail
 	textNamingURL
@@ -96,8 +101,13 @@ var keyOfText = [numTexts]string{
 	"viewMenu",
 	"undoChange",
 	"redoChange",
+	"home",
+	"recent",
+	"recentEmpty",
+	"removeRecent",
+	"closeTab",
+	"tabs",
 	"settingsTitle",
-	"done",
 	"namingSection",
 	"namingDetail",
 	"namingURL",
@@ -125,8 +135,13 @@ var textsEn = i18n.NewTexts(""+
 	"View"+
 	"Undo Change"+
 	"Redo Change"+
+	"Home"+
+	"Recent"+
+	"The folders you open show here, each with one of its designs."+
+	"Remove from Recent"+
+	"Close Tab"+
+	"Tabs"+
 	"Settings"+
-	"Done"+
 	"Conversation titles"+
 	"Titles a new conversation from its first message with a model behind an OpenAI-compatible API, else with that message's first line."+
 	"Base URL"+
@@ -151,8 +166,13 @@ var textsEn = i18n.NewTexts(""+
 		4,
 		11,
 		11,
-		8,
 		4,
+		6,
+		61,
+		18,
+		9,
+		4,
+		8,
 		19,
 		131,
 		8,
@@ -180,8 +200,13 @@ var textsZhHans = i18n.NewTexts(""+
 	"显示"+
 	"撤销更改"+
 	"重做更改"+
+	"首页"+
+	"最近"+
+	"打开过的文件夹会显示在这里，各以其中一个设计为封面。"+
+	"从最近中移除"+
+	"关闭标签页"+
+	"标签页"+
 	"设置"+
-	"完成"+
 	"对话命名"+
 	"用 OpenAI 兼容接口的模型根据第一条消息为新对话命名，未设置时使用该消息的首行。"+
 	"Base URL"+
@@ -207,6 +232,11 @@ var textsZhHans = i18n.NewTexts(""+
 		12,
 		12,
 		6,
+		6,
+		78,
+		18,
+		15,
+		9,
 		6,
 		12,
 		113,
@@ -341,19 +371,54 @@ func RedoChange(cx *core.Scope) string { return For(cx).RedoChange() }
 // RedoChange is the package's RedoChange in the language of msgs.
 func (msgs Messages) RedoChange() string { return msgs.text(textRedoChange) }
 
+// Home says "Home"
+// in the language the app shows under cx.
+func Home(cx *core.Scope) string { return For(cx).Home() }
+
+// Home is the package's Home in the language of msgs.
+func (msgs Messages) Home() string { return msgs.text(textHome) }
+
+// Recent says "Recent"
+// in the language the app shows under cx.
+func Recent(cx *core.Scope) string { return For(cx).Recent() }
+
+// Recent is the package's Recent in the language of msgs.
+func (msgs Messages) Recent() string { return msgs.text(textRecent) }
+
+// RecentEmpty says "The folders you open show here, each with one of its designs."
+// in the language the app shows under cx.
+func RecentEmpty(cx *core.Scope) string { return For(cx).RecentEmpty() }
+
+// RecentEmpty is the package's RecentEmpty in the language of msgs.
+func (msgs Messages) RecentEmpty() string { return msgs.text(textRecentEmpty) }
+
+// RemoveRecent says "Remove from Recent"
+// in the language the app shows under cx.
+func RemoveRecent(cx *core.Scope) string { return For(cx).RemoveRecent() }
+
+// RemoveRecent is the package's RemoveRecent in the language of msgs.
+func (msgs Messages) RemoveRecent() string { return msgs.text(textRemoveRecent) }
+
+// CloseTab says "Close Tab"
+// in the language the app shows under cx.
+func CloseTab(cx *core.Scope) string { return For(cx).CloseTab() }
+
+// CloseTab is the package's CloseTab in the language of msgs.
+func (msgs Messages) CloseTab() string { return msgs.text(textCloseTab) }
+
+// Tabs says "Tabs"
+// in the language the app shows under cx.
+func Tabs(cx *core.Scope) string { return For(cx).Tabs() }
+
+// Tabs is the package's Tabs in the language of msgs.
+func (msgs Messages) Tabs() string { return msgs.text(textTabs) }
+
 // SettingsTitle says "Settings"
 // in the language the app shows under cx.
 func SettingsTitle(cx *core.Scope) string { return For(cx).SettingsTitle() }
 
 // SettingsTitle is the package's SettingsTitle in the language of msgs.
 func (msgs Messages) SettingsTitle() string { return msgs.text(textSettingsTitle) }
-
-// Done says "Done"
-// in the language the app shows under cx.
-func Done(cx *core.Scope) string { return For(cx).Done() }
-
-// Done is the package's Done in the language of msgs.
-func (msgs Messages) Done() string { return msgs.text(textDone) }
 
 // NamingSection says "Conversation titles"
 // in the language the app shows under cx.

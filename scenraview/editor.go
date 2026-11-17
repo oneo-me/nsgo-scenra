@@ -1,6 +1,8 @@
 package scenraview
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"maps"
 	"os"
@@ -37,8 +39,14 @@ type Options struct {
 	// show.
 	Toaster *ui.Toaster
 	// Remember, when set, prefixes the storage keys under which the open
-	// folder and the file shown open again at the next start.
+	// folder and the file shown open again at the next start, and those
+	// keeping the folders' conversations and how components draw, which
+	// editors given the same prefix share.
 	Remember string
+	// Folder, when set, is the folder the editor opens, in place of the
+	// one Remember kept, as an app showing an editor per folder, such as
+	// in tabs, gives each its own and keeps them itself.
+	Folder string
 	// OnSend, when set, hears of each message sent to the assistant.
 	OnSend func()
 }
@@ -162,10 +170,33 @@ func New(cx *core.Scope, opts Options) *Editor {
 		cx.Post(e.camera.Fit)
 	})
 	if opts.Remember != "" {
-		e.remember(opts.Remember+".folder", opts.Remember+".file")
+		if opts.Folder == "" {
+			e.remember(opts.Remember+".folder", opts.Remember+".file")
+		}
 		e.rememberOutlines(opts.Remember + ".outlines")
 	}
+	if opts.Folder != "" {
+		e.setFolder(opts.Folder)
+	}
 	return e
+}
+
+// ID names the editor to agents, which the Server's tools take to tell
+// editors apart: its folder's, so a conversation resumed later names it
+// alike; "" while no folder is open. Any goroutine may call it.
+func (e *Editor) ID() string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return folderID(e.scanning)
+}
+
+// folderID is the ID of an editor of the folder dir.
+func folderID(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(dir))
+	return hex.EncodeToString(sum[:4])
 }
 
 // remember opens the folder and the file shown when the app last quit,
@@ -364,10 +395,10 @@ func (e *Editor) OpenFolder() {
 	})
 }
 
-// projectOf is the folder of the project the Scenra file at path is of:
-// the one holding it, or that folder's parent when it is the project's
-// flows, views or components folder.
-func projectOf(path string) string {
+// ProjectOf is the folder an editor opens for the Scenra file at path,
+// that of its project: the one holding it, or that folder's parent when
+// it is the project's flows, views or components folder.
+func ProjectOf(path string) string {
 	dir := filepath.Dir(path)
 	if slices.Contains([]string{flowsDir, viewsDir, flowfile.ComponentsDir}, filepath.Base(dir)) {
 		return filepath.Dir(dir)
@@ -393,7 +424,7 @@ func (e *Editor) OpenPath(path string) error {
 	if err != nil {
 		return err
 	}
-	if e.inside(path) || e.openFolder(projectOf(path)) {
+	if e.inside(path) || e.openFolder(ProjectOf(path)) {
 		e.trail = nil
 		e.openDoc(d)
 	}
@@ -691,8 +722,19 @@ func (e *Editor) Folder() string { return e.folder.Get() }
 // Empty says no file is open.
 func (e *Editor) Empty() bool { return e.empty() }
 
-// Name is the file name of the document shown, "" while none is.
+// Name is the file name of the document shown, "" while none is, and
+// Path its path.
 func (e *Editor) Name() string { return e.cur().name() }
+func (e *Editor) Path() string { return e.cur().path }
+
+// Contains says path is in the open folder's project, where OpenPath
+// shows a file without opening another folder.
+func (e *Editor) Contains(path string) bool {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	return e.root.Get() != "" && e.inside(path)
+}
 
 // Title is the name the document shown gives itself, or else its file
 // name without the extension, "" while none is open; or the components'

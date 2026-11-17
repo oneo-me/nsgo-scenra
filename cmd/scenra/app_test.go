@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -37,23 +38,42 @@ func testRoot(t *testing.T) func(cx *core.Scope) core.Node {
 	}
 }
 
-func TestSettingsTurnAgentsOff(t *testing.T) {
-	app := nsgotest.Start(t, testRoot(t), nsgotest.Size(1280, 800))
-	dir := filepath.Join(t.TempDir(), "hello")
+// testRootWith is the app with the fake agent and storage, where pick
+// answers the folder picker.
+func startApp(t *testing.T, opts ...nsgotest.Option) *nsgotest.App {
+	return nsgotest.Start(t, testRoot(t), append([]nsgotest.Option{nsgotest.Size(1280, 800)}, opts...)...)
+}
+
+// folder makes a folder of name holding a design file.
+func folder(t *testing.T, name string) string {
+	dir := filepath.Join(t.TempDir(), name)
 	os.Mkdir(dir, 0o755)
-	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: dir}} }
-	app.Press("id:chat-open-folder")
-	app.WaitFor("id:files", 5*time.Second)
-	app.Press("id:open-settings")
+	os.WriteFile(filepath.Join(dir, "home.scenra"), []byte("design\ntext \"Welcome to "+name+"\"\n"), 0o644)
+	return dir
+}
+
+// tabNames are the names of the open tabs, in order.
+func tabNames(app *nsgotest.App) []string {
+	var names []string
+	for _, v := range app.Query("id:tabs >> id:tab") {
+		names = append(names, v.Props.Label)
+	}
+	return names
+}
+
+func TestSettingsTurnAgentsOff(t *testing.T) {
+	app := startApp(t)
+	app.Press("id:home-settings")
 	app.WaitFor("id:settings", time.Second)
-	app.WaitFor("id:settings >> text:Claude Code", 5*time.Second)
-	app.Press("id:settings >> role:switch >> nth=0")
+	// The agent's models load before it turns off.
+	app.WaitFor("id:models-claude >> text:1/1 model", 5*time.Second)
+	app.Press("id:agent-claude")
 	app.WaitUntil(5*time.Second, func() bool { v, _ := app.Storage().GetItem(keyDisabled); return v == "claude" })
 }
 
 func TestSettingsTurnOffTheStatistics(t *testing.T) {
-	app := nsgotest.Start(t, testRoot(t), nsgotest.Size(1280, 800))
-	app.Press("id:open-settings")
+	app := startApp(t)
+	app.Press("id:home-settings")
 	app.WaitFor("id:settings", time.Second)
 	app.Press("id:settings >> label:Send usage statistics")
 	if v, _ := app.Storage().GetItem(keyStats); v != "off" {
@@ -62,5 +82,63 @@ func TestSettingsTurnOffTheStatistics(t *testing.T) {
 	app.Press("id:settings >> label:Send usage statistics")
 	if _, ok := app.Storage().GetItem(keyStats); ok {
 		t.Fatal("stats still stored after turning them back on")
+	}
+}
+
+func TestFoldersOpenInTabsFromTheHomePage(t *testing.T) {
+	app := startApp(t)
+	app.Find("id:recent-empty")
+	a, b := folder(t, "alpha"), folder(t, "beta")
+	pick := a
+	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: pick}} }
+	app.Press("id:home-open-folder")
+	app.WaitFor("id:files >> label:home", 5*time.Second)
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome to alpha", time.Second)
+	app.Press("id:tab-home")
+	app.WaitFor("id:recent-alpha", time.Second)
+	pick = b
+	app.Press("id:home-open-folder")
+	app.WaitFor("id:files >> label:home", 5*time.Second)
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome to beta", time.Second)
+	if names := tabNames(app); !slices.Equal(names, []string{"alpha", "beta"}) {
+		t.Fatalf("tabs = %v", names)
+	}
+	// Each tab's editor names its own folder to the agents.
+	editors := shown.editors()
+	if len(editors) != 2 || editors[0].ID() == "" || editors[0].ID() == editors[1].ID() {
+		t.Fatal("the tabs' editors share an ID")
+	}
+	if app.Exists("text:Welcome to alpha") {
+		t.Fatal("a hidden tab shows")
+	}
+
+	// A recent folder opens in the tab it has, which shows again.
+	app.Press("id:tab-home")
+	app.WaitFor("id:recent-beta", time.Second)
+	app.Find("id:recent-alpha >> id:recent-cover >> text:Welcome to alpha")
+	app.Press("id:recent-alpha")
+	app.WaitFor("design >> text:Welcome to alpha", time.Second)
+	if names := tabNames(app); len(names) != 2 {
+		t.Fatalf("opening an open folder opened another tab: %v", names)
+	}
+
+	// The tabs open again at the next start, the one shown too.
+	tabs, _ := app.Storage().GetItem(keyTabs)
+	recent, _ := app.Storage().GetItem(keyRecent)
+	again := startApp(t, nsgotest.Storage(map[string]string{keyTabs: tabs, keyShown: a, keyRecent: recent}))
+	again.WaitFor("design >> text:Welcome to alpha", 5*time.Second)
+	if names := tabNames(again); !slices.Equal(names, []string{"alpha", "beta"}) {
+		t.Fatalf("tabs again = %v", names)
+	}
+
+	// Closing the tab shown shows the next, then the home page.
+	again.Press("id:tab >> nth=0 >> id:close-tab")
+	again.WaitFor("design >> text:Welcome to beta", time.Second)
+	again.Press("id:close-tab")
+	again.WaitFor("id:home", time.Second)
+	if names := tabNames(again); len(names) != 0 {
+		t.Fatalf("tabs left = %v", names)
 	}
 }

@@ -118,18 +118,14 @@ func newUsage(cx *core.Scope) *usage {
 	return u
 }
 
-// start sends the pageview, and the heartbeats while e's documents
-// change or messages are sent.
-func (u *usage) start(e *scenraview.Editor) {
+// start sends the pageview, and the heartbeats while the documents the
+// editors watch shows change or messages are sent.
+func (u *usage) start() {
 	if u.send == nil {
 		return
 	}
 	cx := u.cx
 	u.send("")
-	cx.Effect(func() {
-		e.File()
-		core.Untracked(cx, func() bool { u.since = time.Now(); return true })
-	})
 	var beat func()
 	beat = func() {
 		if time.Since(u.since) < statsIdle {
@@ -138,6 +134,17 @@ func (u *usage) start(e *scenraview.Editor) {
 		cx.AfterFunc(statsBeat, beat)
 	}
 	cx.AfterFunc(statsBeat, beat)
+}
+
+// watch counts the changes of e's documents as use, while cx lasts.
+func (u *usage) watch(cx *core.Scope, e *scenraview.Editor) {
+	if u.send == nil {
+		return
+	}
+	cx.Effect(func() {
+		e.File()
+		core.Untracked(cx, func() bool { u.since = time.Now(); return true })
+	})
 }
 
 // sent counts a message sent to the assistant.

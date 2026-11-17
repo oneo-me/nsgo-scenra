@@ -32,7 +32,7 @@ Scenra 是一个自造词：*scene*（场景）指构成应用的一个个界面
 
 - Scenra 以文件夹为工作区：左侧列出其中的 Scenra 文件，每个文件装着若干设计图或若干流程图，窗口和界面放在文件夹顶层，并按 `订单/详情` 这样的名称分组，排在顶部的组件、「流程」和「子视图」分组下方，前者收纳 `flows/` 里的流程图，后者收纳 `views/` 里填进这些窗口的页面，选中的文件显示在旁边，右侧是贯穿窗口高度的对话；⌘B 隐藏两侧，把整个窗口留给画布。⌘1 以实际大小显示画布，⌘2 使其适合窗口，⌘+ 和 ⌘- 放大和缩小。文件夹在 Git 仓库中时，每个文件旁显示它自上次提交以来增删的行数。
 - 界面上发生的事由它自己的设计展示，靠点击、outlet 和备注；`flows/` 里的流程图是独立的工作流，如结账，按它做的事命名，而不是对应某个界面。
-- 切换到其他文件会保存当前文件，⌘S 也会保存；文件夹和其中的文件会在下次启动时重新打开。
+- 每个文件夹在自己的标签页中打开，各有各的对话；最前面的首页列出最近打开的文件夹，各以其中一个设计为封面，并提供设置。切换到其他文件会保存当前文件，⌘S 也会保存，关闭标签页（⌘W）会保存其中的文件；标签页及其文件会在下次启动时重新打开。
 - 手机、平板和桌面设计由方块、文本、图标、图片和 SVG 组成，用 Tailwind CSS 类名塑造外观，草图可以画成任何样子；和流程图一样可以缩放、平移并选择其中的元素。
 - 助手是你已安装的编程 agent，如 Claude Code、Codex、pi 或 CodeBuddy Code：它先问清需要的信息，再按 Scenra 技能的说明编写和新建文件夹中的文件，每个文件边写边重新绘制。
 - 设计可以像应用一样点着用：点击元素会打开另一个界面、关闭当前界面或切换标签页，标签栏会标出当前所在的界面。界面可以填进窗口的内容区，点着用窗口时只替换内容区，侧边栏一直都在。
@@ -57,8 +57,8 @@ go tool nsgo build cmd/scenra   # build macOS, Windows and Linux into cmd/scenra
 
 ## 快速开始
 
-1. 安装并登录一个编程 agent，如 [Claude Code](https://claude.com/claude-code) 或 [Codex](https://github.com/openai/codex)；**设置**（⌘,）列出 Scenra 找到的 agent，可开关它们及其模型；在**对话命名**中可填写一个 OpenAI 兼容接口的模型，它会根据第一条消息为新对话命名。
-2. 打开一个文件夹（⌘O），比如某个项目的文件夹，助手会在那里工作；也可以打开 `examples/coffee-shop` 从示例开始。
+1. 安装并登录一个编程 agent，如 [Claude Code](https://claude.com/claude-code) 或 [Codex](https://github.com/openai/codex)；首页的**设置**（⌘,）列出 Scenra 找到的 agent，可开关它们及其模型；在**对话命名**中可填写一个 OpenAI 兼容接口的模型，它会根据第一条消息为新对话命名。
+2. 打开一个文件夹（⌘O），比如某个项目的文件夹，助手会在那里工作；也可以打开 `examples/coffee-shop` 从示例开始；它在新标签页中打开，之后也可从首页的**最近**再次打开。
 3. 在助手中描述一个应用或流程，例如“设计一个咖啡店应用的登录界面”或“画出我们处理订单的流程”。
 4. 回答它的问题，看它新建并画出设计和流程；在左侧的列表中选择要看的文件。
 5. 按 ⌘N 开始新对话；新对话沿用上次选择的 agent、模型及其设置。
@@ -71,7 +71,7 @@ go tool nsgo build cmd/scenra   # build macOS, Windows and Linux into cmd/scenra
 
 ## 在你的应用中使用
 
-`scenraview` 为其他 NSGo 应用提供 Scenra 的 `.scenra` 文件编辑器：一个管理文件夹及当前文件的 `Editor` 及其视图，可以直接使用 Scenra 的 `Window`，也可以用 `Header`、`Sidebar`、`Workspace` 和 `Assistant` 自行布局。助手运行 [Agio](https://github.com/oneo-me/nsgo-agio) 后端的 agent；请把 `cmd/scenra/resources/skills/scenra` 中的技能和告诉它们用户所见内容的 `Server` 交给它们。
+`scenraview` 为其他 NSGo 应用提供 Scenra 的 `.scenra` 文件编辑器：一个管理文件夹及当前文件的 `Editor` 及其视图，可以直接使用 Scenra 的 `Window`，也可以用 `Header`、`Sidebar`、`Workspace` 和 `Assistant` 自行布局。助手运行 [Agio](https://github.com/oneo-me/nsgo-agio) 后端的 agent；请把 `cmd/scenra/resources/skills/scenra` 中的技能和告诉它们用户所见内容的 `Server` 交给它们；`Server` 按每个对话的指令所给的 ID 区分多个编辑器。`Cover` 把一个项目画成缩略图，如 Scenra 的最近文件夹所示。
 
 ```sh
 go get github.com/oneo-me/nsgo-scenra

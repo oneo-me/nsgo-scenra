@@ -6,8 +6,13 @@ editMenu: Edit
 viewMenu: View
 undoChange: Undo Change
 redoChange: Redo Change
+home: Home
+recent: Recent
+recentEmpty: The folders you open show here, each with one of its designs.
+removeRecent: Remove from Recent
+closeTab: Close Tab
+tabs: Tabs
 settingsTitle: Settings
-done: Done
 namingSection: Conversation titles
 namingDetail: Titles a new conversation from its first message with a model behind an OpenAI-compatible API, else with that message's first line.
 namingURL: Base URL

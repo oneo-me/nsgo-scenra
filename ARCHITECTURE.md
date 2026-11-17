@@ -1,6 +1,6 @@
 # Scenra architecture
 
-Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only, built from `scenraview`, which gives other NSGo apps the same support for Scenra files, as Agio's `chatview` does for conversations. The editor works in one folder, whose Scenra files the sidebar lists in the groups their names give them; each file holds designs of screens, one component designs share or flow charts, never two kinds. One file at a time shows as the document, with its undo history, under a header naming it, beside the assistant running the window's height, whose conversations, one shown at a time and chosen in its header, are about the folder. The design and diagram draw it.
+Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only, built from `scenraview`, which gives other NSGo apps the same support for Scenra files, as Agio's `chatview` does for conversations. Its title bar holds tabs, as Figma's does: a home page always first, of the folders opened lately and the settings, then a tab per open folder, each an editor of its own. An editor works in one folder, whose Scenra files the sidebar lists in the groups their names give them; each file holds designs of screens, one component designs share or flow charts, never two kinds. One file at a time shows as the document, with its undo history, under a header naming it, beside the assistant running the window's height, whose conversations, one shown at a time and chosen in its header, are about the folder. The design and diagram draw it.
 
 ## Code map
 
@@ -10,12 +10,12 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | `scenraview/` | The `Editor` an app opens a folder of Scenra files in, and its views: `Window`, or the `Header`, `Sidebar`, `Workspace` and `Assistant` it lays out. |
 | `scenraview/editor.go`, `folder.go`, `header.go`, `diagram.go` | The open folder and the files found in it, the document shown and its history, the header naming it, and the flow chart. |
 | `scenraview/sidebar.go`, `mockup.go`, `icons.go`, `comments.go` | The list of the folder's Flows and Views groups and grouped designs, the drawing and playing of a design, and the comments and notes on its elements. |
-| `scenraview/showcase.go`, `gitdiff.go` | The folder's components drawn together, and the lines Git says its files changed. |
+| `scenraview/showcase.go`, `gitdiff.go`, `cover.go` | The folder's components drawn together, the lines Git says its files changed, and a project drawn small. |
 | `scenraview/outlet.go`, `layout.go` | The designs filling others' outlets, and the folder's designs laid out unseen for agents. |
 | `scenraview/assistant.go`, `files.go` | The folder's conversations, run by an Agio backend and kept to resume, and the files read again as agents write them. |
 | `scenraview/server.go`, `selection.go` | The MCP server telling agents what the user sees of a file. |
 | `scenraview/locales/` | The views' messages, which an app's catalogs may supply other languages of. |
-| `cmd/scenra/` | Scenra, the app: the window, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, `nsgo.yaml`, assets and its own `locales/`. |
+| `cmd/scenra/` | Scenra, the app: the window, its tabs and home page of recent folders, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, `nsgo.yaml`, assets and its own `locales/`. |
 | `cmd/scenra/resources/skills/scenra/` | The skill teaching agents the format and the NSGo components designs become, which ships among the app's resources. |
 | `website/` | The official static site, in English and Simplified Chinese, deployed to GitHub Pages. |
 
@@ -34,7 +34,10 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 - The sidebar shows each file's lines changed since the last commit by running the user's Git, so Scenra reads no repository itself; the scan runs it every few seconds, as commits change what it tells without changing the files, never taking locks a Git command of the user's needs, and a folder in no repository, or without Git, shows none.
 - A picture a design shows is a file of `assets/` at the top of the folder, named by its path there, so the folder carries its pictures and every image names them alike. The scan reads that folder's pictures, up to a size, and keeps their bytes while their files stay the same, so the editor shows them without loading files from the device, which NSGo refuses, and redraws them as they change.
 - A flow is a workflow of its own, never one screen's: what happens on a screen shows in its design, through taps, outlets and notes, so the user sees a screen's behavior where it is drawn and every flow in one place, rather than some behind a switch beside their screen and others in the Flows group.
-- Only one document is open, so leaving it, for another file or folder or by closing the window, saves it instead of asking; undo history goes with it.
+- Each tab is an editor made in a scope of its own, so a folder keeps its document, history and conversations while another shows, and closing the tab ends them; a folder opens in one tab, which opening it again shows. Hidden tabs stay laid out, as their canvases and charts must, and only hide. The tabs name the folders, so the editor's Header is left out.
+- An editor has one document open, so leaving it, for another file, by closing its tab or the window, saves it instead of asking; undo history goes with it.
+- One MCP server serves every tab's agents, so each call names its editor by an ID the conversation's system prompt gives, rather than the server guessing which tab is meant. The ID comes from the folder, so a conversation resumed with its old instructions still names it.
+- A recent folder's cover is a design drawn small by `scenraview`'s `Cover`, of the file it showed last or else its first design, so the home page tells projects apart without images of its own to keep.
 - The folder is scanned off the UI's goroutine, leaving out hidden folders and `node_modules` and stopping after a limit, so a large folder stays responsive; a file the agent makes in its turn opens.
 - Every change to a document goes through the editor, which records it for undo. What an agent writes in one turn undoes together.
 - The files are the only channel between the user and the agent, so sending a message saves the user's changes, and the user cannot change the documents while the agent works. A file an agent leaves unparsable keeps the last version that parsed, and the server tells the agent why; one that never parsed shows its error in the workspace, which offers to ask the agent to fix it, and is never saved over.
@@ -49,7 +52,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 - The flow pane keeps a diagram for each index of a file's flows, following the document shown instead of remounting per file, and the design covers it while a design shows.
 - The chart fits only once a change's batch is over: remounting a chart, or fitting it while it takes new data, trips NSGo's commit check on macOS.
 - Files are made only by agents, as the skill teaches where each kind goes and what it holds, so the editor has no way to make one and ⌘N starts a conversation instead.
-- A folder's conversations work in it with Agio's full access there, as a design and its flows are made together. Agio persists nothing, so the editor keeps by folder what resumes those whose agents started a session, and opening the folder again resumes them and shows the latest; leaving it stops their agents.
+- A folder's conversations work in it with Agio's full access there, as a design and its flows are made together. Agio persists nothing, so the editor keeps by folder what resumes those whose agents started a session, and opening the folder again resumes them and shows the latest; leaving it, or closing its tab, stops their agents. Editors under the same storage prefix read the kept conversations again before writing them, as each tab keeps its own folder's.
 - User-visible words live in `locales/`, in both languages.
 - Statistics never carry document content, messages or paths. `nsgo dev` builds and test binaries send none.
 
@@ -63,7 +66,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 
 ## Data and state
 
-Settings, the naming model's API key among them, the open folder, the path of the file shown, each folder's conversations as their agents' sessions, choices and titles, the agent, model and settings chosen last, which new conversations start with, and the install's random statistics ID live in NSGo's storage on the device; the transcripts stay in the agents' own sessions. Documents live only in the folder's files.
+Settings, the naming model's API key among them, the open tabs with the file each shows and the tab shown, the folders opened lately with the file each showed last, each folder's conversations as their agents' sessions, choices and titles, the agent, model and settings chosen last, which new conversations start with, and the install's random statistics ID live in NSGo's storage on the device; the transcripts stay in the agents' own sessions. Documents live only in the folder's files.
 
 ## Verification
 

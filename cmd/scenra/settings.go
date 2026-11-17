@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/nsgo-dev/nsgo/base"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/ui"
 
@@ -16,14 +15,16 @@ func statsSwitch(cx *core.Scope) core.Node {
 		Label: locales.For(cx).StatsSend()}
 }
 
-// settingsDialog turns the agents and their models on or off, sets the
-// model titling conversations, and turns the usage statistics on or off.
-func settingsDialog(cx *core.Scope, open *core.Signal[bool], m *chatview.Model, n *namer) core.Node {
+// settingsPage, a page of the home page, turns the agents and their
+// models on or off, sets the model titling conversations, and turns the
+// usage statistics on or off.
+func settingsPage(cx *core.Scope, m *chatview.Model, n *namer) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
-	return ui.Dialog{Open: open.Get, OnOpenChange: func(o bool, _ base.Reason) { open.Set(o) }, TestID: "settings",
-		Title: tr.SettingsTitle(), Style: core.Style{Width: core.Pt(520)},
-		Children: []core.Node{
+	return ui.ScrollView{Style: ui.FillRest, ContentStyle: core.Style{AlignItems: core.AlignCenter}, Children: []core.Node{
+		core.View{TestID: "settings", Style: core.Style{Width: core.Pct(100), MaxWidth: core.Pt(640),
+			Padding: core.Symmetric(32, 32), Gap: 24}, Children: []core.Node{
+			ui.Text(tr.SettingsTitle(), 20, ui.Semibold, colors.Text),
 			chatview.Agents{Model: m},
 			namingSection(cx, n),
 			core.View{Style: core.Style{Gap: 4}, Children: []core.Node{
@@ -36,6 +37,6 @@ func settingsDialog(cx *core.Scope, open *core.Signal[bool], m *chatview.Model, 
 					statsSwitch(cx),
 				}},
 			}},
-		},
-		Footer: []core.Node{ui.Button{Text: tr.Done(), TestID: "settings-done", OnPress: func() { open.Set(false) }}}}
+		}},
+	}}
 }

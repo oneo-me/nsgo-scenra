@@ -3,6 +3,7 @@ package scenraview
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"sync"
 	"time"
 
@@ -28,25 +29,32 @@ const callLimit = 10 * time.Second
 // an editor, as agents edit its files themselves but cannot see the
 // editor.
 // An app starts it before its window, to give the agents it runs, and
-// attaches the editor once there is one; calls fail while none is
-// attached.
+// attaches each editor it opens; a call names the editor by its ID, which
+// a conversation's system prompt gives, so an app showing several, such
+// as in tabs, never answers one agent of another's folder.
 type Server struct {
-	srv *mcp.Server
-	mu  sync.Mutex
-	e   *Editor
+	srv     *mcp.Server
+	mu      sync.Mutex
+	editors []*Editor
 }
+
+// tabProperty is the argument naming the editor a call is about.
+var tabProperty = map[string]any{"type": "string",
+	"description": "The ID of the Scenra tab this conversation is about, as your instructions give it"}
 
 // Listen starts a server on the loopback interface.
 func Listen() (*Server, error) {
 	s := &Server{}
 	srv, err := mcp.Listen(mcp.Options{Name: ServerName, Tools: []mcp.Tool{{Name: ToolView,
 		Description: "Tell what the user sees in Scenra: the open folder, the design or flow open in it, the node or element selected, the user's comments and the notes on elements, and the problems of the folder's Scenra files: those that do not parse, the classes that draw nothing, and how their designs lay out wrong, such as text cut off, elements outside their design or of no size, and w-full filling nothing. Call it before changing the files and after writing them.",
-		InputSchema: map[string]any{"type": "object", "properties": map[string]any{
+		InputSchema: map[string]any{"type": "object", "required": []string{"tab"}, "properties": map[string]any{
+			"tab": tabProperty,
 			"notes": map[string]any{"type": "string", "enum": []string{NotesAll, NotesOpen, NotesNone},
 				"description": "Which notes to list: all of the folder's (the default), open for those of the open file and the components it uses, or none once you have read them; the problems show in full either way"},
 		}}}, {Name: ToolLayout,
 		Description: "Lay out a Scenra file's designs, or its component, as the editor draws them, and tell where each element went: its path, kind, x and y from the design's top left corner, width and height, element by element, and for a use the component and variants it draws. Paths inside a component follow a colon, and those of a design an outlet shows a bar.",
-		InputSchema: map[string]any{"type": "object", "required": []string{"path"}, "properties": map[string]any{
+		InputSchema: map[string]any{"type": "object", "required": []string{"tab", "path"}, "properties": map[string]any{
+			"tab":     tabProperty,
 			"path":    map[string]any{"type": "string", "description": "The file's path in the open folder, such as main.scenra or components/tab.scenra"},
 			"design":  map[string]any{"type": "string", "description": "The ID of one design of a file of several; all of them when left out"},
 			"variant": map[string]any{"type": "string", "description": "The ID of the component's variant to draw it as; the component itself when left out"},
@@ -64,18 +72,36 @@ func Listen() (*Server, error) {
 // Agent is how agents reach the server, for host.Options.
 func (s *Server) Agent() agentio.MCPServer { return s.srv.Agent() }
 
-// Attach answers the calls from e from now on, until e's scope ends.
+// Attach answers the calls naming e's ID from now on, until e's scope
+// ends.
 func (s *Server) Attach(e *Editor) {
 	s.mu.Lock()
-	s.e = e
+	s.editors = append(s.editors, e)
 	s.mu.Unlock()
 	e.cx.Cleanup(func() {
 		s.mu.Lock()
-		if s.e == e {
-			s.e = nil
-		}
+		s.editors = slices.DeleteFunc(s.editors, func(x *Editor) bool { return x == e })
 		s.mu.Unlock()
 	})
+}
+
+// editor is the editor attached with the ID tab, or why there is none.
+func (s *Server) editor(tab string) (*Editor, string) {
+	s.mu.Lock()
+	editors := slices.Clone(s.editors)
+	s.mu.Unlock()
+	switch {
+	case len(editors) == 0:
+		return nil, "error: no Scenra editor is open"
+	case tab == "":
+		return nil, "error: give tab, the ID of the Scenra tab your instructions name"
+	}
+	for _, e := range editors {
+		if e.ID() == tab {
+			return e, ""
+		}
+	}
+	return nil, "error: no Scenra tab " + tab + " is open; the user may have closed it"
 }
 
 // Close stops the server.
@@ -83,11 +109,15 @@ func (s *Server) Close() error { return s.srv.Close() }
 
 // call answers a call on the UI's goroutine and waits for it.
 func (s *Server) call(ctx context.Context, name string, arguments json.RawMessage) (string, bool) {
-	s.mu.Lock()
-	e := s.e
-	s.mu.Unlock()
+	var named struct{ Tab string }
+	if len(arguments) > 0 {
+		if err := json.Unmarshal(arguments, &named); err != nil {
+			return "error: " + err.Error(), true
+		}
+	}
+	e, missing := s.editor(named.Tab)
 	if e == nil {
-		return "error: no Scenra editor is open", true
+		return missing, true
 	}
 	type answer struct {
 		text   string

@@ -4,8 +4,13 @@ editMenu: 编辑
 viewMenu: 显示
 undoChange: 撤销更改
 redoChange: 重做更改
+home: 首页
+recent: 最近
+recentEmpty: 打开过的文件夹会显示在这里，各以其中一个设计为封面。
+removeRecent: 从最近中移除
+closeTab: 关闭标签页
+tabs: 标签页
 settingsTitle: 设置
-done: 完成
 namingSection: 对话命名
 namingDetail: 用 OpenAI 兼容接口的模型根据第一条消息为新对话命名，未设置时使用该消息的首行。
 namingURL: Base URL

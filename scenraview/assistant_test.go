@@ -110,7 +110,7 @@ func (s *scriptedSession) Prompt(_ context.Context, p agentio.Prompt) error {
 				os.WriteFile(st.file, []byte(st.text), 0o644)
 				continue
 			}
-			out, _, err := mcp.CallTool(context.Background(), server, ToolView, map[string]any{})
+			out, _, err := mcp.CallTool(context.Background(), server, ToolView, map[string]any{"tab": promptTab(s.o.SystemPrompt)})
 			if err != nil {
 				out = "error: " + err.Error()
 			}
@@ -125,6 +125,13 @@ func (s *scriptedSession) Prompt(_ context.Context, p agentio.Prompt) error {
 		s.emit(agentio.Event{Type: agentio.Settled})
 	}()
 	return nil
+}
+
+// promptTab is the tab a system prompt names, as an agent reads it.
+func promptTab(prompt string) string {
+	_, rest, _ := strings.Cut(prompt, `tab "`)
+	tab, _, _ := strings.Cut(rest, `"`)
+	return tab
 }
 
 func (s *scriptedSession) Abort(context.Context) error                       { return nil }
@@ -439,8 +446,9 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { srv.Close() })
+	var tab string
 	ask := func() (string, bool) {
-		out, failed, err := mcp.CallTool(context.Background(), srv.Agent(), ToolView, map[string]any{})
+		out, failed, err := mcp.CallTool(context.Background(), srv.Agent(), ToolView, map[string]any{"tab": tab})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -475,10 +483,15 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		})
 		return out, failed
 	}
-	if out, failed := answer(); failed || !strings.Contains(out, "No folder is open") {
-		t.Fatalf("a call without a folder: %q", out)
+	if out, failed := answer(); !failed || !strings.Contains(out, "give tab") {
+		t.Fatalf("a call naming no tab: %q", out)
 	}
 	openPath(t, app, e, dir)
+	tab = "0000"
+	if out, failed := answer(); !failed || !strings.Contains(out, "no Scenra tab 0000") {
+		t.Fatalf("a call naming another tab: %q", out)
+	}
+	tab = e.ID()
 	out, failed := answer()
 	for _, want := range []string{"no file open", "plan.scenra: bg-nope", "draw with use <name>: card.",
 		`plan.scenra: use "card": components use each other`, `plan.scenra: use "gone": there is no components/gone.scenra`,
@@ -537,5 +550,42 @@ func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
 	out = view("/p", "/p", []fileView{{path: "flows/pay.scenra", file: flows, shown: &location{node: "1/b"}}}, nil, nil, NotesAll)
 	if !strings.Contains(out, `selected node "b" of flow refund`) || !strings.Contains(out, "which holds the flows pay, refund") {
 		t.Errorf("the view of flows:\n%s", out)
+	}
+}
+
+func TestTheServerTellsEachTabOfItsOwnFolder(t *testing.T) {
+	srv, err := Listen()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { srv.Close() })
+	dirs := []string{t.TempDir(), t.TempDir()}
+	var editors []*Editor
+	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+		for _, dir := range dirs {
+			e := New(cx, Options{Folder: dir})
+			srv.Attach(e)
+			editors = append(editors, e)
+		}
+		return core.View{}
+	})
+	for i, e := range editors {
+		var out string
+		done := make(chan struct{})
+		go func() {
+			out, _, _ = mcp.CallTool(context.Background(), srv.Agent(), ToolView, map[string]any{"tab": e.ID()})
+			close(done)
+		}()
+		app.WaitUntil(5*time.Second, func() bool {
+			select {
+			case <-done:
+				return true
+			default:
+				return false
+			}
+		})
+		if want := "The open folder is " + dirs[i] + ";"; !strings.Contains(out, want) {
+			t.Fatalf("tab %d tells of another folder: %s", i, out)
+		}
 	}
 }

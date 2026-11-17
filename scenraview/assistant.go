@@ -77,18 +77,20 @@ func newAssistant(cx *core.Scope, e *Editor) *assistant {
 	}
 	if e.opts.Remember != "" {
 		a.key = e.opts.Remember + ".chats"
-		if data, ok := cx.Storage().GetItem(a.key); ok {
-			json.Unmarshal([]byte(data), &a.saved)
-		}
 		a.choiceKey = e.opts.Remember + ".choice"
-		if data, ok := cx.Storage().GetItem(a.choiceKey); ok {
-			json.Unmarshal([]byte(data), &a.last)
-		}
+		a.reload()
 	}
-	// The open folder gets its conversations.
+	// The open folder gets its conversations, whose agents stop as the
+	// editor goes.
 	cx.Effect(func() {
 		dir := e.folder.Get()
 		cx.Untrack(func() { a.open(dir) })
+	})
+	cx.Cleanup(func() {
+		for _, c := range a.chats() {
+			id := c.ID
+			a.m.Do(func(b agio.Backend) error { return b.Remove(id) }, nil)
+		}
 	})
 	// What resumes them follows the backend.
 	cx.Effect(func() {
@@ -114,6 +116,24 @@ func newAssistant(cx *core.Scope, e *Editor) *assistant {
 	return a
 }
 
+// reload reads again the conversations kept and the choice made last,
+// which other editors under the same keys change too.
+func (a *assistant) reload() {
+	st := a.cx.Storage()
+	if a.key != "" {
+		saved := map[string][]savedChat{}
+		if data, ok := st.GetItem(a.key); ok {
+			json.Unmarshal([]byte(data), &saved)
+		}
+		a.saved = saved
+	}
+	if a.choiceKey != "" {
+		if data, ok := st.GetItem(a.choiceKey); ok {
+			json.Unmarshal([]byte(data), &a.last)
+		}
+	}
+}
+
 // choose keeps c as the choice new conversations start with.
 func (a *assistant) choose(c choice) {
 	if c == a.last {
@@ -128,9 +148,10 @@ func (a *assistant) choose(c choice) {
 	}
 }
 
-// prompt is the system prompt of a conversation about the folder dir.
+// prompt is the system prompt of a conversation about the folder dir,
+// which names the editor of the folder to the server's tools.
 func prompt(dir string) string {
-	return "You are an app designer working in Scenra, a design and flow editor. The user has the folder " + dir + ` open in it beside this conversation, which is about the folder's Scenra files, kept in its design folder when it has none of its own, as ` + ToolView + ` tells: each holds one design of a screen or one flow chart. Edit and make them as the scenra skill says, and ask the scenra MCP server's ` + ToolView + ` tool what the user sees and has selected before you change them.
+	return "You are an app designer working in Scenra, a design and flow editor. The user has the folder " + dir + ` open in it, in the tab ` + folderID(dir) + `, beside this conversation, which is about the folder's Scenra files, kept in its design folder when it has none of its own, as ` + ToolView + ` tells: each holds one design of a screen or one flow chart. Edit and make them as the scenra skill says, and ask the scenra MCP server's ` + ToolView + ` tool what the user sees and has selected before you change them. Give each of its tools tab "` + folderID(dir) + `", as other tabs show other folders.
 
 Discuss the app with the user: ask about its screens, what each shows, the steps, decisions, actors and edge cases of what happens on them when they are unclear, suggest improvements, and draw as you agree. Reply in the user's language.`
 }
@@ -264,11 +285,13 @@ func (a *assistant) note(s agio.State) {
 	a.keep(kept)
 }
 
-// keep saves chats as the open folder's.
+// keep saves chats as the open folder's, among the other folders' kept
+// since.
 func (a *assistant) keep(chats []savedChat) {
 	if slices.Equal(chats, a.saved[a.dir]) {
 		return
 	}
+	a.reload()
 	if len(chats) == 0 {
 		delete(a.saved, a.dir)
 	} else {
@@ -290,6 +313,7 @@ func (a *assistant) create() {
 		return
 	}
 	a.creating = true
+	a.reload()
 	c := agio.Create{Dir: dir, SystemPrompt: prompt(dir), Model: a.last.Model, Effort: a.last.Effort, Tier: a.last.Tier}
 	a.m.Create(c, func(id string) {
 		a.creating = false

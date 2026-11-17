@@ -56,11 +56,14 @@ func (a Assistant) Render(cx *core.Scope) core.Node { return assistantPane(cx, a
 // Window is Scenra's layout: the Header over the Sidebar and the
 // Workspace, beside the Assistant running the window's height, whose
 // width the user drags. With TitleBar, its top is the window's title bar.
-// While the editor's PanelsHidden, the Header and Workspace fill it; the
-// panels stay mounted, keeping the tree's and the conversation's state.
+// NoHeader leaves the Header out, for an app naming the document
+// elsewhere, such as in its tabs. While the editor's PanelsHidden, the
+// Header and Workspace fill it; the panels stay mounted, keeping the
+// tree's and the conversation's state.
 type Window struct {
 	Editor   *Editor
 	TitleBar bool
+	NoHeader bool
 }
 
 // Render implements core.Node.
@@ -71,7 +74,7 @@ func (w Window) Render(cx *core.Scope) core.Node {
 	shown := func() bool { return !e.PanelsHidden() }
 	return ui.ResizablePanelGroup{Style: ui.FillRest, HandleLabel: tr.Assistant(), Panels: []base.ResizablePanel{
 		{MinSize: 640, Children: []core.Node{core.View{Style: ui.FillRest, Children: []core.Node{
-			Header{Editor: e, TitleBar: w.TitleBar},
+			core.Show{When: func() bool { return !w.NoHeader }, Then: func(*core.Scope) core.Node { return Header{Editor: e, TitleBar: w.TitleBar} }},
 			core.View{Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{
 				core.View{StyleFunc: func() core.Style {
 					if shown() {
