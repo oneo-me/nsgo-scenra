@@ -519,18 +519,24 @@ func TestADesignIsDrawnAtTheSizeItSets(t *testing.T) {
 func TestTheSidebarKeepsFlowsUnderTheComponents(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"sign-in.scenra": "design\n", "flows/sign-in.scenra": "flow name=\"Sign in\"\n", "flows/about.scenra": "flow\n",
-		"about.scenra": "design\n", "components/card.scenra": "component\n",
+		"about.scenra": "design\n", "components/card.scenra": "component\n", "views/general.scenra": "design name=\"Settings/General\" in=\"about#content\"\n",
 	})
 	app, e := startEditor(t)
 	openPath(t, app, e, dir)
 	app.WaitFor("id:files >> label:sign-in", time.Second)
-	if got := fileNames(app); !slices.Equal(got, []string{"about", "Sign in", "about", "sign-in"}) {
+	if got := fileNames(app); !slices.Equal(got, []string{"about", "Sign in", "Settings/General", "about", "sign-in"}) {
 		t.Fatalf("the sidebar lists %v", got)
 	}
 	components, flows := app.Find("id:sidebar-components").Bounds(), app.Find("id:files-flows").Bounds()
-	designs := app.Find("id:files >> label:sign-in").Bounds()
-	if components.Origin.Y >= flows.Origin.Y || flows.Origin.Y >= designs.Origin.Y {
-		t.Fatalf("the components at %v, the flows group at %v and the designs at %v are out of order", components, flows, designs)
+	views, designs := app.Find("id:files-views").Bounds(), app.Find("id:files >> label:sign-in").Bounds()
+	if components.Origin.Y >= flows.Origin.Y || flows.Origin.Y >= views.Origin.Y || views.Origin.Y >= designs.Origin.Y {
+		t.Fatalf("the components at %v, the flows group at %v, the views at %v and the designs at %v are out of order", components, flows, views, designs)
+	}
+	// A view opens from its group, by its whole name.
+	app.Press("id:files-views >> label:Settings/General")
+	app.Settle()
+	if got := e.rel(e.cur().path); got != "views/general.scenra" {
+		t.Fatalf("the Views group opened %q", got)
 	}
 	app.Find("id:files-flows >> label:Sign in")
 }
@@ -803,7 +809,7 @@ func TestDesignsPlayTheirTaps(t *testing.T) {
 	view := ""
 	app.Post(func() { view = e.viewOf() })
 	app.Settle()
-	if !strings.Contains(view, `home.scenra: tap "open gone": there is no gone.scenra`) {
+	if !strings.Contains(view, `home.scenra: tap "open gone": there is no design gone, at the top or in views/`) {
 		t.Fatalf("the view tells nothing of the tap to no design:\n%s", view)
 	}
 }

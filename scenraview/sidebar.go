@@ -25,11 +25,14 @@ func deviceIcon(device string) func() *core.SVG {
 	return lucide.Smartphone
 }
 
-// entryIcon is the icon of a file of the tree: its design's device, a
-// component's, a flow's, or one of a file that does not parse.
+// entryIcon is the icon of a file of the tree: a view's, its design's
+// device, a component's, a flow's, or one of a file that does not parse.
 func entryIcon(en entry) func() *core.SVG {
 	switch en.kind {
 	case flowfile.Design:
+		if isViewFile(en.path) {
+			return lucide.PanelsTopLeft
+		}
 		return deviceIcon(en.screen().Device)
 	case flowfile.Component:
 		return lucide.Component
@@ -44,8 +47,8 @@ func entryIcon(en entry) func() *core.SVG {
 const componentsItem = "\x00components"
 
 // sidebar is a row showing the open folder's components together, which
-// the list leaves out, over its flows in a group of their own and its
-// designs in the groups their names give them; in
+// the list leaves out, over its flows and its views in groups of their
+// own and its other designs in the groups their names give them; in
 // which choosing a file shows it, with the lines Git says each changed;
 // or, while no folder is open, a way to open one.
 func sidebar(cx *core.Scope, e *Editor) core.Node {
@@ -53,6 +56,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 	colors := ui.ColorsOf(cx)
 	groups := core.NewMemoFunc(cx, func() []fileGroup { return groupFiles(e.files.Get()) }, func(a, b []fileGroup) bool { return false })
 	flows := core.NewMemoFunc(cx, func() []entry { return flowEntries(e.files.Get()) }, func(a, b []entry) bool { return false })
+	views := core.NewMemoFunc(cx, func() []entry { return viewEntries(e.files.Get()) }, func(a, b []entry) bool { return false })
 	row := func(cx *core.Scope, en entry, name string) core.Node {
 		return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0)},
 			Children: []core.Node{
@@ -76,10 +80,17 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 	sections := func() []ui.SidebarSection {
 		gs := groups.Get()
 		fs := flows.Get()
-		flowSection := ui.SidebarSection{Title: tr.Flows(), Collapsible: true, TestID: "files-flows"}
-		for _, en := range fs {
-			flowSection.Items = append(flowSection.Items, ui.SidebarItem{ID: en.path, Text: en.title(), TestID: "file", Content: row(cx, en, en.title())})
+		vs := views.Get()
+		// whole lists files by their whole names, as flows and views are
+		// in no groups of their own.
+		whole := func(s ui.SidebarSection, files []entry) ui.SidebarSection {
+			for _, en := range files {
+				s.Items = append(s.Items, ui.SidebarItem{ID: en.path, Text: en.title(), TestID: "file", Content: row(cx, en, en.title())})
+			}
+			return s
 		}
+		flowSection := whole(ui.SidebarSection{Title: tr.Flows(), Collapsible: true, TestID: "files-flows"}, fs)
+		viewSection := whole(ui.SidebarSection{Title: tr.Views(), Collapsible: true, TestID: "files-views"}, vs)
 		out := []ui.SidebarSection{{TestID: "files-top"}}
 		for _, g := range gs {
 			var items []ui.SidebarItem
@@ -93,7 +104,7 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 			}
 			out = append(out, ui.SidebarSection{Title: g.name, Items: items, Collapsible: true, TestID: "group-" + g.name})
 		}
-		if len(out[0].Items) == 0 && len(gs) == 0 && len(fs) == 0 && !e.HasComponents() {
+		if len(out[0].Items) == 0 && len(gs) == 0 && len(fs) == 0 && len(vs) == 0 && !e.HasComponents() {
 			out[0].Note = core.Text{Content: tr.FilesEmpty(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)}
 		}
 		// An empty section would still take the gap between sections.
@@ -106,6 +117,9 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 		}
 		if len(fs) > 0 {
 			head = append(head, flowSection)
+		}
+		if len(vs) > 0 {
+			head = append(head, viewSection)
 		}
 		return append(head, out...)
 	}

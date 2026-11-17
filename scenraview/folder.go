@@ -17,14 +17,53 @@ import (
 // does rather than for a screen.
 const flowsDir = "flows"
 
+// viewsDir is the folder of a project's views, the designs that only
+// fill other designs' outlets, such as a settings window's pages, at its
+// top and without folders of its own. Keeping them apart leaves the
+// designs at the top to the windows and screens the app opens, where
+// the views play.
+const viewsDir = "views"
+
 // isFlowFile says the file at path, relative to the open folder with
 // slashes, is a file of the flows folder, which the sidebar keeps at its
 // top.
-func isFlowFile(path string) bool {
-	rest, ok := strings.CutPrefix(pathpkg.Clean(path), flowsDir+"/")
+func isFlowFile(path string) bool { return isFileOf(path, flowsDir) }
+
+// isViewFile says the file at path, relative to the open folder with
+// slashes, is a file of the views folder.
+func isViewFile(path string) bool { return isFileOf(path, viewsDir) }
+
+// isFileOf says the file at path is a Scenra file directly in the
+// folder dir at the top of the open folder.
+func isFileOf(path, dir string) bool {
+	rest, ok := strings.CutPrefix(pathpkg.Clean(path), dir+"/")
 	name, scenra := strings.CutSuffix(rest, ".scenra")
 	return ok && scenra && name != "" && !strings.Contains(name, "/")
 }
+
+// designNameOf is the name taps and in= give the file of designs at
+// path, relative to the open folder with slashes: its file name without
+// .scenra, whether at the top or in the views folder, so moving a design
+// between them breaks nothing.
+func designNameOf(path string) (string, bool) {
+	if strings.Contains(path, "/") && !isViewFile(path) {
+		return "", false
+	}
+	return keyName(path), true
+}
+
+// nameOf is the name of the file at path in messages and the player:
+// a design's name, or else its path without .scenra.
+func nameOf(path string) string {
+	if name, ok := designNameOf(path); ok {
+		return name
+	}
+	return strings.TrimSuffix(path, ".scenra")
+}
+
+// viewPath is the path of the view named name, relative to the open
+// folder, with slashes.
+func viewPath(name string) string { return viewsDir + "/" + name + ".scenra" }
 
 // scanLimit is how many files and folders a scan of the open folder looks
 // at, so a folder as large as a home folder stays quick to read.
@@ -117,9 +156,9 @@ func projectDir(dir string) string {
 }
 
 // hasProject says the folder dir has a Scenra file at its top or in its
-// flows or components folder.
+// flows, views or components folder.
 func hasProject(dir string) bool {
-	for _, sub := range []string{"", flowsDir, flowfile.ComponentsDir} {
+	for _, sub := range []string{"", flowsDir, viewsDir, flowfile.ComponentsDir} {
 		entries, _ := os.ReadDir(filepath.Join(dir, sub))
 		for _, en := range entries {
 			if !en.IsDir() && strings.HasSuffix(en.Name(), ".scenra") && !skipped(en.Name()) {
@@ -207,8 +246,12 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 		if name, ok := flowfile.ComponentName(c.entry.path); ok && c.entry.kind == flowfile.Component {
 			parts[name] = c.part
 		}
-		if c.file != nil && inLayout(rel) {
-			docs[strings.TrimSuffix(rel, ".scenra")] = *c.file
+		// A design at the top wins over a view of its name, which the
+		// server tells of.
+		if name, ok := designNameOf(rel); ok && c.file != nil {
+			if _, taken := docs[name]; !taken || !strings.Contains(rel, "/") {
+				docs[name] = *c.file
+			}
 		}
 		return nil
 	})
@@ -262,11 +305,11 @@ func (e *Editor) scannedFiles(dir, root string, files []entry, parts components,
 
 // inLayout says the Scenra file at path, relative to the open folder with
 // slashes, is where a project keeps its files: a design at the folder's
-// top, a flow in its flows folder or a component in its components
-// folder. The editor shows only those, and the server tells agents to
-// move the others.
+// top, a view in its views folder, a flow in its flows folder or a
+// component in its components folder. The editor shows only those, and
+// the server tells agents to move the others.
 func inLayout(path string) bool {
-	return !strings.Contains(path, "/") || isFlowFile(path) || isComponentFile(path)
+	return !strings.Contains(path, "/") || isFlowFile(path) || isViewFile(path) || isComponentFile(path)
 }
 
 // groupOf splits a file's name into the group before its slash, which
@@ -339,10 +382,18 @@ func groupFiles(files []entry) []fileGroup {
 
 // flowEntries are the files of the flows folder among files, by the
 // names they show, whole, as flows are in no group.
-func flowEntries(files []entry) []entry {
+func flowEntries(files []entry) []entry { return entriesOf(files, isFlowFile) }
+
+// viewEntries are the files of the views folder among files, by the
+// names they show, whole, as the views are one group.
+func viewEntries(files []entry) []entry { return entriesOf(files, isViewFile) }
+
+// entriesOf are the files among files that of says are its, by the
+// names they show.
+func entriesOf(files []entry, of func(string) bool) []entry {
 	var out []entry
 	for _, f := range files {
-		if isFlowFile(f.path) {
+		if of(f.path) {
 			out = append(out, f)
 		}
 	}

@@ -53,6 +53,7 @@ tapClosesDesign: "Closes {design}"
 tapShows: "Shows {panel}"
 showTaps: Show What Can Be Tapped and Notes
 flows: Flows
+views: Views
 components: Components
 componentsEmpty: The components of this folder's components folder show here together.
 componentDefault: Default

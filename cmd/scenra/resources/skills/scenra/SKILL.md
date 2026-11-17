@@ -5,7 +5,14 @@ description: Design app screens and draw flow charts in Scenra files (.scenra), 
 
 # Scenra files
 
-Scenra files (`.scenra`) are plain text, and each holds one kind of thing: designs, drafts of how screens of an app look, or flow charts of workflows, such as how an order is paid and shipped, never both. The user opens a folder in the Scenra editor, which lists the folder's Scenra files on the left and draws the one open in the middle, laying out the designs or flows of a file side by side. A project is a folder of them: give each screen a design file named after it, such as `sign-in.scenra`, and let the design show what happens on it, as the user sees it there: taps opening the screens it leads to, outlets showing a window's pages inside it, as Windows and outlets says, and notes on elements for what the drawing cannot show, such as when a block appears. Never draw a flow for one screen. A flow is a workflow of its own, a process that spans screens or runs without them, such as checkout or an agent working on an issue, in one folder, `flows/`, at the top of the open folder, named in English for what it does, such as `flows/checkout.scenra`, never after a screen; the editor lists flows apart from designs, and a design's note may name the flow it starts. Draw one design or one flow in a file: give another screen, a screen's other state or another flow a file of its own, and put several designs or several flows in one file only when the user asks for them together. Keep every design file at the top of the open folder and every flow file directly in `flows/`, never in folders of their own, which the editor does not show; as the app grows, group designs by their names instead: the first design's `name=` may start with one group and `/`, such as `design name="Orders/Order detail"`, and the editor lists the file under that group by the rest, so never repeat the group in it: write `Settings/Workflows`, not `Settings/Settings · Workflows`. Groups do not nest, so write one `/` at most. Flows take no groups: the editor lists them all at the top, under the components, by their whole names. When the user only wants a flow chart, make only a flow file, still in `flows/`. Put the pieces several screens share, such as a tab bar, a navigation bar or a card, in components, which live in one folder, `components/`, at the top of the open folder, without folders of their own; group them by name as designs are, such as `component name="Forms/Text field"`, and the editor shows each group's components together. Put the pictures designs show in one folder, `assets/`, beside it.
+Scenra files (`.scenra`) are plain text, and each holds one kind of thing: designs, drafts of how screens of an app look, or flow charts of workflows, such as how an order is paid and shipped, never both. The user opens a folder in the Scenra editor, which lists the folder's Scenra files on the left and draws the one open in the middle, laying out the designs or flows of a file side by side. A project is a folder of them, each kind in its place, so the user finds everything from the windows and screens the app opens:
+
+- The top of the open folder holds those windows and screens, a design file each, named after it, such as `sign-in.scenra` or `settings.scenra`.
+- `views/` holds the views, the designs that fill a box of another design, such as a settings window's pages or a main window's content, each starting with `in=`, as Windows and outlets says, such as `views/settings-theme.scenra`. A design whose first line has `in=` goes there, and one without it at the top.
+- `flows/` holds the flow charts.
+- `components/` holds the pieces designs share.
+
+Let a design show what happens on it, as the user sees it there: taps opening the screens it leads to, outlets showing a window's pages inside it, as Windows and outlets says, and notes on elements for what the drawing cannot show, such as when a block appears. Never draw a flow for one screen. A flow is a workflow of its own, a process that spans screens or runs without them, such as checkout or an agent working on an issue, in `flows/`, named in English for what it does, such as `flows/checkout.scenra`, never after a screen; the editor lists flows apart from designs, and a design's note may name the flow it starts. Draw one design or one flow in a file: give another screen, a screen's other state or another flow a file of its own, and put several designs or several flows in one file only when the user asks for them together. Keep every file directly in its place, never in folders of their own, such as `views/settings/theme.scenra`, which the editor does not show; as the app grows, group designs by their names instead: the first design's `name=` may start with one group and `/`, such as `design name="Orders/Order detail"`, and the editor lists the file under that group by the rest, so never repeat the group in it: write `Settings/Workflows`, not `Settings/Settings · Workflows`. Groups do not nest, so write one `/` at most. Flows and views take no groups: the editor lists each kind in a group of its own, under the components, by their whole names, so give views names that say their window, such as `Settings/Theme`. When the user only wants a flow chart, make only a flow file, still in `flows/`. Put the pieces several screens share, such as a tab bar, a navigation bar or a card, in components, which live in one folder, `components/`, at the top of the open folder, without folders of their own; group them by name as designs are, such as `component name="Forms/Text field"`, and the editor shows each group's components together. Put the pictures designs show in one folder, `assets/`, beside it.
 
 ## Working on files
 
@@ -282,7 +289,7 @@ A tab bar's uses open the screens instead, such as `use tab-bar home.tap="open h
 
 ## Windows and outlets
 
-Draw a window's frame, such as a sidebar beside a content area, once, and let the designs of what it shows fill its content: mark the box they replace with `outlet=<name>`, whose own elements show until one does, and start each design filling it with `in="<file>#<outlet>"`, naming the design's file without `.scenra` and the outlet, or `in="<file>#<design>/<outlet>"` for an outlet of another design of a file of several; `#<design>/<outlet>` alone names one of the same file.
+Draw a window's frame, such as a sidebar beside a content area, once, and let the views of what it shows fill its content: mark the box they replace with `outlet=<name>`, whose own elements show until one does, put each view in `views/` and start it with `in="<file>#<outlet>"`, naming the host's file without `.scenra` or its folder, as taps do, and the outlet, or `in="<file>#<design>/<outlet>"` for an outlet of another design of a file of several; `#<design>/<outlet>` alone names one of the same file.
 
 ```
 # main.scenra
@@ -300,18 +307,19 @@ end
 ```
 
 ```
-# issues.scenra
+# views/issues.scenra
 design in="main#content" name="Issues"
 box class="flex-1"
   text "Issues" class="text-xl font-semibold"
 end
 ```
 
+- Taps and `in=` name a design by its file name alone, at the top or in `views/`, such as `tap="open issues"`, never `views/issues`, so moving a design between them breaks nothing; never give a view the name of a design at the top.
 - A design filling an outlet draws alone at the size the outlet lays out at, so it needs no `device=`, `width=` or `height=`; those it writes win.
 - It plays inside its host: opening it, from the host or a design its outlet shows, swaps only the outlet's content, so the rest of the window stays and keeps working, and what opens it is selected. `tap="close"` returns the outlet to what it showed before, or to its own elements; `tap="close window"` closes the whole window, as Interactions says.
 - A host may fill an outlet of its own, as the categories of a settings window fill its content, which fills the main window.
 - The first design's `in=` stands for the others of its file that write none.
-- `get_view` reports outlets `in=` names that are not there, designs filling each other in a loop and two outlets of one name in a design.
+- `get_view` reports outlets `in=` names that are not there, designs filling each other in a loop, two outlets of one name in a design, and designs with `in=` at the top or without it in `views/`.
 
 ## Comments and notes
 

@@ -453,6 +453,7 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		"image \"Cup\" src=\"assets/cup.png\"\nimage \"Lost\" src=\"assets/lost.jpg\"\nimage \"Stray\" src=\"a/stray.png\"\n",
 		"components/card.scenra": "component\nuse card\n", "stray.scenra": "component\n", "a/nested.scenra": "design\n", "deep.scenra": "design name=\"A/B/C\"\n",
 		"loose-flow.scenra": "flow\n", "flows/screen.scenra": "design\n", "flows/pay.scenra": "flow name=\"A/B/Pay\"\n",
+		"hosted.scenra": "design in=\"plan#content\"\n", "views/lonely.scenra": "design\n", "views/deep.scenra": "design\n",
 		"assets/cup.png": "cup", "a/stray.png": "stray"})
 	var e *Editor
 	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
@@ -485,7 +486,9 @@ func TestServerTellsOfTheFolder(t *testing.T) {
 		"which the editor does not show", "- a/nested.scenra\n", `deep.scenra: name="A/B/C"`,
 		`plan.scenra: src "assets/lost.jpg": there is no assets/lost.jpg`,
 		`plan.scenra: src "a/stray.png": put the picture in assets/`, "which the editor lists with the wrong kind",
-		"- loose-flow.scenra\n", "- flows/screen.scenra\n"} {
+		"- loose-flow.scenra\n", "- flows/screen.scenra\n",
+		"so the top lists only those:\n- hosted.scenra\n- views/deep.scenra\n- views/lonely.scenra\n",
+		"which taps and in= never reach, as they name the one at the top; rename one:\n- views/deep.scenra\n"} {
 		if failed || !strings.Contains(out, want) {
 			t.Fatalf("the view tells nothing of %q: %s", want, out)
 		}
@@ -508,7 +511,7 @@ func TestTheViewNamesTheDesignsOfAFile(t *testing.T) {
 	out := view("/p", "/p", []fileView{{path: "auth.scenra", file: f, shown: &location{element: "1/0"}}, {path: "home.scenra", file: home},
 		{path: "flows/pay.scenra", file: flows}}, nil, nil, NotesAll)
 	for _, want := range []string{"design auth.scenra open, which holds the designs sign-in, sign-up.", "selected element 0 of design sign-up:",
-		`auth.scenra, design sign-in, element 0: "Warmer"`, `auth.scenra: tap "open #reset": auth.scenra has no design reset`} {
+		`auth.scenra, design sign-in, element 0: "Warmer"`, `auth.scenra: tap "open #reset": auth has no design reset`} {
 		if !strings.Contains(out, want) {
 			t.Errorf("the view tells nothing of %q:\n%s", want, out)
 		}

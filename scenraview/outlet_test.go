@@ -31,8 +31,8 @@ func TestUsesPickVariantsAndStates(t *testing.T) {
 	}
 }
 
-// window is a desktop design with a sidebar opening the designs that
-// fill its content, and those designs.
+// window is a desktop design with a sidebar opening the views that fill
+// its content, and those views.
 var window = map[string]string{
 	"main.scenra": "design device=desktop\nbox class=\"flex-1 flex-row\"\n" +
 		"  box class=\"w-56 shrink-0\"\n" +
@@ -41,8 +41,8 @@ var window = map[string]string{
 		"  end\n" +
 		"  box class=\"flex-1\" outlet=content\n    text \"New task\"\n  end\n" +
 		"end\n",
-	"repos.scenra":  "design list in=\"main#content\"\nbox class=\"flex-1\"\n  text \"Repo list\"\n  text \"Back\" tap=close\n  text \"Detail\" tap=\"open #detail\"\nend\n\ndesign detail\nbox class=\"flex-1\"\n  text \"Repo detail\"\nend\n",
-	"issues.scenra": "design in=\"main#content\"\nbox class=\"flex-1\"\n  text \"Issue list\"\nend\n",
+	"views/repos.scenra":  "design list in=\"main#content\"\nbox class=\"flex-1\"\n  text \"Repo list\"\n  text \"Back\" tap=close\n  text \"Detail\" tap=\"open #detail\"\nend\n\ndesign detail\nbox class=\"flex-1\"\n  text \"Repo detail\"\nend\n",
+	"views/issues.scenra": "design in=\"main#content\"\nbox class=\"flex-1\"\n  text \"Issue list\"\nend\n",
 }
 
 func TestOutletsPlayTheDesignsFillingThem(t *testing.T) {
@@ -75,6 +75,20 @@ func TestOutletsPlayTheDesignsFillingThem(t *testing.T) {
 	}
 }
 
+func TestATapOpensAViewByItsName(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra":        "design\ntext \"About entry\" tap=\"open about\"\n",
+		"views/about.scenra": "design\ntext \"About page\"\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.Press("design >> text:About entry")
+	app.WaitFor("design >> text:About page", time.Second)
+	if got := e.rel(e.cur().path); got != "views/about.scenra" {
+		t.Fatalf("the tap opened %q", got)
+	}
+}
+
 func TestClosingAnOutletReturnsToWhatItShowed(t *testing.T) {
 	dir := folderOfFiles(t, window)
 	app, e := startEditor(t)
@@ -95,7 +109,7 @@ func TestClosingAnOutletReturnsToWhatItShowed(t *testing.T) {
 func TestADesignFillingAnOutletTakesItsSize(t *testing.T) {
 	dir := folderOfFiles(t, window)
 	app, e := startEditor(t)
-	openPath(t, app, e, filepath.Join(dir, "issues.scenra"))
+	openPath(t, app, e, filepath.Join(dir, "views", "issues.scenra"))
 	app.WaitFor("design >> text:Issue list", 5*time.Second)
 	// The desktop's 1200 by 760 inside its border, less the sidebar, is
 	// the design's, inside its own border.
@@ -151,9 +165,9 @@ func TestTheServerTellsHowDesignsLayOut(t *testing.T) {
 		t.Errorf("the view tells of problems the window has not:\n%s", view)
 	}
 	layout := wait(func(done func(string)) {
-		e.layoutOf("issues", "", "", "", -1, func(text string, failed bool) { done(text) })
+		e.layoutOf("views/issues", "", "", "", -1, func(text string, failed bool) { done(text) })
 	})
-	if !strings.Contains(layout, "issues.scenra laid out 974×758 points") || !strings.Contains(layout, "\n  0.0 text \"Issue list\" at 0,0 ") {
+	if !strings.Contains(layout, "views/issues.scenra laid out 974×758 points") || !strings.Contains(layout, "\n  0.0 text \"Issue list\" at 0,0 ") {
 		t.Fatalf("the layout:\n%s", layout)
 	} // One element and what it holds tell, down to a depth.
 	layout = wait(func(done func(string)) {
@@ -226,7 +240,7 @@ func TestClosingTheWindowAPageShowsIn(t *testing.T) {
 	app.Post(func() {})
 	app.WaitFor("id:element-0/0.1|0.0", time.Second)
 	view := core.Untracked(e.cx, e.viewOf)
-	if !strings.Contains(view, `settings.scenra: tap "close main": close names a design this one does not show in; it shows in settings.scenra#agents, settings.scenra#general`) ||
+	if !strings.Contains(view, `settings.scenra: tap "close main": close names a design this one does not show in; it shows in settings#agents, settings#general`) ||
 		strings.Contains(view, "close window") || strings.Contains(view, "close #general") {
 		t.Fatalf("the view:\n%s", view)
 	}

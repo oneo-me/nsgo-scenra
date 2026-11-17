@@ -123,8 +123,7 @@ func view(dir, root string, files []fileView, parts components, pics assets, not
 	// of its designs with an ID by the name, # and the ID.
 	var opens []string
 	for _, f := range files {
-		if f.file.Kind != flowfile.Chart {
-			name := strings.TrimSuffix(f.path, ".scenra")
+		if name, ok := designNameOf(f.path); ok && f.file.Kind != flowfile.Chart {
 			opens = append(opens, name)
 			for _, s := range f.file.Screens {
 				if s.ID != "" {
@@ -135,25 +134,45 @@ func view(dir, root string, files []fileView, parts components, pics assets, not
 	}
 	docs := designs{}
 	for _, f := range files {
-		if f.file.Kind == flowfile.Design {
-			docs[strings.TrimSuffix(f.path, ".scenra")] = f.file
+		if name, ok := designNameOf(f.path); ok && f.file.Kind == flowfile.Design {
+			if _, taken := docs[name]; !taken || !strings.Contains(f.path, "/") {
+				docs[name] = f.file
+			}
 		}
 	}
 	section("Taps that lead nowhere:", func(f fileView) []string {
 		var out []string
-		for _, p := range tapProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), opens, docs, parts) {
+		for _, p := range tapProblems(f.file, nameOf(f.path), opens, docs, parts) {
 			out = append(out, f.path+": "+p)
 		}
 		return out
 	})
-	section(fmt.Sprintf("Files in folders, which the editor does not show; keep designs at the top of the folder, flows in %s/ and components in %s/, and group designs and components with their names, such as name=\"Orders/Detail\":", flowsDir, flowfile.ComponentsDir), func(f fileView) []string {
+	section(fmt.Sprintf("Files in folders, which the editor does not show; keep the windows and screens the app opens at the top of the folder, the views filling their outlets in %s/, flows in %s/ and components in %s/, and group designs and components with their names, such as name=\"Orders/Detail\":", viewsDir, flowsDir, flowfile.ComponentsDir), func(f fileView) []string {
 		if inLayout(f.path) {
 			return nil
 		}
 		return []string{f.path}
 	})
-	section(fmt.Sprintf("Flows outside %s/, and designs in it, which the editor lists with the wrong kind; keep every flow in %s/ and every design at the top:", flowsDir, flowsDir), func(f fileView) []string {
+	section(fmt.Sprintf("Flows outside %s/, and designs in it, which the editor lists with the wrong kind; keep every flow in %s/ and every design at the top or in %s/:", flowsDir, flowsDir, viewsDir), func(f fileView) []string {
 		if isFlowFile(f.path) == (f.file.Kind == flowfile.Chart) || f.file.Kind == "" || !inLayout(f.path) {
+			return nil
+		}
+		return []string{f.path}
+	})
+	section(fmt.Sprintf("Designs filling outlets at the top, and designs in %s/ filling none; keep the designs with in= in %s/ and the windows and screens the app opens at the top, so the top lists only those:", viewsDir, viewsDir), func(f fileView) []string {
+		if f.file.Kind != flowfile.Design || !inLayout(f.path) || strings.Contains(f.path, "/") && !isViewFile(f.path) {
+			return nil
+		}
+		// A file's first design says what it is; the others may fill its
+		// outlets.
+		if fills := len(f.file.Screens) > 0 && f.file.Screens[0].In != ""; fills == isViewFile(f.path) {
+			return nil
+		}
+		return []string{f.path}
+	})
+	section("Views named as designs at the top, which taps and in= never reach, as they name the one at the top; rename one:", func(f fileView) []string {
+		name, ok := designNameOf(f.path)
+		if !ok || !isViewFile(f.path) || !slices.ContainsFunc(files, func(o fileView) bool { return o.path == flowfile.DesignPath(name) }) {
 			return nil
 		}
 		return []string{f.path}
@@ -185,7 +204,7 @@ func view(dir, root string, files []fileView, parts components, pics assets, not
 	})
 	section("Outlets that in= cannot fill, and outlets of one name:", func(f fileView) []string {
 		var out []string
-		for _, p := range outletProblems(f.file, strings.TrimSuffix(f.path, ".scenra"), docs) {
+		for _, p := range outletProblems(f.file, nameOf(f.path), docs) {
 			out = append(out, f.path+": "+p)
 		}
 		return out
@@ -336,9 +355,9 @@ func tapProblems(f flowfile.File, self string, designs []string, ds designs, par
 			names := t.Action == flowfile.TapOpen || t.Action == flowfile.TapClose && t.Target != "" && t.Target != flowfile.Window
 			switch {
 			case names && !slices.Contains(designs, file):
-				out = append(out, fmt.Sprintf("%s %q: there is no %s", key, t.String(), flowfile.DesignPath(file)))
+				out = append(out, fmt.Sprintf("%s %q: there is no design %s, at the top or in %s/", key, t.String(), file, viewsDir))
 			case names && !slices.Contains(designs, to):
-				out = append(out, fmt.Sprintf("%s %q: %s has no design %s", key, t.String(), flowfile.DesignPath(file), id))
+				out = append(out, fmt.Sprintf("%s %q: %s has no design %s", key, t.String(), file, id))
 			case names && t.Action == flowfile.TapClose && f.Kind == flowfile.Design:
 				at, _ := ds[file].Screen(id)
 				if !slices.Contains(in, place{file, at}) {

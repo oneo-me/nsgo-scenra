@@ -211,7 +211,7 @@ func laidOutOf(t layoutTarget, sel selection) laidOut {
 // an outlet lays out in its host, as it plays.
 func targetsOf(path string, f flowfile.File, ds designs) []layoutTarget {
 	var out []layoutTarget
-	name := strings.TrimSuffix(path, ".scenra")
+	name := nameOf(path)
 	switch f.Kind {
 	case flowfile.Component:
 		self, ok := flowfile.ComponentName(path)

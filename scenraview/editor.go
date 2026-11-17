@@ -361,8 +361,19 @@ func (e *Editor) OpenFolder() {
 	})
 }
 
+// projectOf is the folder of the project the Scenra file at path is of:
+// the one holding it, or that folder's parent when it is the project's
+// flows, views or components folder.
+func projectOf(path string) string {
+	dir := filepath.Dir(path)
+	if slices.Contains([]string{flowsDir, viewsDir, flowfile.ComponentsDir}, filepath.Base(dir)) {
+		return filepath.Dir(dir)
+	}
+	return dir
+}
+
 // OpenPath opens the folder at path, or shows the Scenra file at path,
-// opening the folder holding it first when it is not in the open one.
+// opening the project holding it first when it is not in the open one.
 func (e *Editor) OpenPath(path string) error {
 	if abs, err := filepath.Abs(path); err == nil {
 		path = abs
@@ -379,7 +390,7 @@ func (e *Editor) OpenPath(path string) error {
 	if err != nil {
 		return err
 	}
-	if e.inside(path) || e.openFolder(filepath.Dir(path)) {
+	if e.inside(path) || e.openFolder(projectOf(path)) {
 		e.trail = nil
 		e.openDoc(d)
 	}
@@ -411,9 +422,21 @@ func (e *Editor) openDoc(d *document) {
 }
 
 // designName is the name of the file of designs at path, which taps open
-// its designs by: its path in the folder without .scenra.
+// its designs by: its file name without .scenra, at the top or in the
+// views folder.
 func (e *Editor) designName(path string) string {
-	return strings.TrimSuffix(e.rel(path), ".scenra")
+	return nameOf(e.rel(path))
+}
+
+// designFile is the path of the file of designs named name, relative to
+// the folder: the one at the top, or else the view of that name.
+func (e *Editor) designFile(name string) string {
+	files := e.files.GetUntracked()
+	has := func(p string) bool { return slices.ContainsFunc(files, func(f entry) bool { return f.path == p }) }
+	if top := flowfile.DesignPath(name); has(top) || !has(viewPath(name)) {
+		return top
+	}
+	return viewPath(name)
 }
 
 // tapOpen shows the design t opens, as a tap in the design at index
@@ -437,7 +460,7 @@ func (e *Editor) tapOpen(t flowfile.Tap, screen int) {
 		e.focusOn(id)
 		return
 	}
-	path := filepath.Join(e.root.GetUntracked(), filepath.FromSlash(flowfile.DesignPath(name)))
+	path := filepath.Join(e.root.GetUntracked(), filepath.FromSlash(e.designFile(name)))
 	d, err := e.load(path)
 	if err == nil && d.broken.GetUntracked() == "" {
 		if _, ok := d.doc.GetUntracked().Screen(id); !ok {

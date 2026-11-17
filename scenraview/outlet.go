@@ -12,7 +12,7 @@ import (
 )
 
 // designs are the files of designs of the open folder, by their names,
-// their paths in it without .scenra, as taps and in= name them.
+// their file names without .scenra, as taps and in= name them.
 type designs map[string]flowfile.File
 
 func sameDesigns(a, b designs) bool {
@@ -67,11 +67,11 @@ func (ds designs) hosts(p place) ([]hop, string) {
 		hf, ok := ds[name]
 		in := fmt.Sprintf("in=%q", h.String())
 		if !ok {
-			return nil, fmt.Sprintf("%s: there is no design %s", in, flowfile.DesignPath(name))
+			return nil, fmt.Sprintf("%s: there is no design %s, at the top or in %s/", in, name, viewsDir)
 		}
 		i, ok := hf.Screen(h.Design)
 		if !ok {
-			return nil, fmt.Sprintf("%s: %s has no design %s", in, flowfile.DesignPath(name), h.Design)
+			return nil, fmt.Sprintf("%s: %s has no design %s", in, name, h.Design)
 		}
 		at, ok := flowfile.Outlet(hf.Screens[i].UI, h.Outlet)
 		if !ok {
@@ -91,14 +91,14 @@ func (ds designs) hosts(p place) ([]hop, string) {
 	}
 }
 
-// title names the design at p in a message: its file, with # and its ID
-// in a file of several.
+// title names the design at p in a message as taps do: its file's name,
+// with # and its ID in a file of several.
 func (ds designs) title(p place) string {
 	f := ds[p.name]
 	if f.Several() && p.index < len(f.Screens) {
-		return flowfile.DesignPath(p.name) + "#" + f.Screens[p.index].ID
+		return p.name + "#" + f.Screens[p.index].ID
 	}
-	return flowfile.DesignPath(p.name)
+	return p.name
 }
 
 // route is what the outlets of hops show so the design d shows in the
