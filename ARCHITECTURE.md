@@ -16,7 +16,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | `scenraview/server.go`, `selection.go` | The MCP server telling agents what the user sees of a file. |
 | `scenraview/locales/` | The views' messages, which an app's catalogs may supply other languages of. |
 | `cmd/scenra/` | Scenra, the app: the window, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, `nsgo.yaml`, assets and its own `locales/`. |
-| `cmd/scenra/resources/skills/scenra/` | The skill teaching agents the format, which ships among the app's resources. |
+| `cmd/scenra/resources/skills/scenra/` | The skill teaching agents the format and the NSGo components designs become, which ships among the app's resources. |
 | `website/` | The official static site, in English and Simplified Chinese, deployed to GitHub Pages. |
 
 ## Boundaries

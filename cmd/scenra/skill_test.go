@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -44,6 +46,23 @@ func TestTheSkillTeachesTheWholeFormat(t *testing.T) {
 	for _, w := range words {
 		if !strings.Contains(skill, w) {
 			t.Errorf("the skill does not mention %s", w)
+		}
+	}
+}
+
+// The skill's references ship beside it, so each it links must be there.
+func TestTheSkillLinksItsReferences(t *testing.T) {
+	data, err := os.ReadFile("resources/skills/scenra/SKILL.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	links := regexp.MustCompile(`\]\((references/[^)]+)\)`).FindAllStringSubmatch(string(data), -1)
+	if len(links) == 0 {
+		t.Fatal("the skill links no references")
+	}
+	for _, l := range links {
+		if _, err := os.Stat(filepath.Join("resources/skills/scenra", l[1])); err != nil {
+			t.Errorf("the skill links %s, which is not there", l[1])
 		}
 	}
 }

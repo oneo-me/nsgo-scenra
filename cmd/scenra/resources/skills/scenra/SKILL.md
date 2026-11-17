@@ -1,6 +1,6 @@
 ---
 name: scenra
-description: Design app screens and draw flow charts in Scenra files (.scenra), which the user sees drawn in the Scenra editor. Use when asked to design, draw or change an app's screens, interfaces or flows in a .scenra file.
+description: Design app screens and draw flow charts in Scenra files (.scenra), which the user sees drawn in the Scenra editor. Use when asked to design, draw or change an app's screens, interfaces or flows in a .scenra file, or to build its designs in an NSGo app.
 ---
 
 # Scenra files
@@ -24,6 +24,8 @@ Let a design show what happens on it, as the user sees it there: taps opening th
 The editor saves files in their canonical form, which drops `#` comments, so do not keep notes in them.
 
 When a design or flow is about code at hand, read the code first and draw what it actually does, naming the files behind a step in its note when that helps.
+
+When asked to build designs in an NSGo app, read [references/nsgo.md](references/nsgo.md) for the components each one becomes.
 
 ## Format
 
