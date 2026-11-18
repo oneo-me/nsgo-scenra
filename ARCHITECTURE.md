@@ -15,7 +15,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | `scenraview/assistant.go`, `files.go` | The folder's conversations, run by an Agio backend and kept to resume, and the files read again as agents write them. |
 | `scenraview/server.go`, `selection.go` | The MCP server telling agents what the user sees of a file. |
 | `scenraview/locales/` | The views' messages, which an app's catalogs may supply other languages of. |
-| `cmd/scenra/` | Scenra, the app: the window, its tabs and home page of recent folders, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, `nsgo.yaml`, assets and its own `locales/`. |
+| `cmd/scenra/` | Scenra, the app: the window, its tabs and home page of recent folders, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, a demo build of a scripted conversation for the website's screenshots, `nsgo.yaml`, assets and its own `locales/`. |
 | `cmd/scenra/resources/skills/scenra/` | The skill teaching agents the format and the NSGo components designs become, wherever the files are edited, which ships among the app's resources. |
 | `cmd/scenra/resources/skills/scenra-app/` | The skill teaching agents in the app to ask its server, naming their tab, what the user sees and what their files got wrong. |
 | `website/` | The official static site, in English and Simplified Chinese, deployed to GitHub Pages. |

@@ -19,8 +19,8 @@ import (
 // gallery does: a pageview at start, an event for each message sent and
 // heartbeats while it is used, tagged with the platform and carrying a
 // random ID kept in the storage, so that one install is one visitor. No
-// chart, message or path is sent. Builds of nsgo dev (statsBuild) and test
-// binaries report nothing, and the settings turn it off.
+// chart, message or path is sent. Builds of nsgo dev (statsBuild), demo
+// builds and test binaries report nothing, and the settings turn it off.
 const (
 	statsURL     = "https://umami.oneo.me/api/send"
 	statsWebsite = "0d6c7a62-255c-498f-ad36-c4c57d93ab0c"
@@ -87,7 +87,7 @@ type usage struct {
 // builds or tests.
 func newUsage(cx *core.Scope) *usage {
 	u := &usage{cx: cx, since: time.Now()}
-	if !statsBuild || testing.Testing() {
+	if !statsBuild || demoBuild || testing.Testing() {
 		return u
 	}
 	store := cx.Storage()

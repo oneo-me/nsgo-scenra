@@ -20,6 +20,7 @@ import (
 	"github.com/nsgo-dev/nsgo/ui"
 	"github.com/nsgo-dev/nsgo/updater"
 	"github.com/oneo-me/nsgo-agio/agent"
+	"github.com/oneo-me/nsgo-agio/chatview"
 	"github.com/oneo-me/nsgo-agio/host"
 
 	"github.com/oneo-me/nsgo-scenra/cmd/scenra/locales"
@@ -29,7 +30,8 @@ import (
 
 func main() {
 	agent.Client = agent.ClientInfo{Name: "scenra", Title: "Scenra", Version: "1"}
-	nsgo.Run(Root, nsgo.WindowSize(1440, 900), nsgo.WindowConstraints(core.WindowConstraints{MinWidth: 1000, MinHeight: 480}))
+	nsgo.Run(Root, append([]nsgo.Option{nsgo.WindowSize(1440, 900), nsgo.WindowConstraints(core.WindowConstraints{MinWidth: 1000, MinHeight: 480})},
+		demoOptions()...)...)
 }
 
 // shown are the tabs of the window shown last, which tests reach.
@@ -48,7 +50,13 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 	toasts := ui.NewToaster(cx)
 	page := core.NewSignal(cx, pageRecent)
 	stats := newUsage(cx)
-	m, srv := startAgents(cx, agents)
+	var m *chatview.Model
+	var srv *scenraview.Server
+	if demoBuild {
+		m = demoAgents(cx)
+	} else {
+		m, srv = startAgents(cx, agents)
+	}
 	namer := newNamer(cx, m)
 	var t *tabs
 	// The menu's Settings shows the home page's.
@@ -76,6 +84,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 	})
 	shown = t
 	stats.start()
+	demoOpen(t)
 	// Scenra files or folders opened from the Finder, or named on the
 	// command line.
 	desktop.OnOpenFiles(cx, func(paths []string) {
