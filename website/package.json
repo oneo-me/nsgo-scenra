@@ -8,7 +8,8 @@
     "preview": "astro preview",
     "typecheck": "astro check",
     "screenshots": "bun scripts/screenshots.mjs",
-    "og": "bun scripts/og.mjs"
+    "og": "bun scripts/og.mjs",
+    "video": "bun scripts/video.mjs"
   },
   "dependencies": {
     "@astrojs/sitemap": "^3.7.0",

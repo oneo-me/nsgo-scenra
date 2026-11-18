@@ -15,6 +15,7 @@ bun run build        # typecheck, then build dist/
 bun run preview      # serve dist/ at /nsgo-scenra/
 bun run screenshots  # retake src/assets/screens/ from Scenra's demo build (macOS)
 bun run og           # redraw public/og.png and public/og-zh.png (macOS)
+bun run video        # render the 5:7 promo video into video/ (macOS)
 ```
 
 ## Words, language and appearance
@@ -65,6 +66,18 @@ several widths; CSS shows the image that matches the chosen appearance.
 with headless Chrome from the `app` screenshots. `public/icon.png` and
 `public/apple-touch-icon.png` are the app's icon. The generated files are
 committed; a build needs neither.
+
+## Promo video
+
+`bun run video` renders `video/scenra.mp4`, a 34-second 1080×1512 (5:7) promo
+whose first frame is its cover, from the `app`, `flow` and `phone` screenshots
+in both languages. Its words, English headlines over Chinese lines, live in
+`scripts/video.mjs`, not `copy.ts`, as the site does not show them. Headless
+Chrome draws each frame of a page whose styles are a function of time and
+ffmpeg encodes them, so it needs both; `--stills=0,12` writes those seconds as
+PNGs to check the look. `scripts/music.mjs` synthesizes its music, so it
+needs no recording or licence, timed to the same cuts. The video is not
+committed.
 
 ## Statistics and deployment
 
