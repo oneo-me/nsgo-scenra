@@ -3,8 +3,8 @@ module github.com/oneo-me/nsgo-scenra
 go 1.27.3
 
 require (
-	github.com/nsgo-dev/nsgo v0.0.0-20261115143443-330763d1c121
-	github.com/oneo-me/nsgo-agio v0.1.1-0.20261114090922-7e86be1602d9
+	github.com/nsgo-dev/nsgo v0.1.1-0.20261118074113-53e75b3afee2
+	github.com/oneo-me/nsgo-agio v0.1.1-0.20261117183144-dd5c9b78d4e0
 )
 
 require (
@@ -33,7 +33,3 @@ require (
 )
 
 tool github.com/nsgo-dev/nsgo/cmd/nsgo
-
-replace github.com/oneo-me/nsgo-agio => ../nsgo-agio
-
-replace github.com/nsgo-dev/nsgo => ../nsgo
