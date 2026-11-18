@@ -2,32 +2,14 @@
 
 ## [Unreleased]
 
-- Add Scenra, a flow chart editor whose assistant is a coding agent, such as Claude Code or Codex, run through Agio and taught the format by a bundled skill.
-- Add phone, tablet and desktop designs drawn from Tailwind-shaped primitives beside flow charts, one in each `.scenra` file.
-- Add an assistant that hears of the selection over MCP, resolves the comments users leave on design elements and works in the open folder to chart its code, saving the user's changes as a message is sent and locking the files while it works, and fixes a file that does not open from its error shown in the workspace.
-- Add folder workspaces whose plain-text `.scenra` designs sit at the folder's top, flows in `flows/` and components in `components/`, designs listed in one-level groups their names give, such as `Orders/Detail`, under the components and a Flows group atop the list, made by the assistant, and one at a time, named after the folder in the title bar, beside a full-height assistant, both hidden with ⌘B to give the canvas the window, with a coffee shop example.
-- Zoom whichever canvas shows, a design, the components or a flow chart, to its actual size with ⌘1, to fit with ⌘2, and in and out with ⌘+ and ⌘-.
-- Teach agents which NSGo components a design's elements, taps, outlets and components become when they build it in an app.
-- Let designs and components set their own `width=` and `height=`, which the assistant may change, instead of only their device's size.
-- Add components, shared pieces of designs kept in the folder's `components/` and drawn with `use`, whose classes go to the component's top element as React's `className` does, which the assistant makes, leaving their taps to the designs using them, and the editor redraws as they change.
-- Show every component of the folder together, in their name groups, from **Components** atop the list or the View menu, each as large as its content unless it sets a width or `width=fill`, outlined on its `backdrop=` rather than on a card, beside the `variant` states its file declares, scaling small ones up to a least area, and hide the dashed outlines marking components' bounds from the View menu.
-- Let uses pick their component's variants by ID with `variant=`, which may start from each other, put it in states with `state=` that apply its own `selected:`, `hover:` and `group-*:` classes, and set the panels, notes, variants and states of its named elements, and the classes of its slots by their own names.
-- Let a design fill another's `outlet=` with `in=`, drawn at the size the outlet lays out at and played inside its host, so a window's sidebar stays, marks what shows and swaps only its content.
-- Let components show at a `preview=` width and on a `backdrop=` of layers over the theme's background.
-- Tell agents where each element lays out with a `get_layout` tool, of a whole design or one element's levels, have `get_view` list all notes, the open file's or none, and report text cut off, elements outside their design or of no size, `w-full` filling nothing inside its holder's padding and borders, uses far narrower than their components, variants and outlets that are missing or loop, and uses that could pick a variant.
-- Show beside each file in a Git repository the lines it added and removed since the last commit.
-- Show the folder's own pictures, kept in its `assets/` and named by an image's `src=`, which the assistant copies there and the editor redraws as they change.
-- Let a use change the texts, icons, classes, pictures, taps and nested components of the elements its component names, as Figma's instances and Sketch's symbols do, and fill its component's slots with elements of its own, which components may pass on, reporting loops of components through their fills by the chain of uses.
-- Keep each folder's conversations with the assistant, resumed when the folder opens again, switched or deleted from a menu atop the conversation, started with ⌘N and with the agent, model and settings chosen last, and title new ones from their first message with an OpenAI-compatible model and reasoning effort set in the settings.
-- Play designs as the app would, opening screens, closing them, or the window a page shows in, and switching tabs with `tap` and `panel`, marking the tab shown with `selected:` classes, and flash what can be tapped as a design opens or reloads, and from the toolbar.
-- Show an element's comment card where the pointer rests instead of on press, and add notes beside comments, which the assistant reads and keeps true, their small yellow tags flashing with what can be tapped, from the same toolbar button.
-- Let a file give itself a `name=`, which the assistant may set and the sidebar, header and window title show instead of its file name.
-- Keep flows in `flows/` as workflows of their own, named for what they do, while each screen shows what happens on it in its design through taps, outlets and notes.
-- Keep the views filling other designs' outlets, such as a settings window's pages, in `views/`, listed in a Views group and named by their file names alone in taps and `in=`, so the top of the folder holds only the windows and screens the app opens, and open a file of `flows/`, `views/` or `components/` from the Finder in its project.
-- Let a file hold several designs or several flows, which the assistant draws only when asked for them together, each with an ID and opened by taps such as `open #sign-up`, packed with the least margin `gap=` points apart, which the assistant sets to suit their sizes.
-- Open folders, or Scenra files with their folder, from the Finder on macOS or the command line, showing a folder's `design/` when it has no Scenra files of its own while the assistant still works in the folder, save files in place when another file, folder or the window takes their place, and reopen them at the next start.
-- Open each folder in a tab of its own with its own conversations, after a Home tab showing the folders opened lately, each by a design as its cover, and the settings as a page, and have agents name their tab to the MCP server's tools, as a `scenra-app` skill teaches apart from the format's `scenra` skill.
-- Add macOS, Windows and Linux builds in English and Simplified Chinese, for desktops only.
-- Add opt-out anonymous usage statistics.
-- Add an official website in English and Simplified Chinese on GitHub Pages, with anonymous statistics
-- Add `scenraview`, which lets other NSGo apps open, edit and chart folders of Scenra files with the editor's views, alone or in Scenra's window, and draw any version of a file still, such as one Git keeps, without opening it, a view filling an outlet drawn whole in its host.
+## [0.1.0] - 2026-11-18
+
+Scenra's first release: a desktop designer whose assistant, a coding agent you already use, draws an app's screens and flow charts in plain-text files.
+
+- Add folder workspaces of plain-text `.scenra` files holding phone, tablet and desktop designs drawn from Tailwind-shaped primitives, or flow charts.
+- Add an assistant run through Agio by Claude Code, Codex or another coding agent, which works on the selection, resolves comments and keeps each folder's conversations.
+- Add components shared by designs, with variants, states, overrides and slots, shown together from **Components**.
+- Add outlets filling a window's content with another design, and play designs as the app would through their taps.
+- Add comments and notes on design elements, pictures from the folder's `assets/`, and each file's Git changes in the sidebar.
+- Add a tab per folder beside a Home tab of recent folders and the settings, reopened at the next start.
+- Add macOS, Windows and Linux builds in English and Simplified Chinese, which update themselves.

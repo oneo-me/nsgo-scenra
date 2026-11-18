@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref_name }}
+
+jobs:
+  release:
+    # A Mac builds every installer: Sparkle needs Xcode, and the Windows and
+    # Linux packages cross-compile.
+    runs-on: macos-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Extract release notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          grep -q '[^[:space:]]' "$RUNNER_TEMP/notes.md" || { echo "CHANGELOG.md has no notes for $version"; exit 1; }
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install NSIS
+        run: brew install makensis
+
+      - name: Build
+        env:
+          # Signs the installers and appcasts the installed apps update from.
+          NSGO_UPDATES_KEY: ${{ secrets.NSGO_UPDATES_KEY }}
+        run: |
+          test -n "$NSGO_UPDATES_KEY" || { echo "The NSGO_UPDATES_KEY secret is missing"; exit 1; }
+          go tool nsgo build -version "${GITHUB_REF_NAME#v}" cmd/scenra
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "${GITHUB_REF_NAME#v}" --notes-file "$RUNNER_TEMP/notes.md" \
+            $(find cmd/scenra/dist/releases -maxdepth 1 -type f)

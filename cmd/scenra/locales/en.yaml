@@ -10,6 +10,7 @@ home: Home
 recent: Recent
 recentEmpty: The folders you open show here, each with one of its designs.
 removeRecent: Remove from Recent
+checkForUpdates: Check for Updates…
 closeTab: Close Tab
 tabs: Tabs
 settingsTitle: Settings

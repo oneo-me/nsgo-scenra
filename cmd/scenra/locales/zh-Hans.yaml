@@ -8,6 +8,7 @@ home: 首页
 recent: 最近
 recentEmpty: 打开过的文件夹会显示在这里，各以其中一个设计为封面。
 removeRecent: 从最近中移除
+checkForUpdates: 检查更新…
 closeTab: 关闭标签页
 tabs: 标签页
 settingsTitle: 设置

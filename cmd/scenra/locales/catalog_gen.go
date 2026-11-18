@@ -69,6 +69,7 @@ const (
 	textRecent
 	textRecentEmpty
 	textRemoveRecent
+	textCheckForUpdates
 	textCloseTab
 	textTabs
 	textSettingsTitle
@@ -105,6 +106,7 @@ var keyOfText = [numTexts]string{
 	"recent",
 	"recentEmpty",
 	"removeRecent",
+	"checkForUpdates",
 	"closeTab",
 	"tabs",
 	"settingsTitle",
@@ -139,6 +141,7 @@ var textsEn = i18n.NewTexts(""+
 	"Recent"+
 	"The folders you open show here, each with one of its designs."+
 	"Remove from Recent"+
+	"Check for Updates…"+
 	"Close Tab"+
 	"Tabs"+
 	"Settings"+
@@ -170,6 +173,7 @@ var textsEn = i18n.NewTexts(""+
 		6,
 		61,
 		18,
+		20,
 		9,
 		4,
 		8,
@@ -204,6 +208,7 @@ var textsZhHans = i18n.NewTexts(""+
 	"最近"+
 	"打开过的文件夹会显示在这里，各以其中一个设计为封面。"+
 	"从最近中移除"+
+	"检查更新…"+
 	"关闭标签页"+
 	"标签页"+
 	"设置"+
@@ -235,6 +240,7 @@ var textsZhHans = i18n.NewTexts(""+
 		6,
 		78,
 		18,
+		15,
 		15,
 		9,
 		6,
@@ -398,6 +404,13 @@ func RemoveRecent(cx *core.Scope) string { return For(cx).RemoveRecent() }
 
 // RemoveRecent is the package's RemoveRecent in the language of msgs.
 func (msgs Messages) RemoveRecent() string { return msgs.text(textRemoveRecent) }
+
+// CheckForUpdates says "Check for Updates…"
+// in the language the app shows under cx.
+func CheckForUpdates(cx *core.Scope) string { return For(cx).CheckForUpdates() }
+
+// CheckForUpdates is the package's CheckForUpdates in the language of msgs.
+func (msgs Messages) CheckForUpdates() string { return msgs.text(textCheckForUpdates) }
 
 // CloseTab says "Close Tab"
 // in the language the app shows under cx.

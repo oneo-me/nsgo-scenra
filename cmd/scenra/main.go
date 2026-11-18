@@ -17,6 +17,7 @@ import (
 	"github.com/nsgo-dev/nsgo/desktop"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
+	"github.com/nsgo-dev/nsgo/updater"
 	"github.com/oneo-me/nsgo-agio/agent"
 	"github.com/oneo-me/nsgo-agio/host"
 
@@ -246,7 +247,8 @@ func menu(cx *core.Scope, t *tabs, settings func()) []desktop.MenuItem {
 	home := e == nil
 	return []desktop.MenuItem{
 		{Label: tr.AppName(), Items: []desktop.MenuItem{
-			{Role: desktop.MenuAbout}, {Separator: true},
+			{Role: desktop.MenuAbout},
+			{Label: tr.CheckForUpdates(), OnSelect: func() { updater.Check(cx) }}, {Separator: true},
 			{Label: w.Settings(), Shortcut: "mod+,", OnSelect: settings}, {Separator: true},
 			{Role: desktop.MenuHide}, {Role: desktop.MenuHideOthers}, {Role: desktop.MenuShowAll}, {Separator: true},
 			{Role: desktop.MenuQuit},

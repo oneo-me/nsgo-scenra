@@ -44,6 +44,20 @@ Scenra 是一个自造词：*scene*（场景）指构成应用的一个个界面
 - 设计保存为纯文本 `.scenra` 文件，可直接阅读、对比和手动编辑。
 - 运行于 macOS、Windows 和 Linux，支持英文和简体中文。
 
+## 安装
+
+从[最新版本](https://github.com/oneo-me/nsgo-scenra/releases/latest)下载 macOS、Windows 或 Linux 的安装包，或在终端中安装：
+
+```sh
+curl -fsSL https://github.com/oneo-me/nsgo-scenra/releases/latest/download/install.sh | sh    # macOS and Linux
+```
+
+```powershell
+irm https://github.com/oneo-me/nsgo-scenra/releases/latest/download/install.ps1 | iex         # Windows
+```
+
+Scenra 每天检查一次更新，也可从菜单中的**检查更新…**手动检查；在 Linux 上会更新 Debian 包。
+
 ## 运行
 
 Scenra 需要 [Go](https://go.dev/dl/)。在仓库根目录执行：

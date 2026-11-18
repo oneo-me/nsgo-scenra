@@ -15,6 +15,11 @@ A desktop app and flow designer built on [NSGo](https://github.com/nsgo-dev/nsgo
 - Build the website from `website/` with `bun run build`; the Website workflow publishes it to GitHub Pages.
 - Do not run `go mod tidy`: it drops the requirements `nsgo check` needs for TSX type generation. Update NSGo with `go get github.com/nsgo-dev/nsgo@<version>`.
 
+## Releasing
+
+- Release by pushing a `v<version>` tag, such as `v0.1.0`, once `CHANGELOG.md` has that version's section; the Release workflow builds on a Mac and publishes it.
+- The updates' secret key lives only in the `NSGO_UPDATES_KEY` Actions secret; never commit it.
+
 ## Documentation
 
 - Update a document only when a fact its reader needs changes.
