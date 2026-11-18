@@ -1,0 +1,54 @@
+design device=phone name="Phone/Now playing"
+box class="flex-1 bg-zinc-950"
+  use status-bar variant=dark class="px-6"
+  box class="flex-row items-center justify-between px-6 pt-4"
+    icon chevron-down class="size-5 text-white/70" tap="close" note="Collapse to the mini player, back to Discover"
+    box class="items-center gap-0.5"
+      text "NOW PLAYING" class="text-[10px] font-semibold tracking-[0.2em] text-white/40"
+      text "From playlist · Late Night Code" class="text-xs text-white/70"
+    end
+    icon ellipsis class="size-5 text-white/70"
+  end
+  box class="mt-6 items-center"
+    image "Album art, blue tones" src="assets/blue-in-green.jpg" class="h-64 w-64 rounded-3xl shadow-2xl"
+  end
+  box class="mt-7 flex-row items-center justify-between px-7"
+    box class="gap-1"
+      text "Blue in Green" class="text-2xl font-bold tracking-tight text-white"
+      text "Miles Davis · Kind of Blue" class="text-xs text-white/50"
+    end
+    icon heart class="size-6 text-rose-400"
+  end
+  box class="mt-6 items-center gap-1.5 px-10"
+    text "Harbor lights come on slow" class="text-sm text-white/40"
+    text "I'm still waiting on your word" class="text-base font-semibold text-white"
+  end
+  box class="mt-6 gap-2 px-7"
+    box class="h-1 w-full rounded-full bg-white/15"
+      box class="h-1 w-2/5 rounded-full bg-white"
+      end
+    end
+    box class="flex-row items-center justify-between"
+      text "1:24" class="text-[10px] text-white/40"
+      text "3:48" class="text-[10px] text-white/40"
+    end
+  end
+  box class="mt-6 flex-row items-center justify-between px-8"
+    icon shuffle class="size-5 text-white/30" note="Shuffle, remembered; turns repeat-one off"
+    icon skip-back class="size-7 text-white"
+    box class="size-16 items-center justify-center rounded-full bg-white shadow-lg" note="Pausing collapses to the mini player"
+      icon pause class="size-7 text-zinc-900"
+    end
+    icon skip-forward class="size-7 text-white" note="Next in the playlist, cached ahead"
+    icon repeat class="size-5 text-white/30" note="Repeat one"
+  end
+  box class="mt-auto flex-row items-center justify-between px-10 pb-8 pt-4"
+    box class="flex-row items-center gap-1.5"
+      icon message-circle class="size-4 text-white/40"
+      text "1.2K" class="text-[10px] text-white/40"
+    end
+    icon share-2 class="size-4 text-white/40"
+    icon download class="size-4 text-white/40"
+    icon list-music class="size-4 text-white/40"
+  end
+end

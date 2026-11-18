@@ -1,87 +1,217 @@
 ---
-import Icon from './Icon.astro';
 import Mark from './Mark.astro';
-import { links, localePath, otherLang, pageCopy, type Lang } from '../site';
+import Icon from './Icon.astro';
+import ThemeSwitch from './ThemeSwitch.astro';
+import LanguageSwitch from './LanguageSwitch.astro';
+import type { Copy } from '../copy';
+import { pagePath, site, type Lang } from '../site';
 
 interface Props {
   lang: Lang;
-  path?: string;
+  copy: Copy;
+  page?: string;
 }
 
-const { lang, path = '' } = Astro.props;
-const tr = pageCopy(lang);
-const home = localePath(lang);
-const alternate = localePath(otherLang(lang), path);
-const nav = [
-  { href: `${home}#features`, label: tr.nav.features },
-  { href: `${home}#how`, label: tr.nav.how },
-  { href: localePath(lang, 'privacy/'), label: tr.nav.privacy },
-];
+const { lang, copy, page } = Astro.props;
+
+const home = pagePath(lang);
+const links = copy.nav.links.map((link) => ({ label: link.label, href: `${home}${link.href}` }));
 ---
 
-<header class="site-header">
-  <div class="wrap header-inner">
-    <a class="brand" href={home} aria-label={tr.brand.name}>
+<header class="site-header" data-header>
+  <div class="wrap flex h-16 items-center justify-between gap-4">
+    <a class="flex items-center gap-2.5" href={home} aria-label={copy.nav.home}>
       <Mark size={30} />
-      <span>{tr.brand.name}</span>
+      <span class="font-display text-[19px] font-bold tracking-[-0.03em]">{site.name}</span>
     </a>
 
-    <nav class="nav">
-      {nav.map((item) => <a href={item.href}>{item.label}</a>)}
+    <nav class="hidden items-center gap-1 lg:flex" aria-label={copy.nav.primary}>
+      {
+        links.map((link) => (
+          <a class="nav-link" href={link.href}>
+            {link.label}
+          </a>
+        ))
+      }
+      <a class="nav-link" href={site.changelog} target="_blank" rel="noopener noreferrer">
+        {copy.footer.changelog}
+      </a>
     </nav>
 
-    <div class="header-actions">
-      <a
-        class="lang-switch"
-        href={alternate}
-        hreflang={otherLang(lang) === 'zh' ? 'zh-CN' : 'en'}
-        lang={otherLang(lang) === 'zh' ? 'zh-CN' : 'en'}
-        aria-label={tr.nav.languageLabel}
-        data-lang-link={otherLang(lang)}
-        data-umami-event="switch-language"
-      >
-        {tr.nav.language}
+    <div class="hidden items-center gap-2 lg:flex">
+      <a class="nav-link flex items-center gap-2" href={site.repo} target="_blank" rel="noopener noreferrer">
+        <Icon name="github" size={17} />
+        {copy.nav.github}
       </a>
-
-      <button class="icon-btn theme-toggle" type="button" aria-label={tr.nav.theme} data-theme-toggle>
-        <span class="theme-icon theme-icon--sun"><Icon name="sun" size={18} /></span>
-        <span class="theme-icon theme-icon--moon"><Icon name="moon" size={18} /></span>
-      </button>
-
-      <a
-        class="icon-btn github-btn"
-        href={links.repo}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label={tr.nav.github}
-        data-umami-event="open-github"
-      >
-        <Icon name="github" size={19} />
-      </a>
-
-      <a class="btn btn--primary btn--small header-cta" href={`${home}#get-started`} data-umami-event="get-started">
-        {tr.nav.getStarted}
-      </a>
-
-      <details class="mobile-menu">
-        <summary class="icon-btn" aria-label={tr.nav.menu}>
-          <Icon name="menu" size={19} />
-        </summary>
-        <div class="mobile-menu-panel">
-          {nav.map((item) => <a href={item.href}>{item.label}</a>)}
-          <a
-            href={links.repo}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-umami-event="open-github"
-          >
-            {tr.nav.github} <Icon name="arrow-up-right" size={15} />
-          </a>
-          <a class="btn btn--primary" href={`${home}#get-started`} data-umami-event="get-started">
-            {tr.nav.getStarted}
-          </a>
-        </div>
-      </details>
+      <a class="btn btn-primary btn-small" href={`${home}#download`}>{copy.nav.cta}</a>
     </div>
+
+    <button
+      type="button"
+      class="menu-toggle lg:hidden"
+      data-menu-toggle
+      aria-expanded="false"
+      aria-controls="site-menu"
+      aria-label={copy.nav.menu}
+      data-open-label={copy.nav.menu}
+      data-close-label={copy.nav.close}
+    >
+      <span class="menu-icon menu-icon-open"><Icon name="menu" size={22} /></span>
+      <span class="menu-icon menu-icon-close"><Icon name="close" size={22} /></span>
+    </button>
+  </div>
+
+  <div id="site-menu" class="site-menu lg:hidden" data-menu hidden>
+    <nav class="wrap grid gap-1 py-4" aria-label={copy.nav.menuLabel}>
+      {
+        links.map((link) => (
+          <a class="menu-link" href={link.href}>
+            {link.label}
+          </a>
+        ))
+      }
+      <a class="menu-link" href={site.changelog} target="_blank" rel="noopener noreferrer">
+        {copy.footer.changelog}
+      </a>
+      <a class="menu-link flex items-center gap-2" href={site.repo} target="_blank" rel="noopener noreferrer">
+        <Icon name="github" size={17} />
+        {copy.nav.github}
+      </a>
+      <a class="btn btn-primary mt-3" href={`${home}#download`}>{copy.nav.cta}</a>
+
+      <div class="mt-4 grid gap-3 border-t border-line pt-5">
+        <ThemeSwitch copy={copy} wide />
+        <LanguageSwitch lang={lang} copy={copy} page={page} wide />
+      </div>
+    </nav>
   </div>
 </header>
+
+<script>
+  const header = document.querySelector<HTMLElement>('[data-header]');
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const menu = document.querySelector<HTMLElement>('[data-menu]');
+
+  // The bar is clear over the hero and gains its backdrop once the page moves.
+  const onScroll = () => header?.toggleAttribute('data-scrolled', window.scrollY > 8);
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  function setMenu(open: boolean) {
+    if (!toggle || !menu) return;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute(
+      'aria-label',
+      open ? (toggle.dataset.closeLabel ?? 'Close menu') : (toggle.dataset.openLabel ?? 'Open menu'),
+    );
+    menu.hidden = !open;
+    header?.toggleAttribute('data-menu-open', open);
+    document.documentElement.style.overflow = open ? 'hidden' : '';
+  }
+
+  toggle?.addEventListener('click', () => {
+    setMenu(toggle.getAttribute('aria-expanded') !== 'true');
+  });
+
+  menu?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => setMenu(false));
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setMenu(false);
+  });
+
+  window.matchMedia('(min-width: 1024px)').addEventListener('change', (event) => {
+    if (event.matches) setMenu(false);
+  });
+</script>
+
+<style>
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid transparent;
+    transition:
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+
+  .site-header[data-scrolled],
+  .site-header[data-menu-open] {
+    border-color: var(--color-line);
+    background: color-mix(in srgb, var(--color-bg) 82%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
+  }
+
+  .nav-link {
+    padding: 8px 14px;
+    border-radius: 999px;
+    color: color-mix(in srgb, var(--color-text) 82%, transparent);
+    font-size: 15px;
+    font-weight: 500;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .nav-link:hover {
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    color: var(--color-text);
+  }
+
+  .menu-link {
+    padding: 10px 12px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .menu-link:hover {
+    background: var(--color-bg-soft);
+  }
+
+  .menu-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+  }
+
+  .menu-toggle:hover {
+    background: var(--color-bg-soft);
+  }
+
+  .menu-icon {
+    display: inline-flex;
+  }
+
+  .menu-icon-close,
+  .menu-toggle[aria-expanded='true'] .menu-icon-open {
+    display: none;
+  }
+
+  .menu-toggle[aria-expanded='true'] .menu-icon-close {
+    display: inline-flex;
+  }
+
+  .site-menu {
+    max-height: calc(100dvh - 4rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-top: 1px solid var(--color-line);
+  }
+
+  @media (min-width: 1024px) {
+    .menu-toggle {
+      display: none;
+    }
+  }
+</style>

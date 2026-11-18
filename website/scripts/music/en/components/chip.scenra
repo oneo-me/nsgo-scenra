@@ -1,0 +1,5 @@
+component name="Phone/Filter chip" backdrop="bg-zinc-50"
+box name=chip class="group rounded-full bg-white px-3.5 py-1.5 selected:bg-rose-600"
+  text "Charts" name=label class="text-xs text-zinc-500 group-selected:font-semibold group-selected:text-white"
+end
+variant selected state=selected

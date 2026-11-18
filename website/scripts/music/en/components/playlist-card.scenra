@@ -1,0 +1,7 @@
+component width=fill preview=212 name="Discover/Playlist card"
+box class="gap-1.5"
+  image "Playlist cover, late night study" src="assets/late-night.jpg" name=cover class="h-32 w-full rounded-xl"
+  text "3AM Piano" name=title class="text-sm font-semibold text-zinc-900 truncate"
+  text "32 songs · 124K plays" name=meta class="text-[11px] text-zinc-400"
+end
+variant compact cover.class="h-20" title.class="text-xs text-zinc-800" meta.class="text-[10px]"

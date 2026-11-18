@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Add a language setting choosing English, Simplified Chinese or the system's language, which applies at once and is kept for later starts.
+- Redesign the website after Agio's, with screenshots of a music app's designs and flows in both languages and appearances.
 
 ## [0.1.0] - 2026-11-18
 

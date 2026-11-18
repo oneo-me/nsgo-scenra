@@ -1,0 +1,96 @@
+design device=desktop name="桌面/正在播放"
+box class="relative flex-1 overflow-hidden bg-[#0a0c14]"
+  svg "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 760' preserveAspectRatio='none'><defs><radialGradient id='g1' cx='0.2' cy='0.48' r='0.55'><stop offset='0' stop-color='#2563eb' stop-opacity='0.42'/><stop offset='0.6' stop-color='#1e3a8a' stop-opacity='0.18'/><stop offset='1' stop-color='#0a0c14' stop-opacity='0'/></radialGradient><radialGradient id='g2' cx='0.85' cy='0.05' r='0.5'><stop offset='0' stop-color='#4f46e5' stop-opacity='0.28'/><stop offset='1' stop-color='#0a0c14' stop-opacity='0'/></radialGradient><radialGradient id='g3' cx='0.95' cy='1' r='0.45'><stop offset='0' stop-color='#e11d48' stop-opacity='0.12'/><stop offset='1' stop-color='#0a0c14' stop-opacity='0'/></radialGradient></defs><rect width='1200' height='760' fill='#0a0c14'/><rect width='1200' height='760' fill='url(#g1)'/><rect width='1200' height='760' fill='url(#g2)'/><rect width='1200' height='760' fill='url(#g3)'/></svg>" class="absolute left-0 top-0 h-full w-full"
+  box class="flex-row items-center justify-between px-8 pt-5"
+    box class="size-8 items-center justify-center rounded-full bg-white/5" tap="close" note="收起，回到播放条"
+      icon chevron-down class="size-4 text-white/70"
+    end
+    box class="items-center gap-0.5"
+      text "NOW PLAYING" class="text-[10px] font-semibold tracking-[0.2em] text-white/40"
+      text "From playlist · Late Night Code" class="text-xs text-white/70"
+    end
+    box class="size-8 items-center justify-center rounded-full bg-white/5"
+      icon ellipsis class="size-4 text-white/70"
+    end
+  end
+  box class="flex-1 flex-row"
+    box class="w-[460px] shrink-0 items-center justify-center gap-7 px-10"
+      image "Album art, blue tones" src="assets/blue-in-green.jpg" class="size-80 rounded-3xl shadow-2xl shadow-blue-500/30"
+      box class="w-80 flex-row items-center justify-between"
+        box class="flex-1 gap-1"
+          text "Blue in Green" class="text-3xl font-bold tracking-tight text-white truncate"
+          text "Miles Davis · Kind of Blue" class="text-sm text-white/55"
+        end
+        icon heart class="size-6 text-rose-400"
+      end
+      box class="w-80 gap-2"
+        box class="h-3 flex-row items-center"
+          box class="h-1 w-2/5 rounded-l-full bg-white"
+          end
+          box class="size-3 rounded-full bg-white shadow-md"
+          end
+          box class="h-1 flex-1 rounded-r-full bg-white/15"
+          end
+        end
+        box class="flex-row items-center justify-between"
+          text "1:24" class="text-[11px] text-white/45"
+          text "-2:24" class="text-[11px] text-white/45"
+        end
+      end
+      box class="w-80 flex-row items-center justify-between"
+        icon shuffle class="size-5 text-white/40"
+        icon skip-back class="size-7 text-white"
+        box class="size-16 items-center justify-center rounded-full bg-white shadow-xl shadow-blue-500/20"
+          icon pause class="size-7 text-zinc-900"
+        end
+        icon skip-forward class="size-7 text-white" note="切到下一首，快捷键 ⌘→ 也可"
+        icon repeat class="size-5 text-white/40"
+      end
+    end
+    box class="flex-1 gap-4 py-6 pl-6 pr-16"
+      box class="flex-row items-center justify-between"
+        text "LYRICS" class="text-[11px] font-semibold tracking-[0.2em] text-white/35"
+        box class="flex-row items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1"
+          icon audio-lines class="size-3.5 text-rose-400"
+          text "Lossless · 24-bit / 48kHz" class="text-[10px] font-medium text-white/60"
+        end
+      end
+      box class="flex-1 justify-center gap-5" note="歌词随播放逐行滚动，当前行居中高亮，上下行渐隐"
+        text "Harbor lights come on slow" class="text-3xl font-bold tracking-tight text-white/20 blur-[3px]"
+        text "I'm still waiting on your word" class="text-3xl font-bold tracking-tight text-white/30 blur-[2px]"
+        text "Through the static of old records" class="text-3xl font-bold tracking-tight text-white/45 blur-[1px]"
+        text "We walk back to where we were" class="text-3xl font-bold tracking-tight text-white"
+        text "Streetlights stretch our shadows long" class="text-3xl font-bold tracking-tight text-white/45 blur-[1px]"
+        text "The song you hummed is unfinished" class="text-3xl font-bold tracking-tight text-white/30 blur-[2px]"
+        text "Time takes a nap right here" class="text-3xl font-bold tracking-tight text-white/20 blur-[3px]"
+      end
+      text "Lyrics by He · Synced line by line" class="text-[11px] text-white/30"
+    end
+  end
+  box class="h-16 flex-row items-center justify-between border-t border-white/5 bg-black/20 px-8"
+    box class="w-64 flex-row items-center gap-5"
+      icon download class="size-4 text-white/50"
+      box class="flex-row items-center gap-1.5"
+        icon message-circle class="size-4 text-white/50"
+        text "1.2K" class="text-[11px] text-white/50"
+      end
+      icon share-2 class="size-4 text-white/50"
+    end
+    box class="flex-row items-center gap-2"
+      text "UP NEXT" class="text-[10px] font-semibold tracking-[0.18em] text-white/35"
+      text "So What · Miles Davis" class="text-xs text-white/70"
+    end
+    box class="w-64 flex-row items-center justify-end gap-5"
+      icon mic-vocal class="size-4 text-rose-400"
+      icon list-music class="size-4 text-white/50"
+      box class="flex-row items-center gap-2"
+        icon volume-2 class="size-4 text-white/50"
+        box class="h-1 w-20 rounded-full bg-white/15"
+          box class="h-1 w-3/5 rounded-full bg-white/70"
+          end
+        end
+      end
+      icon maximize-2 class="size-4 text-white/50"
+    end
+  end
+end

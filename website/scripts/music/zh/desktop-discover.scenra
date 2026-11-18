@@ -1,0 +1,93 @@
+design device=desktop name="桌面/发现"
+box class="flex-1 bg-white"
+  box class="flex-1 flex-row overflow-hidden"
+    box class="w-56 shrink-0 gap-1 border-r border-zinc-200/70 bg-zinc-50 px-3 py-4"
+      box class="flex-row items-center gap-2 px-2 pb-4"
+        box class="size-8 items-center justify-center rounded-xl bg-rose-600"
+          icon music-4 class="size-4 text-white"
+        end
+        text "Aria" class="text-base font-bold tracking-tight text-zinc-900"
+      end
+      text "DISCOVER" class="px-3 pb-1 text-[11px] font-semibold tracking-wider text-zinc-400"
+      use sidebar-item icon=house label="For You" item.tap="open desktop-discover"
+      use sidebar-item icon=compass label="Explore"
+      use sidebar-item icon=mic label="Podcasts"
+      use sidebar-item icon=users label="Following"
+      text "MY MUSIC" class="px-3 pb-1 pt-5 text-[11px] font-semibold tracking-wider text-zinc-400"
+      use sidebar-item icon=heart label="Liked Songs"
+      use sidebar-item icon=clock label="Recently Played"
+      use sidebar-item icon=download label="Downloads"
+      box class="flex-row items-center justify-between px-3 pb-1 pt-5"
+        text "PLAYLISTS" class="text-[11px] font-semibold tracking-wider text-zinc-400"
+        icon plus class="size-3.5 text-zinc-400"
+      end
+      use sidebar-item icon=list-music label="Late Night Code"
+      use sidebar-item icon=list-music label="Commute Beats"
+      use sidebar-item icon=list-music label="Best of 2025"
+    end
+    box class="flex-1 overflow-hidden"
+      box class="flex-row items-center gap-3 border-b border-zinc-100 px-6 py-3"
+        icon chevron-left class="size-4 text-zinc-300"
+        icon chevron-right class="size-4 text-zinc-300"
+        box class="ml-1 h-9 flex-1 flex-row items-center gap-2 rounded-full bg-zinc-100 px-4"
+          icon search class="size-4 text-zinc-400"
+          text "Search songs, artists, playlists" class="text-sm text-zinc-400"
+        end
+        icon bell class="size-5 text-zinc-400"
+        box class="size-8 items-center justify-center rounded-full bg-linear-to-br from-rose-400 to-amber-300"
+          text "A" class="text-xs font-semibold text-white"
+        end
+      end
+      box class="flex-1 gap-5 overflow-hidden p-6" note="首屏直接是内容，无广告位"
+        box class="h-40 flex-row items-center justify-between overflow-hidden rounded-2xl bg-linear-to-r from-rose-600 via-rose-500 to-fuchsia-500 px-7"
+          box class="gap-1"
+            text "DAILY MIX · NO ADS, EVER" class="text-[11px] font-semibold tracking-[0.18em] text-white/70"
+            text "30 songs chosen for you" class="text-2xl font-bold text-white"
+            box class="mt-2 h-9 w-32 flex-row items-center justify-center gap-1.5 rounded-full bg-white" note="播放每日推荐 30 首，默认随机"
+              icon play class="size-3.5 text-rose-600"
+              text "Play all" class="text-sm font-semibold text-rose-600"
+            end
+          end
+          box class="flex-row items-center gap-2"
+            image "Album art, city at night" src="assets/city-night.jpg" class="h-28 w-24 rounded-xl opacity-90"
+            image "Album art, blue portrait" src="assets/blue-portrait.jpg" class="h-32 w-32 rounded-xl shadow-xl"
+            image "Album art, film grain" src="assets/film-grain.jpg" class="h-28 w-24 rounded-xl opacity-90"
+          end
+        end
+        box class="gap-2.5"
+          use section-header
+          box class="flex-row gap-4"
+            use playlist-card class="flex-1"
+            use playlist-card class="flex-1" cover="Playlist cover, subway platform" cover.src="assets/subway.jpg" title="Commute Beats" meta="48 songs · 87K plays"
+            use playlist-card class="flex-1" cover="Playlist cover, rainy window" cover.src="assets/rainy-window.jpg" title="Folk for Rainy Days" meta="26 songs · 219K plays"
+            use playlist-card class="flex-1" cover="Playlist cover, old turntable" cover.src="assets/turntable.jpg" title="Old Jazz & Whiskey" meta="40 songs · 63K plays"
+          end
+        end
+        box class="gap-2.5"
+          use section-header title="Charts" more-label="All charts"
+          box class="flex-row gap-4"
+            box class="flex-1 gap-2 rounded-xl border border-zinc-100 p-3"
+              text "TRENDING NOW" class="text-xs font-semibold tracking-wide text-zinc-500"
+              use chart-row
+              use chart-row rank="2" title="Lend You the Moon" artist="Nineteen"
+              use chart-row variant=rest rank="3" title="Slow Fall" artist="Seaside"
+            end
+            box class="flex-1 gap-2 rounded-xl border border-zinc-100 p-3"
+              text "NEW RELEASES" class="text-xs font-semibold tracking-wide text-zinc-500"
+              use chart-row title="Old Town Notes" artist="A Yao"
+              use chart-row rank="2" title="Birds Stay North" artist="Fog Island"
+              use chart-row variant=rest rank="3" title="Letter to the Future" artist="Nan Ye"
+            end
+            box class="flex-1 gap-2 rounded-xl border border-zinc-100 p-3"
+              text "PODCAST TOP" class="text-xs font-semibold tracking-wide text-zinc-500"
+              use chart-row title="PMs Who Log Off" artist="Ep. 42"
+              use chart-row rank="2" title="A Day of Jazz" artist="Ep. 07"
+              use chart-row variant=rest rank="3" title="City Walk Guide" artist="Ep. 18"
+            end
+          end
+        end
+      end
+    end
+  end
+  use player-bar variant=paused now.tap="open desktop-now-playing" now.note="点按封面展开播放详情，任何页面都可呼出" note="上次播放的歌留在这里"
+end

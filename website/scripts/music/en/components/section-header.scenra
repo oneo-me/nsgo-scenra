@@ -1,0 +1,9 @@
+component width=fill preview=360 name="Discover/Section header"
+box class="flex-row items-center justify-between"
+  text "Made for you" name=title class="text-lg font-bold text-zinc-900"
+  box name=more class="flex-row items-center gap-0.5"
+    text "See all" name=more-label class="text-xs text-zinc-400"
+    icon chevron-right name=more-icon class="size-3.5 text-zinc-400"
+  end
+end
+variant compact title.class="text-base" more-label.class="text-[11px]" more-icon.class="size-3"

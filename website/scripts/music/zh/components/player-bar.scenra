@@ -1,0 +1,39 @@
+component width=fill preview=1200 name="桌面/播放条"
+box class="h-[76px] shrink-0 flex-row items-center gap-4 border-t border-zinc-200 bg-white px-4"
+  box name=now class="flex-row items-center gap-3"
+    image "Album art, blue tones" src="assets/blue-in-green.jpg" name=cover class="size-11 rounded-lg"
+    box class="gap-0.5"
+      text "Blue in Green" name=title class="text-sm font-semibold text-zinc-900"
+      text "Miles Davis" name=artist class="text-xs text-zinc-400"
+    end
+    icon heart name=like class="size-4 text-rose-500"
+  end
+  box class="flex-1 items-center gap-1.5"
+    box class="flex-row items-center gap-5"
+      icon shuffle class="size-4 text-zinc-400"
+      icon skip-back class="size-5 text-zinc-700"
+      box name=toggle class="size-9 items-center justify-center rounded-full bg-rose-600"
+        icon pause name=toggle-icon class="size-4 text-white"
+      end
+      icon skip-forward class="size-5 text-zinc-700"
+      icon repeat class="size-4 text-zinc-400"
+    end
+    box class="w-full flex-row items-center gap-2 px-16"
+      text "1:24" name=elapsed class="text-[10px] text-zinc-400"
+      box class="h-1 flex-1 rounded-full bg-zinc-200"
+        box name=progress class="h-1 w-2/5 rounded-full bg-rose-600"
+        end
+      end
+      text "3:48" name=duration class="text-[10px] text-zinc-400"
+    end
+  end
+  box class="flex-row items-center gap-4"
+    box class="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5"
+      text "AD-FREE" class="text-[10px] font-semibold text-rose-600"
+    end
+    icon audio-lines class="size-4 text-zinc-500"
+    icon volume-2 class="size-4 text-zinc-500"
+    icon list-music class="size-4 text-zinc-500"
+  end
+end
+variant paused toggle-icon=play

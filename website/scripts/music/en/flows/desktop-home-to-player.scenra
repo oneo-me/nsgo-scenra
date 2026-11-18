@@ -1,0 +1,15 @@
+flow name="Desktop: from home to the player"
+node open "Open the desktop app" kind=start note="The last song stays in the player bar"
+node browse "Browse picks and playlists" note="Content from the first screen, no ad slots"
+node bar "Tap the player bar cover" note="Works from any page"
+node detail "Open the player" note="Big cover, scrolling lyrics, audio quality"
+node choice "What next?" kind=decision
+node next "Skip to the next track" note="Also ⌘→"
+node end "Keep playing" kind=end
+open -> browse
+browse -> bar
+bar -> detail
+detail -> choice
+choice -> next "skip"
+next -> end
+choice ..> end "collapse"

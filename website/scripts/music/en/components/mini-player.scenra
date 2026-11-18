@@ -1,0 +1,13 @@
+component width=fill preview=358 name="Phone/Mini player" backdrop="bg-zinc-50"
+box name=player class="flex-row items-center gap-3 rounded-2xl border border-zinc-200/70 bg-white p-2 shadow-lg shadow-zinc-900/10"
+  image "Album art, blue tones" src="assets/blue-in-green.jpg" name=cover class="size-10 rounded-xl"
+  box class="flex-1 gap-0.5"
+    text "Blue in Green" name=title class="text-xs font-semibold text-zinc-900 truncate"
+    text "Miles Davis" name=artist class="text-[10px] text-zinc-400 truncate"
+  end
+  box name=toggle class="size-9 items-center justify-center rounded-full bg-rose-600 shadow-md shadow-rose-600/30"
+    icon pause name=toggle-icon class="size-4 text-white"
+  end
+  icon list-music name=queue class="size-5 text-zinc-400"
+end
+variant paused toggle-icon=play

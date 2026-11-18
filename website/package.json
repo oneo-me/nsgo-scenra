@@ -6,10 +6,15 @@
     "dev": "astro dev",
     "build": "astro check && astro build",
     "preview": "astro preview",
-    "typecheck": "astro check"
+    "typecheck": "astro check",
+    "screenshots": "bun scripts/screenshots.mjs",
+    "og": "bun scripts/og.mjs"
   },
   "dependencies": {
-    "astro": "^7.4.5"
+    "@astrojs/sitemap": "^3.7.0",
+    "@tailwindcss/vite": "^4.3.5",
+    "astro": "^7.4.11",
+    "tailwindcss": "^4.3.5"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",

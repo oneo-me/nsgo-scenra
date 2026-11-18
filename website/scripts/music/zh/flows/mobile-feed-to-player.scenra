@@ -1,0 +1,15 @@
+flow name="手机端：从推荐到播放"
+node open "打开手机端" kind=start
+node feed "看每日推荐" note="banner 直接可播"
+node pick "点哪里" kind=decision
+node list "打开歌单详情"
+node daily "播放每日推荐" note="默认随机，30 首"
+node play "进入播放页" note="或上滑迷你播放条"
+node end "开始播放" kind=end
+open -> feed
+feed -> pick
+pick -> list "歌单卡片"
+pick -> daily "每日推荐"
+list -> play "点一首"
+daily -> play
+play -> end

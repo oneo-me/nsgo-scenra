@@ -1,0 +1,23 @@
+component width=fill name="手机/标签栏"
+box class="flex-row items-center justify-around border-t border-zinc-200 bg-white px-2 pb-6 pt-2"
+  box name=discover class="group items-center gap-1"
+    icon house class="size-5 text-zinc-400 group-selected:text-rose-600"
+    text "Discover" class="text-[10px] text-zinc-400 group-selected:font-semibold group-selected:text-rose-600"
+  end
+  box name=podcasts class="group items-center gap-1"
+    icon mic class="size-5 text-zinc-400 group-selected:text-rose-600"
+    text "Podcasts" class="text-[10px] text-zinc-400 group-selected:font-semibold group-selected:text-rose-600"
+  end
+  box name=following class="group items-center gap-1"
+    icon users class="size-5 text-zinc-400 group-selected:text-rose-600"
+    text "Following" class="text-[10px] text-zinc-400 group-selected:font-semibold group-selected:text-rose-600"
+  end
+  box name=library class="group items-center gap-1"
+    icon circle-user class="size-5 text-zinc-400 group-selected:text-rose-600"
+    text "Library" class="text-[10px] text-zinc-400 group-selected:font-semibold group-selected:text-rose-600"
+  end
+end
+variant discover state=selected@discover
+variant podcasts state=selected@podcasts
+variant following state=selected@following
+variant library state=selected@library

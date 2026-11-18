@@ -21,7 +21,7 @@
 </p>
 
 <p align="center">
-  <img src="cmd/scenra/assets/Preview.png" alt="Scenra">
+  <img src="website/src/assets/screens/zh/app-light.png" alt="Scenra">
 </p>
 
 ## 名称由来

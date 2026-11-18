@@ -1,0 +1,15 @@
+flow name="Phone: from Discover to the player"
+node open "Open the phone app" kind=start
+node feed "See the daily mix" note="The banner plays right away"
+node pick "Tap where?" kind=decision
+node list "Open a playlist"
+node daily "Play the daily mix" note="30 songs, shuffled"
+node play "Open the player" note="Or swipe up the mini player"
+node end "Playing" kind=end
+open -> feed
+feed -> pick
+pick -> list "playlist card"
+pick -> daily "daily mix"
+list -> play "a song"
+daily -> play
+play -> end

@@ -1,0 +1,15 @@
+flow name="桌面端：从首页到播放"
+node open "打开桌面端" kind=start note="上次播放的歌留在底部播放条"
+node browse "浏览推荐与歌单" note="首屏直接是内容，无广告位"
+node bar "点按播放条封面" note="任何页面都可呼出"
+node detail "展开播放详情" note="大封面 + 滚动歌词 + 音质"
+node choice "接下来做什么" kind=decision
+node next "切到下一首" note="快捷键 ⌘→ 也可"
+node end "继续播放" kind=end
+open -> browse
+browse -> bar
+bar -> detail
+detail -> choice
+choice -> next "切歌"
+next -> end
+choice ..> end "收起"

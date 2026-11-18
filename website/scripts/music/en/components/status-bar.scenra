@@ -1,0 +1,10 @@
+component width=fill name="Phone/Status bar" backdrop="bg-zinc-50"
+box class="flex-row items-center justify-between px-5 pt-3"
+  text "9:41" name=time class="text-xs font-semibold text-zinc-900"
+  box class="flex-row items-center gap-1.5"
+    icon signal name=signal class="size-3.5 text-zinc-900"
+    icon wifi name=wifi class="size-3.5 text-zinc-900"
+    icon battery-full name=battery class="size-4 text-zinc-900"
+  end
+end
+variant dark time.class="text-white" signal.class="text-white/80" wifi.class="text-white/80" battery.class="text-white/80"

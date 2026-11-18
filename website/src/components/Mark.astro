@@ -1,25 +1,23 @@
 ---
 // The app icon, redrawn as a vector: a cream path winding into an S through
-// a green screen, an amber node and an indigo screen on a dark tile.
+// a green screen, an amber node and an indigo screen on a dark tile, which
+// stays dark in both appearances as the icon does.
 interface Props {
   size?: number;
   class?: string;
-  tile?: boolean;
 }
-const { size = 32, class: className, tile = true } = Astro.props;
+
+const { size = 32, class: className } = Astro.props;
 ---
 
-<svg
-  class={className}
-  width={size}
-  height={size}
-  viewBox="0 0 64 64"
-  role="img"
-  aria-label="Scenra"
->
-  {tile && <rect x="1" y="1" width="62" height="62" rx="14" fill="var(--mark-tile)" stroke="var(--mark-line)" />}
-  <path d="M43.8 18.8H25.4a6.6 6.6 0 0 0 0 13.2h13.2a6.6 6.6 0 0 1 0 13.2H20.2" fill="none" stroke="var(--mark-path)" stroke-width="5" stroke-linecap="round" />
-  <rect x="42" y="12.6" width="9" height="12.6" rx="2.6" fill="var(--mark-green)" />
-  <circle cx="32" cy="32" r="5" fill="var(--mark-amber)" />
-  <rect x="13" y="38.9" width="9" height="12.6" rx="2.6" fill="var(--mark-indigo)" />
+<svg class={className} width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
+  <rect x="1" y="1" width="62" height="62" rx="14" fill="#23263a"></rect>
+  <path
+    d="M43.8 18.8H25.4a6.6 6.6 0 0 0 0 13.2h13.2a6.6 6.6 0 0 1 0 13.2H20.2"
+    stroke="#f4f1ea"
+    stroke-width="5"
+    stroke-linecap="round"></path>
+  <rect x="42" y="12.6" width="9" height="12.6" rx="2.6" fill="#45a56a"></rect>
+  <circle cx="32" cy="32" r="5" fill="#e8a93a"></circle>
+  <rect x="13" y="38.9" width="9" height="12.6" rx="2.6" fill="#5b5ee0"></rect>
 </svg>

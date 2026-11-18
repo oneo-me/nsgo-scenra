@@ -1,0 +1,107 @@
+---
+// What the app and the site count, and what they never send, from
+// src/copy.ts.
+import Layout from './Layout.astro';
+import Icon from '../components/Icon.astro';
+import { copies } from '../copy';
+import { pagePath, site, type Lang } from '../site';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const copy = copies[lang];
+const page = copy.privacy;
+---
+
+<Layout
+  lang={lang}
+  title={page.title}
+  description={page.description}
+  page="privacy/"
+  zhRedirect={lang === 'en' ? pagePath('zh', 'privacy/') : undefined}
+>
+  <article class="wrap privacy">
+    <h1 class="text-[clamp(36px,5vw,52px)] tracking-[-0.035em]">{page.heading}</h1>
+    <p class="privacy-lead">{page.lead}</p>
+    {
+      page.sections.map((section) => (
+        <section>
+          <h2>{section.title}</h2>
+          {section.body.map((paragraph) => <p>{paragraph}</p>)}
+          {section.items.length > 0 && (
+            <ul>
+              {section.items.map((item) => <li>{item}</li>)}
+            </ul>
+          )}
+        </section>
+      ))
+    }
+    <p class="mt-6">
+      <a class="text-link" href={site.issues} target="_blank" rel="noopener noreferrer">
+        github.com/oneo-me/nsgo-scenra/issues
+        <Icon name="arrow-up-right" size={15} />
+      </a>
+    </p>
+    <a class="btn btn-secondary mt-14" href={pagePath(lang)}>
+      <Icon name="arrow-left" size={16} />
+      {page.back}
+    </a>
+  </article>
+</Layout>
+
+<style>
+  .privacy {
+    max-width: 760px;
+    padding-top: 72px;
+    padding-bottom: 120px;
+  }
+
+  .privacy .privacy-lead {
+    margin-top: 16px;
+    font-size: 19px;
+  }
+
+  .privacy section {
+    margin-top: 48px;
+  }
+
+  .privacy h2 {
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .privacy p,
+  .privacy li {
+    color: var(--color-muted);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .privacy section p {
+    margin-top: 12px;
+  }
+
+  .privacy ul {
+    display: grid;
+    gap: 8px;
+    margin-top: 14px;
+    padding-left: 20px;
+    list-style: disc;
+  }
+
+  .text-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-accent);
+    font-weight: 500;
+  }
+
+  .text-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+</style>
