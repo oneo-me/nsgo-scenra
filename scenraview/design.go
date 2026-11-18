@@ -379,7 +379,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 						Children: []core.Node{framed(i, screenView(cx, s, i, sel))}})
 			}
 		}
-		return core.View{TestID: "design", Style: style,
+		// The camera's pointer layer takes the pointer over the designs.
+		return core.View{TestID: "design", Style: style, PointerEvents: core.PointerEventsNone,
 			Children: append(append(append(screens, taps(s)), remarkPins(cx, s, sel, c.Zoom, glow)...), hover, selected)}
 	})
 	// comments counts the designs' comments.
