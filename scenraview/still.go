@@ -9,6 +9,10 @@ import (
 // stillGap is the room between the designs a Still draws.
 const stillGap = 32
 
+// stillName is the name a Still's file takes among its project's designs,
+// one no file has.
+const stillName = "\x00still"
+
 // Still draws the designs or the component of a Scenra file's Source
 // still, as the editor does with nothing selected: one under another, each
 // at its size, a component beside its variants, its uses drawn from the
@@ -40,22 +44,34 @@ func (s Still) Render(cx *core.Scope) core.Node {
 	type project struct {
 		parts components
 		pics  assets
+		docs  designs
 	}
 	read := core.NewSignalFunc(cx, project{}, func(a, b project) bool {
-		return sameComponents(a.parts, b.parts) && sameAssets(a.pics, b.pics)
+		return sameComponents(a.parts, b.parts) && sameAssets(a.pics, b.pics) && sameDesigns(a.docs, b.docs)
 	})
 	if s.Project != "" {
 		go func() {
-			_, parts, pics, _, _ := scan(s.Project, nil)
-			cx.Post(func() { read.Set(project{parts, pics}) })
+			_, parts, pics, _, docs := scan(s.Project, nil)
+			cx.Post(func() { read.Set(project{parts, pics, docs}) })
 		}()
 	}
 	return core.Dynamic(func(cx *core.Scope) core.Node {
 		p := read.Get()
 		sel := stillSelection(cx, f.Screens, p.parts, p.pics)
 		sel.bare = func() bool { return true }
+		// The file is the project's under a name of its own, as this
+		// version of it may not be the one the project holds.
+		ds := p.docs.with(stillName, f)
 		var screens []core.Node
 		for i := range f.Screens {
+			if hops, msg := ds.hosts(place{stillName, i}); msg == "" && len(hops) > 0 {
+				one, shown, _ := composed(ds, hops, place{stillName, i})
+				host := stillSelection(cx, one.Screens, p.parts, p.pics)
+				host.bare = sel.bare
+				host.fills = func(k string) ([]flowfile.Element, bool) { return fillOf(shown, ds, k) }
+				screens = append(screens, screenView(cx, one, 0, host))
+				continue
+			}
 			sel.screen = i
 			screens = append(screens, withVariants(cx, f, i, screenView(cx, f, i, sel), sel))
 		}

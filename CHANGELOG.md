@@ -30,4 +30,4 @@
 - Add macOS, Windows and Linux builds in English and Simplified Chinese, for desktops only.
 - Add opt-out anonymous usage statistics.
 - Add an official website in English and Simplified Chinese on GitHub Pages, with anonymous statistics
-- Add `scenraview`, which lets other NSGo apps open, edit and chart folders of Scenra files with the editor's views, alone or in Scenra's window, and draw any version of a file still, such as one Git keeps, without opening it.
+- Add `scenraview`, which lets other NSGo apps open, edit and chart folders of Scenra files with the editor's views, alone or in Scenra's window, and draw any version of a file still, such as one Git keeps, without opening it, a view filling an outlet drawn whole in its host.
