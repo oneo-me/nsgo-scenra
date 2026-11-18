@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-18
+
 - Add a language setting choosing English, Simplified Chinese or the system's language, which applies at once and is kept for later starts.
 - Redesign the website after Agio's, with screenshots of a music app's designs and flows in both languages and appearances.
+- Fix a comment card opening at the corner of the icon or text pressed instead of beside the pointer.
 
 ## [0.1.0] - 2026-11-18
 
