@@ -85,6 +85,41 @@ func TestSettingsTurnOffTheStatistics(t *testing.T) {
 	}
 }
 
+// TestLanguageSetting shows the language chosen in the settings, keeping
+// the open tabs, and starts in it again.
+func TestLanguageSetting(t *testing.T) {
+	app := startApp(t)
+	a := folder(t, "alpha")
+	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: a}} }
+	app.Press("id:home-open-folder")
+	app.WaitFor("id:files >> label:home", 5*time.Second)
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome to alpha", time.Second)
+	app.Press("id:tab-home")
+	app.Press("id:home-settings")
+	app.WaitFor("id:settings", time.Second)
+	app.Press("id:language")
+	app.Press("text:简体中文")
+	if v, _ := app.Storage().GetItem(keyLanguage); v != "zh-Hans" {
+		t.Fatalf("language = %q, want zh-Hans", v)
+	}
+	// The settings stay open in the new language, and the tab with its
+	// file.
+	app.WaitFor("id:settings >> text:语言", time.Second)
+	app.Press("id:tab")
+	app.WaitFor("design >> text:Welcome to alpha", time.Second)
+
+	again := startApp(t, nsgotest.Storage(map[string]string{keyLanguage: "zh-Hans"}))
+	again.Press("id:home-settings")
+	again.WaitFor("id:settings >> text:语言", time.Second)
+	again.Press("id:language")
+	again.Press("text:跟随系统")
+	if _, ok := again.Storage().GetItem(keyLanguage); ok {
+		t.Fatal("following the system keeps a language")
+	}
+	again.WaitFor("id:settings >> text:Language", time.Second)
+}
+
 func TestFoldersOpenInTabsFromTheHomePage(t *testing.T) {
 	app := startApp(t)
 	app.Find("id:recent-empty")

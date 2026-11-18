@@ -73,6 +73,9 @@ const (
 	textCloseTab
 	textTabs
 	textSettingsTitle
+	textLanguageSection
+	textLanguageSystem
+	textLanguageName
 	textNamingSection
 	textNamingDetail
 	textNamingURL
@@ -110,6 +113,9 @@ var keyOfText = [numTexts]string{
 	"closeTab",
 	"tabs",
 	"settingsTitle",
+	"languageSection",
+	"languageSystem",
+	"languageName",
 	"namingSection",
 	"namingDetail",
 	"namingURL",
@@ -145,6 +151,9 @@ var textsEn = i18n.NewTexts(""+
 	"Close Tab"+
 	"Tabs"+
 	"Settings"+
+	"Language"+
+	"Follow system"+
+	"English"+
 	"Conversation titles"+
 	"Titles a new conversation from its first message with a model behind an OpenAI-compatible API, else with that message's first line."+
 	"Base URL"+
@@ -177,6 +186,9 @@ var textsEn = i18n.NewTexts(""+
 		9,
 		4,
 		8,
+		8,
+		13,
+		7,
 		19,
 		131,
 		8,
@@ -212,6 +224,9 @@ var textsZhHans = i18n.NewTexts(""+
 	"关闭标签页"+
 	"标签页"+
 	"设置"+
+	"语言"+
+	"跟随系统"+
+	"简体中文"+
 	"对话命名"+
 	"用 OpenAI 兼容接口的模型根据第一条消息为新对话命名，未设置时使用该消息的首行。"+
 	"Base URL"+
@@ -244,6 +259,9 @@ var textsZhHans = i18n.NewTexts(""+
 		15,
 		9,
 		6,
+		6,
+		12,
+		12,
 		12,
 		113,
 		8,
@@ -432,6 +450,31 @@ func SettingsTitle(cx *core.Scope) string { return For(cx).SettingsTitle() }
 
 // SettingsTitle is the package's SettingsTitle in the language of msgs.
 func (msgs Messages) SettingsTitle() string { return msgs.text(textSettingsTitle) }
+
+// LanguageSection says "Language"
+// in the language the app shows under cx.
+func LanguageSection(cx *core.Scope) string { return For(cx).LanguageSection() }
+
+// LanguageSection is the package's LanguageSection in the language of msgs.
+func (msgs Messages) LanguageSection() string { return msgs.text(textLanguageSection) }
+
+// LanguageSystem says "Follow system"
+// in the language the app shows under cx.
+//
+// The language setting's choice that follows the system's language.
+func LanguageSystem(cx *core.Scope) string { return For(cx).LanguageSystem() }
+
+// LanguageSystem is the package's LanguageSystem in the language of msgs.
+func (msgs Messages) LanguageSystem() string { return msgs.text(textLanguageSystem) }
+
+// LanguageName says "English"
+// in the language the app shows under cx.
+//
+// This language's name in itself, as the language setting lists it.
+func LanguageName(cx *core.Scope) string { return For(cx).LanguageName() }
+
+// LanguageName is the package's LanguageName in the language of msgs.
+func (msgs Messages) LanguageName() string { return msgs.text(textLanguageName) }
 
 // NamingSection says "Conversation titles"
 // in the language the app shows under cx.

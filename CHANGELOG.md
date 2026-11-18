@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add a language setting choosing English, Simplified Chinese or the system's language, which applies at once and is kept for later starts.
+
 ## [0.1.0] - 2026-11-18
 
 Scenra's first release: a desktop designer whose assistant, a coding agent you already use, draws an app's screens and flow charts in plain-text files.

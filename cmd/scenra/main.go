@@ -15,6 +15,7 @@ import (
 	"github.com/nsgo-dev/nsgo"
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/desktop"
+	"github.com/nsgo-dev/nsgo/i18n"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 	"github.com/nsgo-dev/nsgo/updater"
@@ -43,7 +44,7 @@ func Root(cx *core.Scope) core.Node {
 
 // root is Root with the agents agents runs.
 func root(cx *core.Scope, agents host.Options) core.Node {
-	colors := ui.ColorsOf(cx)
+	rememberLanguage(cx)
 	toasts := ui.NewToaster(cx)
 	page := core.NewSignal(cx, pageRecent)
 	stats := newUsage(cx)
@@ -132,17 +133,27 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		cx.OnKey("mod+w", t.closeShown)
 	}
 
-	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
-		tabBar(cx, t, titleBar),
-		core.View{Style: ui.FillRest, Children: []core.Node{
-			layer(func() bool { return t.shown.Get() == nil }, homePage(cx, t, page, m, namer)),
-			core.Each(t.open.Get, func(tb *tab) *tab { return tb }, func(cx *core.Scope, item func() *tab, _ func() int) core.Node {
-				tb := item()
-				return layer(func() bool { return t.shown.Get() == tb }, scenraview.Window{Editor: tb.e, NoHeader: true})
-			}),
-		}},
-		ui.Toasts{Toaster: toasts, Placement: ui.ToastBottomStart},
-	}}
+	// A new language builds the window's views again in it; the tabs'
+	// editors, made in scopes of their own, keep their documents and
+	// conversations.
+	return core.Dynamic(func(cx *core.Scope) core.Node {
+		i18n.Language(cx)
+		// What it builds mounts untracked, outside this function.
+		return core.Func(func(cx *core.Scope) core.Node {
+			colors := ui.ColorsOf(cx)
+			return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
+				tabBar(cx, t, titleBar),
+				core.View{Style: ui.FillRest, Children: []core.Node{
+					layer(func() bool { return t.shown.Get() == nil }, homePage(cx, t, page, m, namer)),
+					core.Each(t.open.Get, func(tb *tab) *tab { return tb }, func(cx *core.Scope, item func() *tab, _ func() int) core.Node {
+						tb := item()
+						return layer(func() bool { return t.shown.Get() == tb }, scenraview.Window{Editor: tb.e, NoHeader: true})
+					}),
+				}},
+				ui.Toasts{Toaster: toasts, Placement: ui.ToastBottomStart},
+			}}
+		})
+	})
 }
 
 // layer is a page of the window, over the others while shown says so;

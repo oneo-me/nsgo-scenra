@@ -12,6 +12,9 @@ checkForUpdates: 检查更新…
 closeTab: 关闭标签页
 tabs: 标签页
 settingsTitle: 设置
+languageSection: 语言
+languageSystem: 跟随系统
+languageName: 简体中文
 namingSection: 对话命名
 namingDetail: 用 OpenAI 兼容接口的模型根据第一条消息为新对话命名，未设置时使用该消息的首行。
 namingURL: Base URL
