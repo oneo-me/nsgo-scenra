@@ -539,18 +539,18 @@ func screenView(cx *core.Scope, f flowfile.File, i int, sel selection) core.Node
 		height = core.Pt(core.Points(h))
 	}
 	// The frame's look is classes, so the design's own win over them.
-	radius := "rounded-[44px]"
-	device := f.Screens[i].Device
-	if host, ok := sel.hosted[i]; ok {
-		device = host.device
-	}
-	switch device {
+	frame := "border border-border bg-background text-foreground rounded-[44px]"
+	switch f.Screens[i].Device {
 	case "tablet":
-		radius = "rounded-[28px]"
+		frame = "border border-border bg-background text-foreground rounded-[28px]"
 	case "desktop":
-		radius = "rounded-[12px]"
+		frame = "border border-border bg-background text-foreground rounded-[12px]"
 	}
-	frame := "border border-border bg-background text-foreground " + radius
+	// A design filling an outlet is framed as its outlet is in its host,
+	// so the device's outline does not draw a second one around it.
+	if host, ok := sel.hosted[i]; ok {
+		frame = strings.TrimSpace("bg-background text-foreground " + host.look)
+	}
 	if class := f.Screens[i].Class; class != "" {
 		frame += " " + class
 	}

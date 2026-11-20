@@ -5,7 +5,7 @@
 - Add `scenraview.Check`, telling the problems of a folder's or a file's Scenra files, as the MCP server reports them, without opening Scenra.
 - Draw any design or view inside another with `use` by its name, leaving `components/` to the shared components.
 - Shape a design's frame, its background, outline and corners, with `class=` on its line, so the assistant no longer draws a second frame inside it.
-- Fix a view filling an outlet flashing at its device's size, a large rounded phone frame, before taking its outlet's.
+- Fix a view filling an outlet flashing at its device's size, a large rounded phone frame, before taking its outlet's, and framing its content with a device's outline and corners instead of its outlet's, which doubled a panel's or card's own.
 
 ## [0.1.1] - 2026-11-18
 

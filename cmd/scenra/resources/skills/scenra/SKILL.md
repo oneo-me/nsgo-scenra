@@ -317,7 +317,7 @@ end
 ```
 
 - Taps and `in=` name a design by its file name alone, at the top or in `views/`, such as `tap="open issues"`, never `views/issues`, so moving a design between them breaks nothing; never give a view the name of a design at the top.
-- A design filling an outlet draws alone at the size the outlet lays out at, so it needs no `device=`, `width=` or `height=`; those it writes win.
+- A design filling an outlet draws alone at the size the outlet lays out at, framed as the outlet is, by its background, border and corners, rather than as a device, so it needs no `device=`, `width=` or `height=`, those it writes winning, and draws no frame of its own: shape the outlet's box where the window shows it.
 - It plays inside its host: opening it, from the host or a design its outlet shows, swaps only the outlet's content, so the rest of the window stays and keeps working, and what opens it is selected. `tap="close"` returns the outlet to what it showed before, or to its own elements; `tap="close window"` closes the whole window, as Interactions says.
 - A host may fill an outlet of its own, as the categories of a settings window fill its content, which fills the main window.
 - The first design's `in=` stands for the others of its file that write none.

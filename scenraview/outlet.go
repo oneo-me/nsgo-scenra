@@ -193,6 +193,25 @@ func fillOf(fs fills, ds designs, key string) ([]flowfile.Element, bool) {
 type hosting struct {
 	size   core.Size
 	device string
+	// look is the classes of the outlet that shape its box, which the
+	// design's frame takes in place of the device's.
+	look string
+}
+
+// outletLook is what of class, an outlet's, shapes its box rather than
+// lays it out: its background, border, corners and shadow.
+func outletLook(class string) string {
+	var out []string
+	for _, c := range strings.Fields(class) {
+		u := c[strings.LastIndex(c, ":")+1:]
+		for _, prefix := range []string{"bg-", "border", "rounded", "shadow", "ring"} {
+			if strings.HasPrefix(u, prefix) {
+				out = append(out, c)
+				break
+			}
+		}
+	}
+	return strings.Join(out, " ")
 }
 
 // sizeOf is the size the design of f at i is drawn at: the one it sets,

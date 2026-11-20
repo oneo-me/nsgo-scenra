@@ -112,10 +112,27 @@ func TestADesignFillingAnOutletTakesItsSize(t *testing.T) {
 	openPath(t, app, e, filepath.Join(dir, "views", "issues.scenra"))
 	app.WaitFor("design >> text:Issue list", 5*time.Second)
 	// The desktop's 1200 by 760 inside its border, less the sidebar, is
-	// the design's, inside its own border.
+	// the design's, framed as its borderless outlet.
 	app.WaitUntil(time.Second, func() bool {
 		f := app.Find("id:element-0/0").Frame.Size
-		return f.Width == 1198-224-2 && f.Height == 758-2
+		return f.Width == 1198-224 && f.Height == 758
+	})
+	if st := app.Find("id:frame-0").Style; st.BorderWidth != 0 || st.CornerRadius != 0 {
+		t.Fatalf("the frame is %+v", st)
+	}
+}
+
+func TestADesignFillingAnOutletIsFramedAsItsOutlet(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"main.scenra":    "design device=desktop\nbox class=\"flex-1 p-2\"\n  box class=\"flex-1 rounded-xl border border-border shadow-lg\" outlet=content\n  end\nend\n",
+		"views/a.scenra": "design in=\"main#content\"\nbox class=\"flex-1\"\n  text \"Alpha\"\nend\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "views", "a.scenra"))
+	app.WaitFor("design >> text:Alpha", 5*time.Second)
+	app.WaitUntil(time.Second, func() bool {
+		st := app.Find("id:frame-0").Style
+		return st.BorderWidth == 1 && st.CornerRadius == 12
 	})
 }
 

@@ -539,13 +539,17 @@ func hostsOf(cx *core.Scope, e *Editor, look *core.Memo[lookOf], hosted *core.Si
 			still.fills = func(k string) ([]flowfile.Element, bool) { return fillOf(shown, ds, k) }
 			still.unseen = true
 			device := one.Screens[0].Device
+			var look string
+			if out, ok := flowfile.ElementAt(ds[hops[0].name].Screens[hops[0].index].UI, flowfile.FormatPath(hops[0].outlet)); ok {
+				look = outletLook(out.Attr("class"))
+			}
 			still.report = func(k string, fr frame) {
 				if k == key {
-					record(i, hosting{fr.Size, device})
+					record(i, hosting{fr.Size, device, look})
 				}
 			}
 			nodes = append(nodes, core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0)},
-				OnLayout: func(core.Bounds) { record(i, hosting{device: device}) },
+				OnLayout: func(core.Bounds) { record(i, hosting{device: device, look: look}) },
 				Children: []core.Node{screenView(cx, one, 0, still)}})
 		}
 		return unseen("design-hosts", nodes)
