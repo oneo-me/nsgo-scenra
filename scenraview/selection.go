@@ -75,8 +75,13 @@ func view(dir, root string, files []fileView, parts components, pics assets, not
 				flowfile.FormatUI([]flowfile.Element{el}))
 		}
 	}
-	if len(parts) > 0 {
-		names := slices.Sorted(maps.Keys(parts))
+	var names []string
+	for _, name := range slices.Sorted(maps.Keys(parts)) {
+		if isComponentFile(parts[name].Path) {
+			names = append(names, name)
+		}
+	}
+	if len(names) > 0 {
 		fmt.Fprintf(&b, "Components, which designs and components draw with use <name>: %s.\n", strings.Join(names, ", "))
 	}
 	section := func(title string, line func(f fileView) []string) {
@@ -265,7 +270,7 @@ func notedFiles(files []fileView, shown *fileView, parts components, notes strin
 	var visit func(els []flowfile.Element)
 	visit = func(els []flowfile.Element) {
 		for _, name := range flowfile.Uses(els) {
-			path := flowfile.ComponentPath(name)
+			path := flowfile.PartPath(name, parts.find)
 			if part, ok := parts[name]; ok && !slices.Contains(paths, path) {
 				paths = append(paths, path)
 				visit(part.UI)

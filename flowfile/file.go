@@ -208,7 +208,7 @@ var Elements = []ElementSpec{
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
 	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the one src names, a file of the assets folder such as assets/latte.jpg or a URL, or a placeholder; size it with classes"},
 	{Kind: "svg", Doc: "any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox"},
-	{Kind: "use", Doc: "the component its text names, a file of the components folder, its classes added to the component's element when it has one at its top, which win over its own, or else drawn as a box with its classes holding them; fill lines right after it, up to its end, fill the component's slots"},
+	{Kind: "use", Doc: "the component its text names, a file of the components folder, or else the design, at the top or in the views folder, its classes added to the component's element when it has one at its top, which win over its own, or else drawn as a box with its classes holding them; fill lines right after it, up to its end, fill the component's slots"},
 	{Kind: "slot", Holds: true, Doc: "in a component, a box holding what a use's fill of the name its text gives holds, the default slot without one, or else what the slot holds"},
 	{Kind: "fill", Holds: true, Doc: "inside a use, what the slot of its component the text names draws, the default slot without one"},
 }

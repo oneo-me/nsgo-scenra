@@ -125,7 +125,7 @@ func FillProblems(use Element, parts Parts) []string {
 		if slices.Contains(slots, fill.Text) {
 			continue
 		}
-		msg := fmt.Sprintf("use %q: the fill of %s fills nothing, as %s has no such slot", use.Text, slotName(fill.Text), ComponentPath(use.Text))
+		msg := fmt.Sprintf("use %q: the fill of %s fills nothing, as %s has no such slot", use.Text, slotName(fill.Text), PartPath(use.Text, parts))
 		if len(slots) > 0 {
 			names := make([]string, len(slots))
 			for i, s := range slots {

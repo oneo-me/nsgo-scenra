@@ -745,7 +745,7 @@ func componentProblems(s flowfile.Screen, self string, parts components) []strin
 	}
 	for _, name := range flowfile.Uses(els) {
 		if _, ok := parts[name]; !ok {
-			out = append(out, fmt.Sprintf("use %q: there is no %s", name, flowfile.ComponentPath(name)))
+			out = append(out, fmt.Sprintf("use %q: there is no %s, nor a design of that name", name, flowfile.ComponentPath(name)))
 		} else if chain := loop(name, using); chain != nil {
 			out = append(out, fmt.Sprintf("use %q: components use each other in a loop, %s; take a use out of it", name, strings.Join(chain, " uses ")))
 		}

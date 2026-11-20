@@ -104,7 +104,9 @@
 // sizes are its drawing's alone: its uses take the sizes their classes
 // give. It lives in the components folder
 // at the top of the project, so any design or component uses it by its
-// path there; a use is one element, drawn as the component's element at
+// path there; any design, at the top or a view, draws as a component
+// too, its first design, by its name, which a component's wins over. A
+// use is one element, drawn as the component's element at
 // its top, which takes the use's classes, or else a box holding the
 // component's elements, and may change the texts, classes, pictures and
 // taps of the elements the component names, as Figma's instances and

@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Draw any design or view inside another with `use` by its name, leaving `components/` to the shared components.
+
 ## [0.1.1] - 2026-11-18
 
 - Add a language setting choosing English, Simplified Chinese or the system's language, which applies at once and is kept for later starts.

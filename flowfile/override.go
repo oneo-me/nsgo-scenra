@@ -194,10 +194,22 @@ func overrideKeys(attrs map[string]string) []string {
 	return out
 }
 
-// Part is a component as its uses draw it: its elements and variants.
+// Part is a component as its uses draw it: its elements and variants,
+// and the path of its file, which messages name, when it is not the
+// component's path, as for a design drawn as a component.
 type Part struct {
+	Path     string
 	UI       []Element
 	Variants []Variant
+}
+
+// PartPath is the path of the file of the component parts finds by name:
+// its own, or else its path in the components folder.
+func PartPath(name string, parts Parts) string {
+	if p, ok := parts(name); ok && p.Path != "" {
+		return p.Path
+	}
+	return ComponentPath(name)
 }
 
 // Variant returns the variant of p with id.
@@ -610,13 +622,13 @@ func stateProblems(states, name string, els []Element, parts Parts) []string {
 		if st.Target != "" {
 			scope = named(els, st.Target)
 			if len(scope) == 0 {
-				out = append(out, fmt.Sprintf("state=%s names nothing: no element of %s has name=%s", st.State+"@"+st.Target, ComponentPath(name), st.Target))
+				out = append(out, fmt.Sprintf("state=%s names nothing: no element of %s has name=%s", st.State+"@"+st.Target, PartPath(name, parts), st.Target))
 				continue
 			}
 		}
 		if !hasStateClasses(scope, st.State, parts) {
 			v := stateVariant(st.State)
-			out = append(out, fmt.Sprintf("state=%s draws nothing: %s has no %s: or group-%s: classes there", st.State, ComponentPath(name), v, v))
+			out = append(out, fmt.Sprintf("state=%s draws nothing: %s has no %s: or group-%s: classes there", st.State, PartPath(name, parts), v, v))
 		}
 	}
 	return out
@@ -627,13 +639,13 @@ func stateProblems(states, name string, els []Element, parts Parts) []string {
 func overrideProblem(o Override, path []string, name string, els []Element, parts Parts) string {
 	found := named(els, path[0])
 	if len(found) == 0 {
-		return fmt.Sprintf("names nothing: no element of %s has name=%s, nor is it a slot's name", ComponentPath(name), path[0])
+		return fmt.Sprintf("names nothing: no element of %s has name=%s, nor is it a slot's name", PartPath(name, parts), path[0])
 	}
 	for _, el := range found {
 		if el.Kind == "slot" {
 			switch {
 			case len(path) > 1:
-				return fmt.Sprintf("goes inside %s, a slot of %s, not a use; change what a fill holds where it is written", path[0], ComponentPath(name))
+				return fmt.Sprintf("goes inside %s, a slot of %s, not a use; change what a fill holds where it is written", path[0], PartPath(name, parts))
 			case o.Attr == "":
 				return fmt.Sprintf("sets the text of %s, a slot, which has none; fill it, or change its class", path[0])
 			case o.Attr != "class":
@@ -643,7 +655,7 @@ func overrideProblem(o Override, path []string, name string, els []Element, part
 		}
 		if len(path) > 1 {
 			if el.Kind != "use" {
-				return fmt.Sprintf("goes inside %s, a %s of %s, not a use", path[0], el.Kind, ComponentPath(name))
+				return fmt.Sprintf("goes inside %s, a %s of %s, not a use", path[0], el.Kind, PartPath(name, parts))
 			}
 			if part, ok := parts(el.Text); ok {
 				if msg := overrideProblem(o, path[1:], el.Text, Instance(el, part), parts); msg != "" {
@@ -656,11 +668,11 @@ func overrideProblem(o Override, path []string, name string, els []Element, part
 		case o.Attr == "src" && el.Kind != "image":
 			return fmt.Sprintf("sets the src of %s, a %s, which only images take", path[0], el.Kind)
 		case o.Attr == "variant" && el.Kind != "use":
-			return fmt.Sprintf("picks variants of %s, a %s of %s, not a use", path[0], el.Kind, ComponentPath(name))
+			return fmt.Sprintf("picks variants of %s, a %s of %s, not a use", path[0], el.Kind, PartPath(name, parts))
 		case o.Attr == "variant":
 			if part, ok := parts(el.Text); ok {
 				if msg := variantProblem(o.Value, part); msg != "" {
-					return fmt.Sprintf("picks %s, a use of %s, which has %s", path[0], ComponentPath(el.Text), msg)
+					return fmt.Sprintf("picks %s, a use of %s, which has %s", path[0], PartPath(el.Text, parts), msg)
 				}
 			}
 		case o.Attr == "state":
@@ -672,7 +684,7 @@ func overrideProblem(o Override, path []string, name string, els []Element, part
 			return fmt.Sprintf("sets the text of %s, a box, which has none; change its class instead", path[0])
 		case el.Kind == "use":
 			if _, ok := parts(o.Value); !ok {
-				return fmt.Sprintf("swaps %s for %s, which does not exist", path[0], ComponentPath(o.Value))
+				return fmt.Sprintf("swaps %s for %s, which is neither %s nor a design", path[0], o.Value, ComponentPath(o.Value))
 			}
 		default:
 			el.Text = o.Value

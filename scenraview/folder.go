@@ -98,12 +98,14 @@ type scanned struct {
 	data  []byte
 }
 
-// components are the components the open folder's designs use, by name.
+// components are what the open folder's designs use, by name: its
+// components, and its designs, which any design may draw as one, as
+// their first design draws, unless a component has their name.
 type components map[string]flowfile.Part
 
 func sameComponents(a, b components) bool {
 	return maps.EqualFunc(a, b, func(x, y flowfile.Part) bool {
-		return flowfile.FormatUI(x.UI) == flowfile.FormatUI(y.UI) && slices.EqualFunc(x.Variants, y.Variants, func(v, w flowfile.Variant) bool {
+		return x.Path == y.Path && flowfile.FormatUI(x.UI) == flowfile.FormatUI(y.UI) && slices.EqualFunc(x.Variants, y.Variants, func(v, w flowfile.Variant) bool {
 			return v.ID == w.ID && maps.Equal(v.Attrs, w.Attrs)
 		})
 	})
@@ -176,12 +178,14 @@ func skipped(name string) bool { return strings.HasPrefix(name, ".") || name == 
 // scan finds the Scenra files under root, those outside the project's
 // layout too, which the server tells of, and the pictures of its assets
 // folder, reading again only those that changed since the scan whose
-// files were cache, and returns the Scenra files, the components among
-// them, the pictures, the cache of this one and the files of designs.
+// files were cache, and returns the Scenra files, the components and
+// designs uses draw, the pictures, the cache of this one and the files
+// of designs.
 func scan(root string, cache map[string]scanned) ([]entry, components, assets, map[string]scanned, designs) {
 	var out []entry
 	parts := components{}
 	docs := designs{}
+	docPaths := map[string]string{}
 	pics := assets{}
 	next := map[string]scanned{}
 	seen := 0
@@ -244,6 +248,7 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 		next[p] = c
 		out = append(out, c.entry)
 		if name, ok := flowfile.ComponentName(c.entry.path); ok && c.entry.kind == flowfile.Component {
+			c.part.Path = rel
 			parts[name] = c.part
 		}
 		// A design at the top wins over a view of its name, which the
@@ -251,10 +256,16 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 		if name, ok := designNameOf(rel); ok && c.file != nil {
 			if _, taken := docs[name]; !taken || !strings.Contains(rel, "/") {
 				docs[name] = *c.file
+				docPaths[name] = rel
 			}
 		}
 		return nil
 	})
+	for name, f := range docs {
+		if _, taken := parts[name]; !taken && len(f.Screens) > 0 && flowfile.ValidComponentName(name) {
+			parts[name] = flowfile.Part{Path: docPaths[name], UI: f.Screens[0].UI}
+		}
+	}
 	return out, parts, pics, next, docs
 }
 

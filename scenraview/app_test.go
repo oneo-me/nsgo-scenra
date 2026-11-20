@@ -365,6 +365,31 @@ func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	app.WaitFor("id:element-0/0", time.Second)
 }
 
+func TestDesignsDrawOtherDesignsAsComponents(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra":             "design\nbox class=\"flex-1\"\n  use order-list title=\"Recent orders\"\n  use banner\n  use card\nend\n",
+		"banner.scenra":           "design\ntext \"Top banner\"\n",
+		"card.scenra":             "design\ntext \"Card design\"\n",
+		"views/order-list.scenra": "design in=\"home#content\"\nbox class=\"gap-2\"\n  text \"Orders\" name=title\nend\n",
+		"components/card.scenra":  "component\ntext \"Card component\"\n",
+	})
+	_, parts, _, _, _ := scan(dir, nil)
+	if parts["order-list"].Path != "views/order-list.scenra" || parts["card"].Path != "components/card.scenra" {
+		t.Fatalf("parts %v", parts)
+	}
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	// Views and designs at the top draw where they are used, changed by
+	// their names as components are, and a component wins over a design
+	// of its name.
+	app.WaitFor("design >> text:Recent orders", 5*time.Second)
+	app.Find("design >> text:Top banner")
+	app.Find("design >> text:Card component")
+	if app.Exists("design >> text:Card design") {
+		t.Fatal("a design drew in place of the component of its name")
+	}
+}
+
 func TestImagesShowThePicturesOfTheAssetsFolder(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"home.scenra":            "design\nimage \"Latte\" src=\"assets/latte.png\"\nimage \"Gone\" src=\"assets/gone.png\"\nuse card pic.src=\"./assets/cups/mocha.png\"\n",

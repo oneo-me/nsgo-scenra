@@ -352,7 +352,7 @@ func TestOverrides(t *testing.T) {
 	bad, _ := ParseUI("use card nope=x title.src=y card=z icon=nope badge=gone title/label=x\nuse card badge/size=x\n")
 	got := strings.Join(slices.Concat(OverrideProblems(bad[0], find), OverrideProblems(bad[1], find)), "\n")
 	for _, want := range []string{"nope=\"x\" names nothing", "title.src=\"y\" sets the src of title, a text", "card=\"z\" sets the text of card, a box",
-		"icon=\"nope\" unknown icon", "badge=\"gone\" swaps badge for components/gone.scenra", "title/label=\"x\" goes inside title, a text",
+		"icon=\"nope\" unknown icon", "badge=\"gone\" swaps badge for gone, which is neither components/gone.scenra nor a design", "title/label=\"x\" goes inside title, a text",
 		"badge/size=\"x\" names nothing: no element of components/badge.scenra"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("no problem %q in\n%s", want, got)
