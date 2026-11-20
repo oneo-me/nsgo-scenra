@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-21
+
 - Add `scenraview.Check`, telling the problems of a folder's or a file's Scenra files, as the MCP server reports them, without opening Scenra.
 - Draw any design or view inside another with `use` by its name, leaving `components/` to the shared components.
 - Shape a design's frame, its background, outline and corners, with `class=` on its line, so the assistant no longer draws a second frame inside it.
