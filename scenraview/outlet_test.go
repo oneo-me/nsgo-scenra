@@ -119,6 +119,19 @@ func TestADesignFillingAnOutletTakesItsSize(t *testing.T) {
 	})
 }
 
+func TestADesignFillingAnOutletNotLaidOutTakesItsDevicesSize(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"main.scenra":    "design device=desktop\nbox class=\"flex-1\"\n  box class=\"hidden\" outlet=content\n  end\nend\n",
+		"views/a.scenra": "design in=\"main#content\"\nbox class=\"flex-1\"\n  text \"Alpha\"\nend\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "views", "a.scenra"))
+	app.WaitFor("design >> text:Alpha", 5*time.Second)
+	if w := app.Find("id:frame-0").Frame.Size.Width; w != 390 {
+		t.Fatalf("the design is %v wide", w)
+	}
+}
+
 func TestTheServerTellsHowDesignsLayOut(t *testing.T) {
 	files := map[string]string{
 		"form.scenra": "design\nbox class=\"flex-1 items-center gap-2\"\n" +

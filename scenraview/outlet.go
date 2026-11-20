@@ -188,7 +188,8 @@ func fillOf(fs fills, ds designs, key string) ([]flowfile.Element, bool) {
 }
 
 // hosting is where a design filling an outlet is drawn: the size the
-// outlet lays out at and the device of the design at the top holding it.
+// outlet lays out at, none when it does not, and the device of the
+// design at the top holding it.
 type hosting struct {
 	size   core.Size
 	device string
@@ -200,7 +201,7 @@ type hosting struct {
 func sizeOf(f flowfile.File, i int, hosted map[int]hosting) (w, h int) {
 	w, h = f.Size(i)
 	host, ok := hosted[i]
-	if _, in := f.HostOf(i); !in || !ok {
+	if _, in := f.HostOf(i); !in || !ok || host.size == (core.Size{}) {
 		return w, h
 	}
 	if f.Screens[i].Width == 0 {

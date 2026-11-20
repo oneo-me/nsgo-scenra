@@ -360,6 +360,20 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			return core.View{OnLayout: func(b core.Bounds) { measured[i] = b.Size }, Children: []core.Node{view}}
 		}
 		var style core.Style
+		// The designs, with their marks, stay unseen until the outlets
+		// they fill lay out, rather than showing a moment at their
+		// devices' sizes.
+		file := e.designName(core.Untracked(cx, e.cur).path)
+		for i := range s.Screens {
+			if _, ok := sel.hosted[i]; ok {
+				continue
+			}
+			if _, in := s.HostOf(i); in {
+				if hops, msg := ds.hosts(place{file, i}); msg == "" && len(hops) > 0 {
+					style.Opacity = core.Alpha(0)
+				}
+			}
+		}
 		var screens []core.Node
 		if !s.Several() {
 			// A component's variants show beside it.
@@ -481,7 +495,8 @@ func unseen(testID string, kids []core.Node) core.Node {
 // hostsOf lays out, unseen, the designs holding those of the file shown
 // that fill outlets, each showing the design in its outlet as it plays,
 // and keeps the size each outlet lays out at in hosted, which the
-// designs filling them take.
+// designs filling them take. A host whose outlet does not lay out, as
+// one in a box hidden, leaves its design the size of its device.
 func hostsOf(cx *core.Scope, e *Editor, look *core.Memo[lookOf], hosted *core.Signal[map[int]hosting]) core.Node {
 	return core.Dynamic(func(cx *core.Scope) core.Node {
 		lk := look.Get()
@@ -497,12 +512,18 @@ func hostsOf(cx *core.Scope, e *Editor, look *core.Memo[lookOf], hosted *core.Si
 					if out == nil {
 						out = map[int]hosting{}
 					}
-					maps.Copy(out, pending)
+					for i, h := range pending {
+						if _, ok := out[i]; !ok || h.size != (core.Size{}) {
+							out[i] = h
+						}
+					}
 					pending = nil
 					hosted.Set(out)
 				})
 			}
-			pending[i] = h
+			if _, ok := pending[i]; !ok || h.size != (core.Size{}) {
+				pending[i] = h
+			}
 		}
 		var nodes []core.Node
 		for i := range f.Screens {
@@ -524,6 +545,7 @@ func hostsOf(cx *core.Scope, e *Editor, look *core.Memo[lookOf], hosted *core.Si
 				}
 			}
 			nodes = append(nodes, core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0)},
+				OnLayout: func(core.Bounds) { record(i, hosting{device: device}) },
 				Children: []core.Node{screenView(cx, one, 0, still)}})
 		}
 		return unseen("design-hosts", nodes)
