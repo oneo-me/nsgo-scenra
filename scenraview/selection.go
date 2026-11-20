@@ -124,6 +124,30 @@ func view(dir, root string, files []fileView, parts components, pics assets, not
 		}
 		return out
 	})
+	b.WriteString(problems(files, parts, pics, func(fileView) bool { return true }))
+	return b.String()
+}
+
+// problems tells the problems of the Scenra files of a project, files,
+// whose components are parts and pictures pics, a section each: those
+// of the files keep says, though every file counts in finding them, or
+// nothing when they have none.
+func problems(files []fileView, parts components, pics assets, keep func(fileView) bool) string {
+	var b strings.Builder
+	section := func(title string, line func(f fileView) []string) {
+		var lines []string
+		for _, f := range files {
+			if keep(f) {
+				lines = append(lines, line(f)...)
+			}
+		}
+		if len(lines) > 0 {
+			b.WriteString(title + "\n")
+			for _, l := range lines {
+				b.WriteString("- " + l + "\n")
+			}
+		}
+	}
 	// opens are what taps open: a file of designs by its name, and each
 	// of its designs with an ID by the name, # and the ID.
 	var opens []string

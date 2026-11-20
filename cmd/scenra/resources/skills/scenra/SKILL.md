@@ -19,7 +19,7 @@ Let a design show what happens on it, as the user sees it there: taps opening th
 1. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so.
 2. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
 
-When the editor tells you what the user sees and reports the problems of the files, as the Scenra app's MCP server does, the scenra-app skill says how to ask it; the problems it reports are those this skill names.
+When the editor tells you what the user sees and reports the problems of the files, as the Scenra app's MCP server does, the scenra-app skill says how to ask it; the problems it reports are those this skill names. Without an editor, a check tool your host gives, if any, reports the same problems, except how the designs lay out; run it after writing the files.
 
 The editor saves files in their canonical form, which drops `#` comments, so do not keep notes in them.
 

@@ -277,19 +277,24 @@ func (e *Editor) readFolder(dir string) (string, []fileView, components, assets)
 	shown := e.shown()
 	for _, en := range found {
 		path := filepath.Join(root, filepath.FromSlash(en.path))
-		fv := fileView{path: en.path}
-		if shown.path == path {
-			fv.file, fv.broken = shown.doc.GetUntracked(), shown.broken.GetUntracked()
-		} else if f, err := readFile(path); err != nil {
-			fv.broken = err.Error()
-		} else {
-			fv.file = f
-		}
+		fv := fileViewOf(root, en)
 		if shown.path == path {
 			at := shown.at()
-			fv.shown = &at
+			fv.file, fv.broken, fv.shown = shown.doc.GetUntracked(), shown.broken.GetUntracked(), &at
 		}
 		files = append(files, fv)
 	}
 	return root, files, parts, pics
+}
+
+// fileViewOf is the Scenra file en a scan of root found, as the server
+// tells of it, read from the device.
+func fileViewOf(root string, en entry) fileView {
+	fv := fileView{path: en.path}
+	if f, err := readFile(filepath.Join(root, filepath.FromSlash(en.path))); err != nil {
+		fv.broken = err.Error()
+	} else {
+		fv.file = f
+	}
+	return fv
 }
