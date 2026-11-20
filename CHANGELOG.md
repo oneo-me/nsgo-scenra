@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 - Draw any design or view inside another with `use` by its name, leaving `components/` to the shared components.
+- Shape a design's frame, its background, outline and corners, with `class=` on its line, so the assistant no longer draws a second frame inside it.
 
 ## [0.1.1] - 2026-11-18
 

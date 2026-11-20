@@ -44,6 +44,7 @@
 //	icon x tap="close window"          # closes the window it shows in; see Tap
 //
 //	design in="main#content"         # fills main.scenra's outlet content
+//	design class="bg-zinc-50 rounded-none border-0"   # its frame's look
 //
 //	component width=fill preview=360 backdrop="bg-muted > bg-black/5"   # in components/tab-bar.scenra
 //	box class="group flex-row border-t border-border px-2 pt-2 pb-7 selected:bg-muted"

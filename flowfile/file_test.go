@@ -108,6 +108,15 @@ func TestDesignSize(t *testing.T) {
 		f.Format() != "component device=tablet width=fill backdrop=\"bg-inset p-2\"\n" {
 		t.Fatalf("a component filling the width: %v %+v\n%s", err, f, f.Format())
 	}
+	// A design's classes shape its frame; a component has no frame.
+	f, err = Parse("design device=desktop class=\"bg-zinc-50 rounded-none\"\n")
+	if err != nil || f.Screens[0].Class != "bg-zinc-50 rounded-none" ||
+		f.Format() != "design device=desktop class=\"bg-zinc-50 rounded-none\"\n" {
+		t.Fatalf("a design's classes: %v %+v\n%s", err, f, f.Format())
+	}
+	if _, err := Parse("component class=\"p-2\"\n"); err == nil {
+		t.Error("a component takes class=")
+	}
 }
 
 func TestVariants(t *testing.T) {

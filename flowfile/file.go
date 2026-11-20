@@ -65,7 +65,10 @@ type File struct {
 // replace the device's.
 //
 // A design's In, set by in=, names the outlet of another design it fills,
-// whose size it takes unless it sets its own.
+// whose size it takes unless it sets its own. Its Class, set by class=,
+// is the classes of its frame, over the theme's background, outline and
+// the device's corners, so a screen of another look needs no box drawing
+// a second frame inside it.
 //
 // A component is as large as its elements unless it sets a size, so a
 // button draws as a button; its width and height size only its own
@@ -80,6 +83,7 @@ type Screen struct {
 	Device        string
 	Width, Height int
 	In            string
+	Class         string
 	Fill          bool
 	Preview       int
 	Backdrop      string
@@ -615,6 +619,8 @@ func (f *File) header(toks []token, first bool) string {
 				return err.Error()
 			}
 			s.In = value
+		case f.Kind == Design && key == "class":
+			s.Class = strings.TrimSpace(value)
 		case f.Kind == Component && key == "backdrop":
 			s.Backdrop = strings.TrimSpace(value)
 		case f.Kind != Chart && (key == "width" || key == "height"):
@@ -637,7 +643,7 @@ func (f *File) header(toks []token, first bool) string {
 		case f.Kind == Component:
 			return fmt.Sprintf("unknown attribute %q; a component takes name, device, width, preview, height and backdrop", key)
 		case f.Kind != Chart:
-			return fmt.Sprintf("unknown attribute %q; a %s takes name, device, width, height and in", key, f.Kind)
+			return fmt.Sprintf("unknown attribute %q; a %s takes name, device, width, height, in and class", key, f.Kind)
 		default:
 			return fmt.Sprintf("unknown attribute %q; a flow takes name and direction", key)
 		}
@@ -739,6 +745,9 @@ func (f File) Format() string {
 		}
 		if s.In != "" {
 			fmt.Fprintf(&b, " in=%s", quote(s.In))
+		}
+		if s.Class != "" {
+			fmt.Fprintf(&b, " class=%s", quote(s.Class))
 		}
 		if s.Backdrop != "" {
 			fmt.Fprintf(&b, " backdrop=%s", quote(s.Backdrop))

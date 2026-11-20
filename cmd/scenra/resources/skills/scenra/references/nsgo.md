@@ -56,7 +56,7 @@ Cards, panels and other boxes of no behavior stay `core.View`s with their classe
 
 ## Screens, views and taps
 
-- A design at the top of the folder is a screen or window the app opens: the root of `nsgo.Run`, a route of a `base.Nav` stack, or a window `desktop.OpenWindow` opens.
+- A design at the top of the folder is a screen or window the app opens: the root of `nsgo.Run`, a route of a `base.Nav` stack, or a window `desktop.OpenWindow` opens. The background its `class=` gives is that screen's or window's; its outline and corners are the editor's frame, which the platform draws.
 - A box with `outlet=` is where the host shows the views of `views/` that name it: a `core.Dynamic` or `core.Show` reading a signal of the view shown, or a shell's `Content`. Each view is a component of its own.
 - `tap="open …"` is `nav.Push` of the route, setting the signal of the outlet showing it, opening the window, or a dialog's `Open`; `tap="close"` is `nav.Pop(1)`, the outlet's previous view or the dialog closing, and `tap="close window"` the window's `Close`.
 - `tap="tab …"` and `panel=` are a signal the tabs or the sidebar set and the panels show by.

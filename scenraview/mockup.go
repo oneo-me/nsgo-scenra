@@ -538,22 +538,28 @@ func screenView(cx *core.Scope, f flowfile.File, i int, sel selection) core.Node
 	if h != 0 {
 		height = core.Pt(core.Points(h))
 	}
-	radius := core.Points(44)
+	// The frame's look is classes, so the design's own win over them.
+	radius := "rounded-[44px]"
 	device := f.Screens[i].Device
 	if host, ok := sel.hosted[i]; ok {
 		device = host.device
 	}
 	switch device {
 	case "tablet":
-		radius = 28
+		radius = "rounded-[28px]"
 	case "desktop":
-		radius = 12
+		radius = "rounded-[12px]"
 	}
-	return core.View{Style: core.Style{Width: core.Pt(core.Points(w)), Height: height, CornerRadius: radius, FlexShrink: 0,
-		BorderCurve: core.BorderCurveContinuous, Overflow: core.Hidden, BorderWidth: 1, FontSize: 15},
-		StyleFunc: func() core.Style {
-			return core.Style{Background: colors.Background(), Color: colors.Text(), BorderColor: colors.Border()}
-		},
+	frame := "border border-border bg-background text-foreground " + radius
+	if class := f.Screens[i].Class; class != "" {
+		frame += " " + class
+	}
+	frameID := "frame-" + strconv.Itoa(i)
+	if sel.unseen {
+		frameID = ""
+	}
+	return core.View{Class: frame, TestID: frameID, Style: core.Style{Width: core.Pt(core.Points(w)), Height: height, FlexShrink: 0,
+		BorderCurve: core.BorderCurveContinuous, Overflow: core.Hidden, FontSize: 15},
 		Children: kids}
 }
 
@@ -771,7 +777,7 @@ func componentProblems(s flowfile.Screen, self string, parts components) []strin
 	return out
 }
 
-// unknownClasses are the classes of a design's elements, of a
+// unknownClasses are the classes of a design's frame and elements, of a
 // component's backdrop and of what its variants add that draw nothing.
 func unknownClasses(s flowfile.Screen) []string {
 	var out []string
@@ -782,6 +788,7 @@ func unknownClasses(s flowfile.Screen) []string {
 			}
 		}
 	}
+	add(s.Class)
 	for _, layer := range s.Layers() {
 		add(layer)
 	}

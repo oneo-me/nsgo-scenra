@@ -320,6 +320,22 @@ func TestAFlowOpensFromTheFlowsGroupAlone(t *testing.T) {
 	}
 }
 
+func TestADesignShapesItsFrame(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra": "design a\ntext \"Plain\"\n\ndesign b class=\"bg-[#ff0000] rounded-none border-0\"\ntext \"Red\"\n",
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("design >> text:Red", 5*time.Second)
+	plain, red := app.Find("id:frame-0").Style, app.Find("id:frame-1").Style
+	if plain.BorderWidth != 1 || plain.CornerRadius != 44 || plain.Background == red.Background {
+		t.Fatalf("the plain frame is %+v", plain)
+	}
+	if red.BorderWidth != 0 || red.CornerRadius != 0 || red.Background != core.RGB(0xff0000) {
+		t.Fatalf("the red frame is %+v", red)
+	}
+}
+
 func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"home.scenra":                "design\nbox class=\"flex-1\"\n  text \"Welcome\"\n  use tab-bar class=\"mt-auto\"\n  use gone\nend\n",
