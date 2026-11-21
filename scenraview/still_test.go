@@ -74,6 +74,24 @@ func TestStillDrawsAFilesFlowsAsTheEditorDoes(t *testing.T) {
 	}
 }
 
+func TestStillSizesALoneFlowAsTheEditorDoes(t *testing.T) {
+	for _, source := range []string{"flow\nnode a \"A\"\n", "flow\nnode a \"A\"\nnode b \"B\"\na -> b\n"} {
+		dir := folderOfFiles(t, map[string]string{"flows/one.scenra": source})
+		still := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+			return Still{Source: source, TestID: "still"}
+		})
+		still.WaitFor("id:still >> text:A", 5*time.Second)
+		still.Advance(time.Second)
+		app, e := startEditor(t)
+		openPath(t, app, e, filepath.Join(dir, "flows", "one.scenra"))
+		app.WaitFor("id:flows >> text:A", 5*time.Second)
+		app.Advance(time.Second)
+		if got, want := still.Find("id:still >> id:flows").Frame.Size, app.Find("id:flows").Frame.Size; got != want || got.Width == 0 {
+			t.Fatalf("%q takes %v, not %v as in the editor", source, got, want)
+		}
+	}
+}
+
 func TestShowcaseDrawsAProjectsComponentsAsTheEditorDoes(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"home.scenra":                "design\nuse tab-bar\n",

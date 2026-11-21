@@ -174,7 +174,12 @@ func card(cx *core.Scope, n flowfile.Node) core.Node {
 // each flow is, which a pane hands the pointer by.
 func flowBoard(cx *core.Scope, doc func() flowfile.File, chart func(i int) *uiflow.State, zoom func() float64,
 	wire func(i int, origin func() core.Point, d *uiflow.Diagram), testID string) (core.Node, func() ([]core.Point, core.Size)) {
+	// A chart's size tracks nothing until its diagram mounts, so the
+	// diagrams' own layouts tell the board to measure them again.
+	drawn := core.NewSignal(cx, 0)
+	sizes := map[int]core.Size{}
 	layout := func() ([]core.Point, core.Size) {
+		drawn.Get()
 		return flowLayout(doc(), func(i int) core.Size { return chart(i).Size() })
 	}
 	origin := func(i int) core.Point {
@@ -205,6 +210,11 @@ func flowBoard(cx *core.Scope, doc func() flowfile.File, chart func(i int) *uifl
 			core.View{TestID: "flow-" + strconv.Itoa(i), StyleFunc: func() core.Style {
 				o := origin(i)
 				return core.Style{Position: core.Absolute, Left: core.Pt(o.X), Top: core.Pt(o.Y)}
+			}, OnLayout: func(b core.Bounds) {
+				if sizes[i] != b.Size {
+					sizes[i] = b.Size
+					drawn.Update(func(n int) int { return n + 1 })
+				}
 			}, Children: []core.Node{d}},
 		}
 	}
