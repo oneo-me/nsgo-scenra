@@ -231,19 +231,19 @@ func groupHeading(cx *core.Scope, text string, at core.Point, width core.Points,
 		}}
 }
 
-// showcasePane is every component of the open folder on one canvas,
-// with its variants, under their captions, each group's packed tight
-// together under its name in whatever order wastes the least room, once each has laid out at the size it
-// needs, and scaled up to the least area showcaseScales gives it. It
-// only shows them: nothing opens, plays or selects here.
-func showcasePane(cx *core.Scope, e *Editor) core.Node {
-	tr := locales.For(cx)
+// showcaseBoard draws the components among files, drawn from parts and
+// pics, with their variants, under their captions, each group's packed
+// tight together under its name in whatever order wastes the least room,
+// once each has laid out at the size it needs, and scaled up to the least
+// area showcaseScales gives it. The captions and names keep their size on
+// screen at zoom, and bare hides the components' outlines. It only shows
+// them: nothing opens, plays or selects here. Without components it draws
+// empty.
+func showcaseBoard(cx *core.Scope, files func() []entry, parts func() components, pics func() assets, bare func() bool, zoom func() float64,
+	empty core.Node, testID string) core.Node {
 	colors := ui.ColorsOf(cx)
-	c := &camera.State{}
-	pane := core.NewSignal(cx, core.Size{})
-	(&paneCamera{state: c, size: pane.GetUntracked}).mount(cx, &e.showcaseCanvas)
-	entries := core.NewMemoFunc(cx, func() []entry { return componentEntries(e.files.Get()) }, slices.Equal[[]entry])
-	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{parts: e.parts.Get(), assets: e.assets.Get()} },
+	entries := core.NewMemoFunc(cx, func() []entry { return componentEntries(files()) }, slices.Equal[[]entry])
+	look := core.NewMemoFunc(cx, func() lookOf { return lookOf{parts: parts(), assets: pics()} },
 		func(a, b lookOf) bool { return sameComponents(a.parts, b.parts) && sameAssets(a.assets, b.assets) })
 	// measured are the sizes the components laid out at, by index.
 	measured := core.NewSignalFunc(cx, []core.Size(nil), slices.Equal[[]core.Size])
@@ -279,14 +279,10 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		return placement{at, sizes, scales, heads, widths, total}
 	}
 	file := func() flowfile.File { return showcaseFile(entries.Get(), look.Get().parts) }
-	picture := core.Dynamic(func(cx *core.Scope) core.Node {
+	return core.Dynamic(func(cx *core.Scope) core.Node {
 		f := file()
 		if len(f.Screens) == 0 {
-			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
-				AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Gap: 10}, Children: []core.Node{
-				ui.Icon(lucide.Component, 28, colors.Muted),
-				core.Text{Content: tr.ComponentsEmpty(), Style: core.Style{FontSize: 13, LineHeight: 19, TextAlign: core.TextAlignCenter, MaxWidth: core.Pt(320)},
-					StyleFunc: ui.Colored(colors.Muted)}}}
+			return empty
 		}
 		if len(measured.GetUntracked()) != len(f.Screens) {
 			measured.Set(make([]core.Size, len(f.Screens)))
@@ -316,7 +312,7 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		}
 		look := look.GetUntracked()
 		sel := stillSelection(cx, f.Screens, look.parts, look.assets)
-		sel.bare = e.OutlinesHidden
+		sel.bare = bare
 		// Each draws as its own file does: the component is around its
 		// elements, which cannot use it again.
 		// A component that does not parse shows where it is.
@@ -340,7 +336,7 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 			nodes = append(nodes,
 				core.Dynamic(func(cx *core.Scope) core.Node {
 					p := placed.Get()
-					return caption(cx, screen.Name, p.at[i], int(float64(p.sizes[i].Width)*p.scales[i]), c.Zoom)
+					return caption(cx, screen.Name, p.at[i], int(float64(p.sizes[i].Width)*p.scales[i]), zoom)
 				}),
 				// The drawing lays out at its own size, in room wide
 				// enough for any, which the scale grows from the top left
@@ -369,16 +365,32 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 			}
 			nodes = append(nodes, core.Dynamic(func(cx *core.Scope) core.Node {
 				p := placed.Get()
-				return groupHeading(cx, group.name, p.heads[g], p.widths[g], c.Zoom, "showcase-group-"+group.name)
+				return groupHeading(cx, group.name, p.heads[g], p.widths[g], zoom, "showcase-group-"+group.name)
 			}))
 		}
-		return core.View{TestID: "showcase",
+		return core.View{TestID: testID,
 			StyleFunc: func() core.Style {
 				total := placed.Get().total
 				return core.Style{Width: core.Pt(total.Width), Height: core.Pt(total.Height)}
 			},
 			Children: nodes}
 	})
+}
+
+// showcasePane is every component of the open folder on one canvas, as
+// showcaseBoard draws them, with the pane's tools over them.
+func showcasePane(cx *core.Scope, e *Editor) core.Node {
+	tr := locales.For(cx)
+	colors := ui.ColorsOf(cx)
+	c := &camera.State{}
+	pane := core.NewSignal(cx, core.Size{})
+	(&paneCamera{state: c, size: pane.GetUntracked}).mount(cx, &e.showcaseCanvas)
+	empty := core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
+		AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Gap: 10}, Children: []core.Node{
+		ui.Icon(lucide.Component, 28, colors.Muted),
+		core.Text{Content: tr.ComponentsEmpty(), Style: core.Style{FontSize: 13, LineHeight: 19, TextAlign: core.TextAlignCenter, MaxWidth: core.Pt(320)},
+			StyleFunc: ui.Colored(colors.Muted)}}}
+	picture := showcaseBoard(cx, e.files.Get, e.parts.Get, e.assets.Get, e.OutlinesHidden, c.Zoom, empty, "showcase")
 	tool := func(icon func() *core.SVG, label string, press func(), testID string) core.Node {
 		return ui.IconButton{Icon: icon, Label: label, OnPress: press, TestID: testID}
 	}
@@ -397,4 +409,39 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 		Children: []core.Node{toolbar}}
 	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
 		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{canvas}}
+}
+
+// Showcase draws the components of the project at Project, the folder
+// holding it, together, as the editor shows them from Components: in
+// their groups, packed and scaled alike, each beside its variants. Like
+// Still, it only shows them, at the size they take, and lets apps put
+// them on a canvas of their own; it draws nothing while the folder is
+// read or when the project has no component.
+type Showcase struct {
+	Project string
+	TestID  string
+	Style   core.Style
+}
+
+// Render implements core.Node.
+func (s Showcase) Render(cx *core.Scope) core.Node {
+	type project struct {
+		files []entry
+		parts components
+		pics  assets
+	}
+	read := core.NewSignalFunc(cx, project{}, func(a, b project) bool {
+		return slices.Equal(a.files, b.files) && sameComponents(a.parts, b.parts) && sameAssets(a.pics, b.pics)
+	})
+	if s.Project != "" {
+		go func() {
+			files, parts, pics, _, _ := scan(s.Project, nil)
+			cx.Post(func() { read.Set(project{files, parts, pics}) })
+		}()
+	}
+	bare := func() bool { return true }
+	one := func() float64 { return 1 }
+	board := showcaseBoard(cx, func() []entry { return read.Get().files }, func() components { return read.Get().parts },
+		func() assets { return read.Get().pics }, bare, one, nil, "showcase")
+	return core.View{TestID: s.TestID, Style: core.Style{AlignItems: core.AlignStart}.Merge(s.Style), Children: []core.Node{board}}
 }

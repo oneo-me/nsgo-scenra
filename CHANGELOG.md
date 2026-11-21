@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add `scenraview.Showcase`, drawing a project's components together as **Components** shows them, and draw flow charts with `scenraview.Still`, as the editor lays them out, both read-only.
+
 ## [0.2.0] - 2026-11-21
 
 - Add `scenraview.Check`, telling the problems of a folder's or a file's Scenra files, as the MCP server reports them, without opening Scenra.

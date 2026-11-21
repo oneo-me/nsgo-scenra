@@ -2,6 +2,7 @@ package scenraview
 
 import (
 	"github.com/nsgo-dev/nsgo/core"
+	uiflow "github.com/nsgo-dev/nsgo/ui/flow"
 
 	"github.com/oneo-me/nsgo-scenra/flowfile"
 )
@@ -13,14 +14,16 @@ const stillGap = 32
 // one no file has.
 const stillName = "\x00still"
 
-// Still draws the designs or the component of a Scenra file's Source
-// still, as the editor does with nothing selected: one under another, each
-// at its size, a component beside its variants, its uses drawn from the
-// components and its images from the pictures of the project at Project,
-// the folder holding the file's project. It lets apps show a version of a
-// file, such as one Git keeps, beside another without opening an Editor;
-// a design filling an outlet draws alone, at its own size. A flow, or
-// Source that does not parse, draws nothing, which Drawable tells.
+// Still draws a Scenra file's Source still, as the editor does with
+// nothing selected. Designs draw one under another, each at its size, a
+// component beside its variants, their uses drawn from the components and
+// their images from the pictures of the project at Project, the folder
+// holding the file's project; a design filling an outlet draws in its
+// hosts there, or else alone at its own size. Flows draw as the editor
+// lays them out, without its tools, selection or edits. It lets apps show
+// a version of a file, such as one Git keeps, beside another without
+// opening an Editor, at the size it takes on a canvas of their own.
+// Source that does not parse draws nothing, which Drawable tells.
 type Still struct {
 	Source  string
 	Project string
@@ -28,18 +31,29 @@ type Still struct {
 	Style   core.Style
 }
 
-// Drawable reports whether Still draws source: designs or a component
-// that parse.
+// Drawable reports whether Still draws source: designs, a component or
+// flows that parse.
 func Drawable(source string) bool {
 	f, err := flowfile.Parse(source)
-	return err == nil && f.Kind != flowfile.Chart && len(f.Screens) > 0
+	return err == nil && (f.Kind == flowfile.Chart || len(f.Screens) > 0)
 }
 
 // Render implements core.Node.
 func (s Still) Render(cx *core.Scope) core.Node {
 	f, err := flowfile.Parse(s.Source)
-	if err != nil || f.Kind == flowfile.Chart {
+	if err != nil {
 		return core.View{TestID: s.TestID, Style: s.Style}
+	}
+	if f.Kind == flowfile.Chart {
+		var charts []*uiflow.State
+		chart := func(i int) *uiflow.State {
+			for len(charts) <= i {
+				charts = append(charts, &uiflow.State{})
+			}
+			return charts[i]
+		}
+		board, _ := flowBoard(cx, func() flowfile.File { return f }, chart, func() float64 { return 1 }, nil, "flows")
+		return core.View{TestID: s.TestID, Style: core.Style{AlignItems: core.AlignStart}.Merge(s.Style), Children: []core.Node{board}}
 	}
 	type project struct {
 		parts components

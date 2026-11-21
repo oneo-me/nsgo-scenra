@@ -37,19 +37,19 @@ func nodeOf(f flowfile.File, key string) (flowfile.Node, bool) {
 	return f.Flows[flow].Node(id)
 }
 
-// flowData maps the flow at index i of the file shown onto a diagram's
-// data. Each node's face reads its node from the document, as the view
-// keeps a face while its ID stays.
-func flowData(e *Editor, i int) func() uiflow.Data {
+// flowData maps the flow at index i of doc onto a diagram's data. Each
+// node's face reads its node from doc, as the view keeps a face while its
+// ID stays.
+func flowData(doc func() flowfile.File, i int) func() uiflow.Data {
 	return func() uiflow.Data {
 		var data uiflow.Data
-		f := e.cur().doc.Get()
+		f := doc()
 		if i >= len(f.Flows) {
 			return data
 		}
 		for _, n := range f.Flows[i].Nodes {
 			data.Nodes = append(data.Nodes, uiflow.Node{ID: n.ID, Label: n.Label, Muted: n.Status == "skipped",
-				Content: nodeCard{e: e, key: nodeKey(i, n.ID)}})
+				Content: nodeCard{doc: doc, key: nodeKey(i, n.ID)}})
 		}
 		for _, l := range f.Flows[i].Edges {
 			data.Edges = append(data.Edges, uiflow.Edge{Source: l.From, Target: l.To, Label: l.Label, Dashed: l.Dashed})
@@ -58,10 +58,10 @@ func flowData(e *Editor, i int) func() uiflow.Data {
 	}
 }
 
-// flowDirection is the way the flow at index i of the file shown points.
-func flowDirection(e *Editor, i int) func() uiflow.Direction {
+// flowDirection is the way the flow at index i of doc points.
+func flowDirection(doc func() flowfile.File, i int) func() uiflow.Direction {
 	return func() uiflow.Direction {
-		if f := e.cur().doc.Get(); i < len(f.Flows) && f.Flows[i].Direction == flowfile.Right {
+		if f := doc(); i < len(f.Flows) && f.Flows[i].Direction == flowfile.Right {
 			return uiflow.LeftToRight
 		}
 		return uiflow.TopToBottom
@@ -107,14 +107,14 @@ func flowLayout(f flowfile.File, size func(i int) core.Size) ([]core.Point, core
 // nodeCard is a node's face: its kind's icon tile, label and note, and
 // its status above them.
 type nodeCard struct {
-	e   *Editor
+	doc func() flowfile.File
 	key string
 }
 
 // Render implements core.Node.
 func (c nodeCard) Render(cx *core.Scope) core.Node {
 	node := core.NewMemo(cx, func() flowfile.Node {
-		n, _ := nodeOf(c.e.cur().doc.Get(), c.key)
+		n, _ := nodeOf(c.doc(), c.key)
 		return n
 	})
 	return core.Dynamic(func(cx *core.Scope) core.Node { return card(cx, node.Get()) })
@@ -167,6 +167,63 @@ func card(cx *core.Scope, n flowfile.Node) core.Node {
 	return card
 }
 
+// flowBoard draws the flows of doc, each the diagram chart keeps for its
+// index, packed as flowLayout places them and under its name when there
+// are several, the names the same size on screen at zoom; wire gives a
+// diagram what it does beyond showing. It returns the board and where
+// each flow is, which a pane hands the pointer by.
+func flowBoard(cx *core.Scope, doc func() flowfile.File, chart func(i int) *uiflow.State, zoom func() float64,
+	wire func(i int, origin func() core.Point, d *uiflow.Diagram), testID string) (core.Node, func() ([]core.Point, core.Size)) {
+	layout := func() ([]core.Point, core.Size) {
+		return flowLayout(doc(), func(i int) core.Size { return chart(i).Size() })
+	}
+	origin := func(i int) core.Point {
+		if at, _ := layout(); i < len(at) {
+			return at[i]
+		}
+		return core.Point{}
+	}
+	item := func(i int) core.Node {
+		d := uiflow.Diagram{State: chart(i), Data: flowData(doc, i), Direction: flowDirection(doc, i)}
+		if wire != nil {
+			wire(i, func() core.Point { return origin(i) }, &d)
+		}
+		return core.Group{
+			core.Show{When: func() bool { return doc().Several() }, Then: func(cx *core.Scope) core.Node {
+				return core.Dynamic(func(cx *core.Scope) core.Node {
+					f := doc()
+					if i >= len(f.Flows) {
+						return core.Group{}
+					}
+					name := f.Flows[i].Name
+					if name == "" {
+						name = f.Flows[i].ID
+					}
+					return caption(cx, name, origin(i), int(chart(i).Size().Width), zoom)
+				})
+			}},
+			core.View{TestID: "flow-" + strconv.Itoa(i), StyleFunc: func() core.Style {
+				o := origin(i)
+				return core.Style{Position: core.Absolute, Left: core.Pt(o.X), Top: core.Pt(o.Y)}
+			}, Children: []core.Node{d}},
+		}
+	}
+	count := core.NewMemo(cx, func() int { return len(doc().Flows) })
+	indices := func() []int {
+		out := make([]int, count.Get())
+		for i := range out {
+			out[i] = i
+		}
+		return out
+	}
+	return core.View{TestID: testID, StyleFunc: func() core.Style {
+		_, total := layout()
+		return core.Style{Width: core.Pt(total.Width), Height: core.Pt(total.Height)}
+	}, Children: []core.Node{core.Each(indices, func(i int) int { return i }, func(cx *core.Scope, i func() int, _ func() int) core.Node {
+		return item(core.Untracked(cx, i))
+	})}}, layout
+}
+
 // flowPane is the flows shown, each a diagram of its own packed on one
 // camera under its name when there are several, with the pane's tools
 // over them. The camera hands the pointer to the diagram under it. The
@@ -199,16 +256,26 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 		}}
 	pane := core.NewSignal(cx, core.Size{})
 	(&paneCamera{state: e.camera, size: pane.GetUntracked}).mount(cx, &e.flowCanvas)
-	count := core.NewMemo(cx, func() int { return len(e.cur().doc.Get().Flows) })
-	layout := func() ([]core.Point, core.Size) {
-		return flowLayout(e.cur().doc.Get(), func(i int) core.Size { return e.chart(i).Size() })
-	}
-	origin := func(i int) core.Point {
-		if at, _ := layout(); i < len(at) {
-			return at[i]
+	doc := func() flowfile.File { return e.cur().doc.Get() }
+	count := core.NewMemo(cx, func() int { return len(doc().Flows) })
+	selectedIn := func(i int) func() string {
+		return func() string {
+			if flow, id, ok := splitNode(e.cur().selected.Get()); ok && flow == i {
+				return id
+			}
+			return ""
 		}
-		return core.Point{}
 	}
+	board, layout := flowBoard(cx, doc, e.chart, e.camera.Zoom, func(i int, origin func() core.Point, d *uiflow.Diagram) {
+		d.Camera, d.Origin, d.Selected = e.camera, origin, selectedIn(i)
+		d.OnSelect = func(id string) {
+			if id == "" {
+				e.shown().selected.Set("")
+			} else {
+				e.shown().selected.Set(nodeKey(i, id))
+			}
+		}
+	}, "flows")
 	// flowAt is the flow whose diagram is at a point of the plane, and the
 	// point in the diagram's coordinates.
 	flowAt := func(p core.Point) (int, core.Point, bool) {
@@ -222,57 +289,6 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 		}
 		return 0, core.Point{}, false
 	}
-	selectedIn := func(i int) func() string {
-		return func() string {
-			if flow, id, ok := splitNode(e.cur().selected.Get()); ok && flow == i {
-				return id
-			}
-			return ""
-		}
-	}
-	item := func(cx *core.Scope, i int) core.Node {
-		return core.Group{
-			core.Show{When: func() bool { return e.cur().doc.Get().Several() }, Then: func(cx *core.Scope) core.Node {
-				return core.Dynamic(func(cx *core.Scope) core.Node {
-					f := e.cur().doc.Get()
-					if i >= len(f.Flows) {
-						return core.Group{}
-					}
-					name := f.Flows[i].Name
-					if name == "" {
-						name = f.Flows[i].ID
-					}
-					o := origin(i)
-					return caption(cx, name, o, int(e.chart(i).Size().Width), e.camera.Zoom)
-				})
-			}},
-			core.View{TestID: "flow-" + strconv.Itoa(i), StyleFunc: func() core.Style {
-				o := origin(i)
-				return core.Style{Position: core.Absolute, Left: core.Pt(o.X), Top: core.Pt(o.Y)}
-			}, Children: []core.Node{uiflow.Diagram{State: e.chart(i), Camera: e.camera, Origin: func() core.Point { return origin(i) },
-				Data: flowData(e, i), Direction: flowDirection(e, i), Selected: selectedIn(i),
-				OnSelect: func(id string) {
-					if id == "" {
-						e.shown().selected.Set("")
-					} else {
-						e.shown().selected.Set(nodeKey(i, id))
-					}
-				}}}},
-		}
-	}
-	indices := func() []int {
-		out := make([]int, count.Get())
-		for i := range out {
-			out[i] = i
-		}
-		return out
-	}
-	board := core.View{TestID: "flows", StyleFunc: func() core.Style {
-		_, total := layout()
-		return core.Style{Width: core.Pt(total.Width), Height: core.Pt(total.Height)}
-	}, Children: []core.Node{core.Each(indices, func(i int) int { return i }, func(cx *core.Scope, i func() int, _ func() int) core.Node {
-		return item(cx, core.Untracked(cx, i))
-	})}}
 	press := func(p core.Point, ev core.PressEvent) bool {
 		if i, local, ok := flowAt(p); ok {
 			return e.chart(i).Press(local, ev)

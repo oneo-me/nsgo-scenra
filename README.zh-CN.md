@@ -85,7 +85,7 @@ go tool nsgo build cmd/scenra   # build macOS, Windows and Linux into cmd/scenra
 
 ## 在你的应用中使用
 
-`scenraview` 为其他 NSGo 应用提供 Scenra 的 `.scenra` 文件编辑器：一个管理文件夹及当前文件的 `Editor` 及其视图，可以直接使用 Scenra 的 `Window`，也可以用 `Header`、`Sidebar`、`Workspace` 和 `Assistant` 自行布局。助手运行 [Agio](https://github.com/oneo-me/nsgo-agio) 后端的 agent；请把 `cmd/scenra/resources/skills/scenra` 中讲解格式的技能、旁边讲解 `Server` 用法的 `scenra-app` 技能，以及告诉它们用户所见内容的 `Server` 交给它们；`Server` 按每个对话的指令所给的 ID 区分多个编辑器。`Cover` 把一个项目画成缩略图，如 Scenra 的最近文件夹所示。
+`scenraview` 为其他 NSGo 应用提供 Scenra 的 `.scenra` 文件编辑器：一个管理文件夹及当前文件的 `Editor` 及其视图，可以直接使用 Scenra 的 `Window`，也可以用 `Header`、`Sidebar`、`Workspace` 和 `Assistant` 自行布局。助手运行 [Agio](https://github.com/oneo-me/nsgo-agio) 后端的 agent；请把 `cmd/scenra/resources/skills/scenra` 中讲解格式的技能、旁边讲解 `Server` 用法的 `scenra-app` 技能，以及告诉它们用户所见内容的 `Server` 交给它们；`Server` 按每个对话的指令所给的 ID 区分多个编辑器。`Cover` 把一个项目画成缩略图，如 Scenra 的最近文件夹所示；`Still` 和 `Showcase` 像编辑器那样画出一个文件或一个项目的组件，只读，画在应用自己的画布上。
 
 ```sh
 go get github.com/oneo-me/nsgo-scenra
