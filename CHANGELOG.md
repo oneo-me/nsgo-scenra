@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-24
+
 - Show designs in several languages: texts name messages of the folder's `locales/` catalogs, named as NSGo's, such as `en.yaml` and `zh-Hans.yaml`, with `key=`, and show them in the interface's language.
 - Add `scenraview.Showcase`, drawing a project's components together as **Components** shows them, and draw flow charts with `scenraview.Still`, as the editor lays them out, both read-only, and pack a file's several designs in `scenraview.Still` under their names as the editor does instead of in one long column.
 - Fix a chart holding a single flow taking no room, which kept **Fit** from framing it.
