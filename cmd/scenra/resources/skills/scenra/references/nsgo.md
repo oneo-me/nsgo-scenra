@@ -11,7 +11,7 @@ Scenra draws designs with NSGo's own elements and Tailwind classes, so what it d
 | Scenra | NSGo |
 | --- | --- |
 | `box` | `core.View{Class: …, Children: …}` |
-| `text` | `core.Text{Content: …, Class: …}`, its words from the app's `locales/` |
+| `text` | `core.Text{Content: …, Class: …}`, its words from the app's `locales/`, which takes the design's catalogs as they are, by its key |
 | `icon` | `core.Icon{SVG: lucide.…, Class: …}` from `icons/lucide`, the name in Pascal case: `share-2` is `lucide.Share2`, and an older name its current one's, such as `home`, `lucide.House` |
 | `image` | `core.Image{Source: core.Src("asset:…"), ResizeMode: core.Cover}`, the picture copied from `assets/` into the app's `resources/`; one without `src=` is a picture the app loads |
 | `svg` | `core.SVGView` of a logo or illustration kept in `resources/`; a chart is `base/plot` drawing the app's data |

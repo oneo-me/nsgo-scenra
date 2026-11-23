@@ -247,6 +247,21 @@ func problems(files []fileView, parts components, pics assets, keep func(fileVie
 		}
 		return out
 	})
+	section("Texts naming messages the catalogs lack:", func(f fileView) []string {
+		var out []string
+		for _, s := range f.file.Screens {
+			for _, p := range keyProblems(s.UI, s.Variants, pics) {
+				out = append(out, f.path+": "+p)
+			}
+		}
+		return out
+	})
+	if lines := localeProblems(pics); len(lines) > 0 {
+		b.WriteString(fmt.Sprintf("Catalogs of %s/ the editor cannot read:\n", flowfile.LocalesDir))
+		for _, l := range lines {
+			b.WriteString("- " + l + "\n")
+		}
+	}
 	section("Classes that draw nothing:", func(f fileView) []string {
 		var classes []string
 		for _, s := range f.file.Screens {

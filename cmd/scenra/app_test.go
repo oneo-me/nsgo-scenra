@@ -86,15 +86,21 @@ func TestSettingsTurnOffTheStatistics(t *testing.T) {
 }
 
 // TestLanguageSetting shows the language chosen in the settings, keeping
-// the open tabs, and starts in it again.
+// the open tabs and showing the designs' messages in it, and starts in it
+// again.
 func TestLanguageSetting(t *testing.T) {
 	app := startApp(t)
 	a := folder(t, "alpha")
+	os.WriteFile(filepath.Join(a, "home.scenra"), []byte("design\ntext \"Welcome to alpha\"\ntext key=greeting\n"), 0o644)
+	os.Mkdir(filepath.Join(a, "locales"), 0o755)
+	os.WriteFile(filepath.Join(a, "locales", "en.yaml"), []byte("greeting: Hello\n"), 0o644)
+	os.WriteFile(filepath.Join(a, "locales", "zh-Hans.yaml"), []byte("greeting: 你好\n"), 0o644)
 	app.PickDirectories = func(nsgotest.DirectoryPick) []core.Directory { return []core.Directory{{Path: a}} }
 	app.Press("id:home-open-folder")
 	app.WaitFor("id:files >> label:home", 5*time.Second)
 	app.Press("id:files >> label:home")
 	app.WaitFor("design >> text:Welcome to alpha", time.Second)
+	app.Find("design >> text:Hello")
 	app.Press("id:tab-home")
 	app.Press("id:home-settings")
 	app.WaitFor("id:settings", time.Second)
@@ -107,7 +113,7 @@ func TestLanguageSetting(t *testing.T) {
 	// file.
 	app.WaitFor("id:settings >> text:语言", time.Second)
 	app.Press("id:tab")
-	app.WaitFor("design >> text:Welcome to alpha", time.Second)
+	app.WaitFor("design >> text:你好", time.Second)
 
 	again := startApp(t, nsgotest.Storage(map[string]string{keyLanguage: "zh-Hans"}))
 	again.Press("id:home-settings")

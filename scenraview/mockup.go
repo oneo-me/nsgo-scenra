@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/nsgo-dev/nsgo/core"
+	"github.com/nsgo-dev/nsgo/i18n"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 
@@ -48,7 +49,8 @@ type selection struct {
 	// hosted are the outlets designs filling them lay out at, by the
 	// designs' index.
 	hosted map[int]hosting
-	// assets are the pictures of the folder an image's src may name.
+	// assets are the pictures of the folder an image's src may name, and
+	// the catalogs a text's key may name a message of.
 	assets assets
 	scope
 	// holder is the key of the element whose view the elements drawn are
@@ -668,6 +670,10 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
 			Children: kids}
 	case "text":
+		if key := el.Attr("key"); key != "" {
+			return core.Text{ContentFunc: func() string { return sel.assets.say(i18n.Language(cx), key, el.Text) }, Class: class,
+				OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
+		}
 		return core.Text{Content: el.Text, Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}
 	case "icon":
 		return core.Icon{SVG: iconNamed(el.Text)(), Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide}

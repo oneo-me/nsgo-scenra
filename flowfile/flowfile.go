@@ -30,6 +30,7 @@
 //	    text "We text you a code"
 //	  end
 //	  text "No account?" tap="open #sign-up"   # a design of this file
+//	  text key=signIn                  # its message in locales/en.yaml, zh-Hans.yaml…
 //	  image "A cup of coffee" class="h-40 rounded-2xl"
 //	  image "Latte art" src="assets/latte.jpg" class="h-40"   # or a URL
 //	  svg "<svg viewBox='0 0 100 40'><path d='M0 30 L50 10 L100 20' stroke='#2563eb' fill='none'/></svg>"
@@ -116,6 +117,9 @@
 // An image shows a picture of the assets folder at the top of the
 // project, named by its path there, or one at a URL, and else a
 // placeholder its text describes.
+// A text's key names its message in the catalogs of the locales folder
+// at the top of the project, a file per language named as NSGo's are;
+// see LocalesDir.
 // Any element may carry a comment, a change the user asks the
 // assistant for, which stays until the assistant resolves it, and a note,
 // which says what the design cannot show, such as when it changes. The
