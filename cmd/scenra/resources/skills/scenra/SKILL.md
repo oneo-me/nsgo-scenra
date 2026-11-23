@@ -12,7 +12,7 @@ Scenra files (`.scenra`) are plain text, and each holds one kind of thing: desig
 - `flows/` holds the flow charts.
 - `components/` holds the pieces designs share.
 
-Let a design show what happens on it, as the user sees it there: taps opening the screens it leads to, outlets showing a window's pages inside it, as Windows and outlets says, and notes on elements for what the drawing cannot show, such as when a block appears. Never draw a flow for one screen. A flow is a workflow of its own, a process that spans screens or runs without them, such as checkout or an agent working on an issue, in `flows/`, named in English for what it does, such as `flows/checkout.scenra`, never after a screen; the editor lists flows apart from designs, and a design's note may name the flow it starts. Draw one design or one flow in a file: give another screen, a screen's other state or another flow a file of its own, and put several designs or several flows in one file only when the user asks for them together. Keep every file directly in its place, never in folders of their own, such as `views/settings/theme.scenra`, which the editor does not show; as the app grows, group designs by their names instead: the first design's `name=` may start with one group and `/`, such as `design name="Orders/Order detail"`, and the editor lists the file under that group by the rest, so never repeat the group in it: write `Settings/Workflows`, not `Settings/Settings · Workflows`. Groups do not nest, so write one `/` at most. Flows and views take no groups: the editor lists each kind in a group of its own, under the components, by their whole names, so give views names that say their window, such as `Settings/Theme`. When the user only wants a flow chart, make only a flow file, still in `flows/`. Put the pieces several screens share, such as a tab bar, a navigation bar or a card, in components, which live in one folder, `components/`, at the top of the open folder, without folders of their own; group them by name as designs are, such as `component name="Forms/Text field"`, and the editor shows each group's components together. Put the pictures designs show in one folder, `assets/`, beside it.
+Let a design show what happens on it, as the user sees it there: taps opening the screens it leads to, outlets showing a window's pages inside it, as Windows and outlets says, and notes on elements for what the drawing cannot show, such as when a block appears. Never draw a flow for one screen. A flow is a workflow of its own, a process that spans screens or runs without them, such as checkout or an agent working on an issue, in `flows/`, named in English for what it does, such as `flows/checkout.scenra`, never after a screen; the editor lists flows apart from designs, and a design's note may name the flow it starts. Draw one design or one flow in a file: give another screen, a screen's other state or another flow a file of its own, and put several designs or several flows in one file only when the user asks for them together. Keep every file directly in its place, never in folders of their own, such as `views/settings/theme.scenra`, which the editor does not show; as the app grows, group designs by their names instead: the first design's `name=` may start with one group and `/`, such as `design name="Orders/Order detail"`, and the editor lists the file under that group by the rest, so never repeat the group in it: write `Settings/Workflows`, not `Settings/Settings · Workflows`. Groups do not nest, so write one `/` at most. Flows and views take no groups: the editor lists each kind in a group of its own, under the components, by their whole names, so give views names that say their window, such as `Settings/Theme`. When the user only wants a flow chart, make only a flow file, still in `flows/`. Put the pieces several screens share, such as a tab bar, a navigation bar or a card, in components, which live in one folder, `components/`, at the top of the open folder, without folders of their own; group them by name as designs are, such as `component name="Forms/Text field"`, and the editor shows each group's components together. Put the pictures designs show in one folder, `assets/`, beside it, and the words of designs in several languages in `locales/`.
 
 ## Working on files
 
@@ -89,7 +89,7 @@ Use `kind=start` and `kind=end` for entry and exit points and `kind=decision` fo
 A design is drawn with a few primitives, an element a line, each styled with Tailwind CSS 4 classes in `class="…"`:
 
 - `box`: a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line
-- `text`: its text, which wraps; size, weight and color it with classes
+- `text`: its text, which wraps; size, weight and color it with classes; `key="…"` shows a message of `locales/` instead, as Languages says
 - `icon`: the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*
 - `image`: a picture its text describes: the one `src="…"` names, a file of `assets/` such as `src="assets/latte.jpg"` or a URL, or else a placeholder; size it with classes; see Pictures
 - `svg`: any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox
@@ -109,6 +109,24 @@ An icon takes the name of any Lucide icon (lucide.dev), by its current name or a
 Keep every picture a design shows in `assets/` at the top of the open folder, as a PNG, JPEG, GIF or WebP file, and name it by its path there: `image "Latte art seen from above" src="assets/latte.jpg" class="h-40 rounded-2xl"`. When the user gives you a picture, or the code at hand has the app's own, such as its logo or its photos, copy it into `assets/`, in folders such as `assets/products/` as they grow, under a short English name, rather than pointing at it where it is: the editor shows only pictures in `assets/`, so the folder keeps working wherever it moves. Use a URL only for a picture that stays online. Without a picture, leave `src` out: the editor draws a placeholder its text describes, so write the text as what the picture shows. Never write a picture's path you have not made. The editor reports the pictures images cannot show.
 
 Elements are named by their paths: an element's index among its siblings at each level from 0, joined by dots, so 1.0 is the first element the second top-level element holds of its design, which it names by its ID in a file of several.
+
+## Languages
+
+When the user wants designs in several languages, write their words as messages in `locales/` at the top of the open folder, a YAML file per language named by its BCP 47 tag as NSGo's catalogs are, such as `locales/en.yaml` and `locales/zh-Hans.yaml`, each mapping keys, a letter then letters, digits and `_`, to messages, and give each text the key of its message instead of its words: `text key=signIn class="font-semibold text-white"`. The editor shows texts in the language of its own interface, from the catalog that suits it best, else English's, as an NSGo app matches its catalogs, so an app built from the designs takes the catalogs as they are.
+
+```
+# locales/en.yaml
+signIn: Sign in
+welcome: Welcome back
+
+# locales/zh-Hans.yaml
+signIn: 登录
+welcome: 欢迎回来
+```
+
+- Give every message in every catalog; a text whose message the catalog shown lacks shows its own words, as in `text "Sign in" key=signIn`, else English's message, else its key.
+- Give a component's texts keys, and change them where it is used with `<name>.key="…"`, as Components says.
+- The editor reports keys a catalog lacks and catalogs it cannot read.
 
 ## Components
 
@@ -165,12 +183,12 @@ use menu-item title="Mocha" tag.class="hidden"
 ```
 
 - `<name>="…"` replaces the text of the elements of that name: a text's words, an icon's name, an image's description, an SVG document, or the component a `use` draws, swapping it for another. A box has no text.
-- `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.src="…"` replaces an image's picture and `<name>.tap="…"` an element's tap.
+- `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.src="…"` replaces an image's picture, `<name>.key="…"` a text's message, and `<name>.tap="…"` an element's tap. A text set by `<name>="…"` shows in place of its message.
 - `<name>.panel="…"` makes them a panel a tab shows, as `panel=` does, and `<name>.note="…"` notes them where the use is: the note is the using file's, as a note on the use itself is.
 - `<name>.variant="…"` picks the variants of the component a `use` of that name draws, and `<name>.state="…"` puts the elements in states, as Variants says.
 - `<a>/<b>="…"` changes the elements named b of the component the use named a draws, and so on down.
 - Every element of a name changes, so give one name to several elements that show one value. Name the elements that vary between uses, and keep the component's own values realistic: they show where a use changes nothing.
-- A name is letters, digits, `_` and `-`, and never a word elements take: name, class, tap, panel, comment, note, variant, state, outlet or src.
+- A name is letters, digits, `_` and `-`, and never a word elements take: name, class, tap, panel, comment, note, variant, state, outlet, key or src.
 
 ### Variants
 

@@ -35,9 +35,9 @@ import (
 
 // OverrideAttrs are the attributes of a named element a use may change
 // besides its text: classes, which add to its own, those replacing its
-// own, the note the using file keeps on it, and the variants and states
+// own, a text's message key, the note the using file keeps on it, and the variants and states
 // of what it draws.
-var OverrideAttrs = []string{"class", "src", "tap", "panel", "note", "variant", "state"}
+var OverrideAttrs = []string{"class", "key", "src", "tap", "panel", "note", "variant", "state"}
 
 // useAttrs are the attributes a use takes besides the common ones and
 // what it changes by names: the variants of its component it draws and
@@ -122,6 +122,10 @@ func checkUseAttr(attr, value string) string {
 	case "tap":
 		if _, err := ParseTap(value); err != nil {
 			return err.Error()
+		}
+	case "key":
+		if !ValidKey(value) {
+			return keyHelp(value)
 		}
 	case "panel":
 		if !ValidID(value) {
@@ -378,7 +382,10 @@ func (el *Element) override(o Override) {
 	case el.Kind == "icon":
 		el.Text, _ = IconName(o.Value)
 	case el.Kind != "box":
+		// A text set where the component is used shows instead of its
+		// message.
 		el.Text = o.Value
+		delete(el.Attrs, "key")
 	}
 }
 
@@ -665,6 +672,8 @@ func overrideProblem(o Override, path []string, name string, els []Element, part
 			continue
 		}
 		switch {
+		case o.Attr == "key" && el.Kind != "text":
+			return fmt.Sprintf("sets the key of %s, a %s, which only texts take", path[0], el.Kind)
 		case o.Attr == "src" && el.Kind != "image":
 			return fmt.Sprintf("sets the src of %s, a %s, which only images take", path[0], el.Kind)
 		case o.Attr == "variant" && el.Kind != "use":

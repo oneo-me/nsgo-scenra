@@ -208,7 +208,7 @@ type ElementSpec struct {
 // controls whose look cannot change.
 var Elements = []ElementSpec{
 	{Kind: "box", Holds: true, Attrs: []string{"outlet"}, Doc: "a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line; outlet= names it a place designs of other files fill, what it holds showing until one does"},
-	{Kind: "text", Doc: "its text, which wraps; size, weight and color it with classes"},
+	{Kind: "text", Attrs: []string{"key"}, Doc: "its text, which wraps; size, weight and color it with classes; key= names its message in the catalogs of the locales folder, which shows in the editor's language in place of the text"},
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
 	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the one src names, a file of the assets folder such as assets/latte.jpg or a URL, or a placeholder; size it with classes"},
 	{Kind: "svg", Doc: "any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox"},
@@ -230,7 +230,7 @@ var commonAttrs = []string{"name", "class", "tap", "panel", "comment", "note"}
 
 // attrOrder is the order Format writes attributes in.
 // What a use changes in its component goes before the comment.
-var attrOrder = []string{"name", "variant", "state", "src", "class", "tap", "panel", "outlet", "comment", "note"}
+var attrOrder = []string{"name", "key", "variant", "state", "src", "class", "tap", "panel", "outlet", "comment", "note"}
 
 // Spec returns the spec of the element kind.
 func Spec(kind string) (ElementSpec, bool) {
@@ -365,6 +365,9 @@ func checkElement(el Element) string {
 		if _, err := ParseTap(tap); err != nil {
 			return err.Error()
 		}
+	}
+	if key, ok := el.Attrs["key"]; ok && !ValidKey(key) {
+		return keyHelp(key)
 	}
 	if panel, ok := el.Attrs["panel"]; ok && !ValidID(panel) {
 		return fmt.Sprintf("panel %q is not a name of letters, digits, _, - or .", panel)

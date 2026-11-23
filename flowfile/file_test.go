@@ -47,7 +47,7 @@ func TestParseFileErrors(t *testing.T) {
 		"design\nwidget":                   "line 2: unknown element",
 		"design\nbox\ntext \"x\"":          "line 3: box has no end",
 		"design\nend":                      "end closes no",
-		"design\ntext \"x\" src=y":         "text takes no attribute \"src\"; use name, class",
+		"design\ntext \"x\" src=y":         "text takes no attribute \"src\"; use key, name, class",
 		"design\ntext x y":                 "quote text with spaces",
 		"design\nicon nope":                "unknown icon \"nope\"",
 		"design\nicon cofee-cup":           "such as cup-soda",

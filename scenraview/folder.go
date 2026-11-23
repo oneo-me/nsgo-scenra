@@ -89,13 +89,16 @@ func (en entry) screen() flowfile.Screen {
 }
 
 // scanned is what a scan read of a file, kept while the file stays the
-// same: a component's elements too, or a picture's bytes.
+// same: a component's elements too, a picture's bytes, or a catalog's
+// messages or why they do not read.
 type scanned struct {
 	stamp stamp
 	entry entry
 	part  flowfile.Part
 	file  *flowfile.File
 	data  []byte
+	msgs  flowfile.Messages
+	err   string
 }
 
 // components are what the open folder's designs use, by name: its
@@ -117,16 +120,20 @@ func (parts components) find(name string) (flowfile.Part, bool) {
 	return p, ok
 }
 
-// assets are the pictures of the open folder's assets folder, by their
-// path in the folder with slashes.
+// assets are the files of the open folder designs draw from, by their
+// path in the folder with slashes: the pictures of its assets folder and
+// the catalogs of its locales folder.
 type assets map[string]asset
 
-// asset is a picture's bytes and the version of its file they are, which
-// tells pictures apart without comparing their bytes. The bytes stay the
-// same slice while the file does, so NSGo keeps the picture it decoded.
+// asset is a picture's bytes, or a catalog's messages or why they do not
+// read, and the version of its file they are, which tells them apart
+// without comparing them. The bytes stay the same slice while the file
+// does, so NSGo keeps the picture it decoded.
 type asset struct {
 	stamp stamp
 	data  []byte
+	msgs  flowfile.Messages
+	err   string
 }
 
 func sameAssets(a, b assets) bool {
@@ -177,7 +184,7 @@ func skipped(name string) bool { return strings.HasPrefix(name, ".") || name == 
 
 // scan finds the Scenra files under root, those outside the project's
 // layout too, which the server tells of, and the pictures of its assets
-// folder, reading again only those that changed since the scan whose
+// folder and catalogs of its locales folder, reading again only those that changed since the scan whose
 // files were cache, and returns the Scenra files, the components and
 // designs uses draw, the pictures, the cache of this one and the files
 // of designs.
@@ -218,8 +225,23 @@ func scan(root string, cache map[string]scanned) ([]entry, components, assets, m
 			}
 			next[p] = c
 			if len(c.data) > 0 {
-				pics[rel] = asset{c.stamp, c.data}
+				pics[rel] = asset{stamp: c.stamp, data: c.data}
 			}
+			return nil
+		}
+		if flowfile.IsLocale(rel) {
+			st := stampOf(p)
+			c, ok := cache[p]
+			if !ok || c.stamp != st {
+				c = scanned{stamp: st}
+				if data, err := os.ReadFile(p); err != nil {
+					c.err = err.Error()
+				} else if c.msgs, err = flowfile.ParseLocale(data); err != nil {
+					c.err = err.Error()
+				}
+			}
+			next[p] = c
+			pics[rel] = asset{stamp: c.stamp, msgs: c.msgs, err: c.err}
 			return nil
 		}
 		if !strings.HasSuffix(d.Name(), ".scenra") {
