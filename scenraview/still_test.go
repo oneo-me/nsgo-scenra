@@ -133,3 +133,34 @@ func TestShowcaseDrawsAProjectsComponentsAsTheEditorDoes(t *testing.T) {
 		t.Fatal("an empty project draws a showcase")
 	}
 }
+
+func TestStillPacksSeveralDesignsAsTheEditorDoes(t *testing.T) {
+	source := "design home device=phone name=\"Home\"\ntext \"Home page\"\n\n" +
+		"design detail device=desktop name=\"Detail\"\ntext \"Detail page\"\n\n" +
+		"design player device=desktop name=\"Player\"\ntext \"Player page\"\n\n" +
+		"design settings device=tablet name=\"Settings\"\ntext \"Settings page\"\n"
+	dir := folderOfFiles(t, map[string]string{"pages.scenra": source})
+	still := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+		return Still{Source: source, Project: dir, TestID: "still"}
+	})
+	still.WaitFor("id:still >> text:Home page", 5*time.Second)
+	still.Advance(time.Second)
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "pages.scenra"))
+	app.WaitFor("design >> text:Home page", 5*time.Second)
+	app.Advance(time.Second)
+	if got, want := still.Find("id:still").Frame.Size, app.FindMounted("design").Frame.Size; got != want || got.Width == 0 {
+		t.Fatalf("the designs take %v, not %v as in the editor", got, want)
+	}
+	rows := map[float64]bool{}
+	for _, id := range []string{"home", "detail", "player", "settings"} {
+		got, want := still.FindMounted("id:still >> id:screen-"+id).Frame, app.FindMounted("design >> id:screen-"+id).Frame
+		if got != want {
+			t.Fatalf("%s is at %v, not %v as in the editor", id, got, want)
+		}
+		rows[float64(got.Origin.Y)] = true
+	}
+	if len(rows) < 2 {
+		t.Fatal("the designs do not wrap")
+	}
+}

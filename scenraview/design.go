@@ -36,9 +36,19 @@ func screenLayout(f flowfile.File, hosted map[int]hosting) ([]core.Point, core.S
 	sizes := make([]core.Size, len(f.Screens))
 	for i := range f.Screens {
 		w, h := sizeOf(f, i, hosted)
-		sizes[i] = core.Size{Width: core.Points(w), Height: core.Points(h + captionRoom)}
+		sizes[i] = core.Size{Width: core.Points(w), Height: core.Points(h)}
 	}
-	at, total := pack(sizes, core.Points(f.Spacing()))
+	return packDesigns(sizes, f.Spacing())
+}
+
+// packDesigns is where designs of sizes are in the plane, packed spacing
+// apart under their captions, and the size of the whole.
+func packDesigns(sizes []core.Size, spacing int) ([]core.Point, core.Size) {
+	boxes := make([]core.Size, len(sizes))
+	for i, s := range sizes {
+		boxes[i] = core.Size{Width: s.Width, Height: s.Height + captionRoom}
+	}
+	at, total := pack(boxes, core.Points(spacing))
 	for i := range at {
 		at[i].Y += captionRoom
 	}
