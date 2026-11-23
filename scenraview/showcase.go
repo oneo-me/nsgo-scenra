@@ -336,7 +336,7 @@ func showcaseBoard(cx *core.Scope, files func() []entry, parts func() components
 			nodes = append(nodes,
 				core.Dynamic(func(cx *core.Scope) core.Node {
 					p := placed.Get()
-					return caption(cx, screen.Name, p.at[i], int(float64(p.sizes[i].Width)*p.scales[i]), zoom)
+					return caption(cx, screen.Name, p.at[i], int(float64(p.sizes[i].Width)*p.scales[i]), captionRoom+showcaseGap, zoom)
 				}),
 				// The drawing lays out at its own size, in room wide
 				// enough for any, which the scale grows from the top left

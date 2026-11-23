@@ -204,7 +204,7 @@ func flowBoard(cx *core.Scope, doc func() flowfile.File, chart func(i int) *uifl
 					if name == "" {
 						name = f.Flows[i].ID
 					}
-					return caption(cx, name, origin(i), int(chart(i).Size().Width), zoom)
+					return caption(cx, name, origin(i), int(chart(i).Size().Width), captionRoom+core.Points(f.Spacing()), zoom)
 				})
 			}},
 			core.View{TestID: "flow-" + strconv.Itoa(i), StyleFunc: func() core.Style {

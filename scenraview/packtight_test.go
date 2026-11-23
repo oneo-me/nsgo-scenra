@@ -47,3 +47,17 @@ func TestPackTightFillsAroundATallBox(t *testing.T) {
 		t.Fatalf("the packing is %v", total)
 	}
 }
+
+func TestCaptionsKeepToTheRoomAboveTheirDesigns(t *testing.T) {
+	room := core.Points(captionRoom + 40)
+	if k := captionScale(1, room); k != 1 {
+		t.Fatalf("at full size a caption grows %v times", k)
+	}
+	// Zoomed far out, a caption shrinks with the designs rather than
+	// covering the row above.
+	for _, zoom := range []float64{0.5, 0.2, 0.05} {
+		if k := captionScale(zoom, room); core.Points((captionGap+captionHeight)*k) > room+1e-6 || k > 1/zoom {
+			t.Fatalf("at zoom %v a caption grows %v times, past its room", zoom, k)
+		}
+	}
+}

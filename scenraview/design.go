@@ -62,18 +62,32 @@ func screenBounds(f flowfile.File, i int, origin core.Point, measured map[int]co
 }
 
 // caption names a design of a file of several over its top left corner,
-// its size on screen the same at any zoom.
-func caption(cx *core.Scope, text string, at core.Point, width int, zoom func() float64) core.Node {
+// its size on screen the same at any zoom unless it would then take more
+// than room, the room above at in the plane, and cover what is above.
+func caption(cx *core.Scope, text string, at core.Point, width int, room core.Points, zoom func() float64) core.Node {
 	colors := ui.ColorsOf(cx)
 	return core.Text{Content: text, MaxLines: 1, PointerEvents: core.PointerEventsNone,
 		StyleFunc: func() core.Style {
-			z := zoom()
-			const height = captionSize * 1.6
-			return core.Style{Position: core.Absolute, Left: core.Pt(at.X), Top: core.Pt(at.Y - 6/core.Points(z) - height),
-				Width: core.Pt(core.Points(float64(width) * z)), Height: core.Pt(height), FontSize: captionSize, LineHeight: height,
-				FontWeight: ui.Medium, Color: colors.Muted(), Transform: core.Transform{Scale: float32(1 / z)},
+			k := captionScale(zoom(), room)
+			return core.Style{Position: core.Absolute, Left: core.Pt(at.X), Top: core.Pt(at.Y - core.Points(captionGap*k) - captionHeight),
+				Width: core.Pt(core.Points(float64(width) / k)), Height: core.Pt(captionHeight), FontSize: captionSize, LineHeight: captionHeight,
+				FontWeight: ui.Medium, Color: colors.Muted(), Transform: core.Transform{Scale: float32(k)},
 				TransformOrigin: core.ObjectPosition{X: core.PositionAxis{Offset: core.Pt(0)}, Y: core.PositionAxis{Offset: core.Pct(100)}}}
 		}}
+}
+
+// captionGap is the room between a caption and its design on screen, and
+// captionHeight the caption's height there.
+const (
+	captionGap    = 6
+	captionHeight = captionSize * 1.6
+)
+
+// captionScale is how much a caption grows in the plane at zoom: as much
+// as keeps its size on screen, but no more than fits it and its gap in
+// room.
+func captionScale(zoom float64, room core.Points) float64 {
+	return min(1/zoom, float64(room)/(captionGap+captionHeight))
 }
 
 // lookOf is what a design is drawn from: its text, and the components,
@@ -388,7 +402,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				if name == "" {
 					name = screen.ID
 				}
-				screens = append(screens, caption(cx, name, origins[i], w, c.Zoom),
+				screens = append(screens, caption(cx, name, origins[i], w, captionRoom+core.Points(s.Spacing()), c.Zoom),
 					core.View{TestID: "screen-" + screen.ID, Style: core.Style{Position: core.Absolute, Left: core.Pt(origins[i].X), Top: core.Pt(origins[i].Y)},
 						Children: []core.Node{framed(i, screenView(cx, s, i, sel))}})
 			}
