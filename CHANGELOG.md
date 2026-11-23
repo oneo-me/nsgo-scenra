@@ -4,6 +4,7 @@
 
 - Add `scenraview.Showcase`, drawing a project's components together as **Components** shows them, and draw flow charts with `scenraview.Still`, as the editor lays them out, both read-only.
 - Fix a chart holding a single flow taking no room, which kept **Fit** from framing it.
+- Fix the names of designs and flows zoomed far out covering the row above.
 
 ## [0.2.0] - 2026-11-21
 
