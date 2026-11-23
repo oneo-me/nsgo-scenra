@@ -90,7 +90,7 @@ func TestSettingsTurnOffTheStatistics(t *testing.T) {
 func TestLanguageSetting(t *testing.T) {
 	app := startApp(t)
 	a := folder(t, "alpha")
-	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: a}} }
+	app.PickDirectories = func(nsgotest.DirectoryPick) []core.Directory { return []core.Directory{{Path: a}} }
 	app.Press("id:home-open-folder")
 	app.WaitFor("id:files >> label:home", 5*time.Second)
 	app.Press("id:files >> label:home")
@@ -125,7 +125,7 @@ func TestFoldersOpenInTabsFromTheHomePage(t *testing.T) {
 	app.Find("id:recent-empty")
 	a, b := folder(t, "alpha"), folder(t, "beta")
 	pick := a
-	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: pick}} }
+	app.PickDirectories = func(nsgotest.DirectoryPick) []core.Directory { return []core.Directory{{Path: pick}} }
 	app.Press("id:home-open-folder")
 	app.WaitFor("id:files >> label:home", 5*time.Second)
 	app.Press("id:files >> label:home")

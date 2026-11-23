@@ -50,7 +50,7 @@ func TestFirstMessageTitlesTheConversation(t *testing.T) {
 
 	dir := filepath.Join(t.TempDir(), "coffee")
 	os.Mkdir(dir, 0o755)
-	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: dir}} }
+	app.PickDirectories = func(nsgotest.DirectoryPick) []core.Directory { return []core.Directory{{Path: dir}} }
 	app.Press("id:home-recent")
 	app.Press("id:home-open-folder")
 	app.WaitFor("id:files", 5*time.Second)
@@ -67,7 +67,7 @@ func TestNoNamingModelKeepsTheFirstLine(t *testing.T) {
 	app := nsgotest.Start(t, testRoot(t), nsgotest.Size(1280, 800))
 	dir := filepath.Join(t.TempDir(), "coffee")
 	os.Mkdir(dir, 0o755)
-	app.PickDirectories = func(core.DirectoriesRequest) []core.Directory { return []core.Directory{{Path: dir}} }
+	app.PickDirectories = func(nsgotest.DirectoryPick) []core.Directory { return []core.Directory{{Path: dir}} }
 	app.Press("id:home-recent")
 	app.Press("id:home-open-folder")
 	app.WaitFor("id:files", 5*time.Second)
