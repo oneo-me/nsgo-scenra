@@ -17,6 +17,7 @@ Scenra draws designs with NSGo's own elements and Tailwind classes, so what it d
 | `svg` | `core.SVGView` of a logo or illustration kept in `resources/`; a chart is `base/plot` drawing the app's data |
 
 - Copy `class="…"` into `Class` as written: layout, spacing, `selected:`, `hover:`, `active:`, `group` and `group-*:` work alike.
+- `glass=regular`, `glass=clear` and optional `interactive` become `Style: core.Style{GlassEffect: core.GlassRegular}` (or `core.GlassClear`) with `GlassInteractive: true` on `core.View`, keeping any `backdrop-blur-*` in `Class` as its fallback.
 - Fixed palette colors, such as `bg-amber-600`, are the draft's: give the app's accent and surfaces to the theme and use its roles, such as `bg-primary`, `text-muted-foreground` or `ui.ColorsOf`, so dark mode and themes follow.
 - A design's content, the names, prices and messages, is sample data: the app's data shows there, and only its labels go to `locales/`, in every language the app has.
 

@@ -655,10 +655,11 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		inner.scope, inner.holder = in, key
 		return elements(cx, els, under, inner), ok
 	}
+	glass := glassStyle(el.Attr("glass"))
 	switch el.Kind {
 	case "box":
 		kids, _ := children()
-		return core.View{Class: class, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
+		return core.View{Class: class, Style: glass, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
 			Children: kids}
 	case "slot":
 		kids, _ := children()
@@ -667,7 +668,7 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 			kids = []core.Node{core.Icon{SVG: lucide.SquareDashed(), Class: "size-5 text-muted-foreground"}}
 			class = "min-h-10 items-center justify-center rounded-lg border border-dashed border-border " + class
 		}
-		return core.View{Class: class, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
+		return core.View{Class: class, Style: glass, Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
 			Children: kids}
 	case "text":
 		if key := el.Attr("key"); key != "" {
@@ -706,7 +707,7 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		inner := sel
 		inner.scope, inner.holder = in, key
 		if !flowfile.Rooted(els) {
-			return core.View{Class: flowfile.UseClass(el, sel.parts[el.Text]), Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
+			return core.View{Class: flowfile.UseClass(el, sel.parts[el.Text]), Style: glassStyle(flowfile.UseGlass(el, sel.parts[el.Text])), Label: el.Text, OnPress: press, OnLayout: layout, TestID: testID, StyleFunc: hide, Selected: selected,
 				Children: elements(cx, els, under, inner)}
 		}
 		// The component's element at its top, which took the use's
@@ -724,6 +725,23 @@ func element(cx *core.Scope, el flowfile.Element, path []int, sel selection) cor
 		return element(cx, els[0], append(slices.Clone(under), 0), inner)
 	}
 	return core.Group{}
+}
+
+// glassStyle turns a glass= attribute into NSGo's Liquid Glass style.
+func glassStyle(v string) core.Style {
+	g, err := flowfile.ParseGlass(v)
+	if err != nil {
+		return core.Style{}
+	}
+	var s core.Style
+	switch g.Style {
+	case flowfile.GlassRegular:
+		s.GlassEffect = core.GlassRegular
+	case flowfile.GlassClear:
+		s.GlassEffect = core.GlassClear
+	}
+	s.GlassInteractive = g.Interactive
+	return s
 }
 
 // componentProblems are what is wrong with the components the design s

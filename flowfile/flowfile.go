@@ -15,6 +15,9 @@
 //	  box class="h-11 items-center justify-center rounded-xl bg-blue-600" tap="open home"
 //	    text "Sign in" class="font-semibold text-white"
 //	  end
+//	  box class="rounded-full bg-white/60 backdrop-blur-lg px-4 py-2" glass=regular
+//	    text "Floating"
+//	  end
 //	  box class="flex-row gap-2"
 //	    box class="group selected:bg-blue-50" tap="tab mail"   # selected while mail shows
 //	      text "Mail" class="group-selected:text-blue-600"

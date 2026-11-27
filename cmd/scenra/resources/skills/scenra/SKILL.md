@@ -87,7 +87,7 @@ Use `kind=start` and `kind=end` for entry and exit points and `kind=decision` fo
 
 A design is drawn with a few primitives, an element a line, each styled with Tailwind CSS 4 classes in `class="…"`:
 
-- `box`: a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line
+- `box`: a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line; `glass="…"` draws Liquid Glass (`regular`, `clear` or `none`, with optional `interactive`, such as `glass=regular` or `glass="clear interactive"`) over what sits behind it, paired with `backdrop-blur-*` and a translucent `bg-*` tint as a fallback where Liquid Glass is unavailable
 - `text`: its text, which wraps; size, weight and color it with classes; `key="…"` shows a message of `locales/` instead, as Languages says
 - `icon`: the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*
 - `image`: a picture its text describes: the one `src="…"` names, a file of `assets/` such as `src="assets/latte.jpg"` or a URL, or else a placeholder; size it with classes; see Pictures
@@ -200,12 +200,12 @@ use menu-item title="Mocha" tag.class="hidden"
 ```
 
 - `<name>="…"` replaces the text of the elements of that name: a text's words, an icon's name, an image's description, an SVG document, or the component a `use` draws, swapping it for another. A box has no text.
-- `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.src="…"` replaces an image's picture, `<name>.key="…"` a text's message, and `<name>.tap="…"` an element's tap. A text set by `<name>="…"` shows in place of its message.
+- `<name>.class="…"` adds classes to theirs, which win over the ones they conflict with, so it recolors, resizes or, with `hidden`, hides them; `<name>.glass="…"` replaces a box's or slot's Liquid Glass effect (`regular`, `clear`, `none`, with optional `interactive`), `<name>.src="…"` replaces an image's picture, `<name>.key="…"` a text's message, and `<name>.tap="…"` an element's tap. A text set by `<name>="…"` shows in place of its message.
 - `<name>.panel="…"` makes them a panel a tab shows, as `panel=` does, and `<name>.note="…"` notes them where the use is: the note is the using file's, as a note on the use itself is.
 - `<name>.variant="…"` picks the variants of the component a `use` of that name draws, and `<name>.state="…"` puts the elements in states, as Variants says.
 - `<a>/<b>="…"` changes the elements named b of the component the use named a draws, and so on down.
 - Every element of a name changes, so give one name to several elements that show one value. Name the elements that vary between uses, and keep the component's own values realistic: they show where a use changes nothing.
-- A name is letters, digits, `_` and `-`, and never a word elements take: name, class, tap, panel, comment, note, variant, state, outlet, key or src.
+- A name is letters, digits, `_` and `-`, and never a word elements take: name, class, glass, tap, panel, comment, note, variant, state, outlet, key or src.
 
 ### Variants
 
@@ -264,7 +264,7 @@ end
 - Use a slot where uses differ by more than values, such as a card's body, a sheet's content or a bar's actions; change values by names instead.
 - What a fill holds belongs to the file using the component: it is selected, commented and noted there, and its paths run through the use and the fill, so `0.1.0` is the first element of the second fill of the use at `0`.
 - A fill inside a component may hold that component's own slot, passing on what its uses fill.
-- A slot's name names it as `name=` does, and it may have a `name=` too: a variant or a use shapes it with `<name>.class="…"`, such as `variant stacked control.class="w-full"` or `use settings/item control.class="justify-end"`, its classes adding up as an element's do, the component's, then each variant's, then the use's. That is all a use changes of a slot: its text, tap and the rest are what the fill holds, which stays the using file's, and the editor reports `control="…"` or `control.tap="…"` on one.
+- A slot's name names it as `name=` does, and it may have a `name=` too: a variant or a use shapes it with `<name>.class="…"` and `<name>.glass="…"`, such as `variant stacked control.class="w-full"` or `use settings/item control.class="justify-end"`, its classes adding up as an element's do, the component's, then each variant's, then the use's. That is all a use changes of a slot: its text, tap and the rest are what the fill holds, which stays the using file's, and the editor reports `control="…"` or `control.tap="…"` on one.
 - A fill takes only `comment=` and `note=`; a design has no slots. The editor reports fills of slots a component does not have and slots of one name written twice.
 
 ## Interactions

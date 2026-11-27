@@ -336,6 +336,53 @@ func TestADesignShapesItsFrame(t *testing.T) {
 	}
 }
 
+func TestDesignsDrawLiquidGlass(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra": `design
+box class="rounded-full bg-white/60 backdrop-blur-lg" glass=regular
+  text "Regular"
+end
+box class="rounded-full" glass="clear interactive"
+  text "Clear"
+end
+use pill
+use pill variant=flat
+`,
+		"components/pill.scenra": `component
+box class="rounded-full px-4 py-2" glass=regular
+  text "Pill"
+end
+variant flat glass=none
+`,
+	})
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "home.scenra"))
+	app.WaitFor("design >> text:Regular", 5*time.Second)
+
+	reg := app.Find("id:element-0/0").Style
+	if reg.Glass != core.GlassRegular || reg.GlassInteractive {
+		t.Fatalf("regular box glass = %v interactive=%v, want GlassRegular/false", reg.Glass, reg.GlassInteractive)
+	}
+	if len(reg.Effects.BackdropFilters) == 0 {
+		t.Fatalf("regular box lost backdrop-blur fallback: %+v", reg.Effects.BackdropFilters)
+	}
+
+	clr := app.Find("id:element-0/1").Style
+	if clr.Glass != core.GlassClear || !clr.GlassInteractive {
+		t.Fatalf("clear box glass = %v interactive=%v, want GlassClear/true", clr.Glass, clr.GlassInteractive)
+	}
+
+	pill := app.Find("id:element-0/2").Style
+	if pill.Glass != core.GlassRegular {
+		t.Fatalf("pill use glass = %v, want GlassRegular", pill.Glass)
+	}
+
+	flat := app.Find("id:element-0/3").Style
+	if flat.Glass != core.GlassNone {
+		t.Fatalf("flat pill use glass = %v, want GlassNone", flat.Glass)
+	}
+}
+
 func TestDesignsDrawTheComponentsTheyUse(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{
 		"home.scenra":                "design\nbox class=\"flex-1\"\n  text \"Welcome\"\n  use tab-bar class=\"mt-auto\"\n  use gone\nend\n",
