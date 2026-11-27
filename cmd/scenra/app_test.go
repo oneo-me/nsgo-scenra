@@ -63,8 +63,9 @@ func tabNames(app *nsgotest.App) []string {
 
 func TestSettingsTurnAgentsOff(t *testing.T) {
 	app := startApp(t)
-	app.Press("id:home-settings")
+	app.Press("id:open-settings")
 	app.WaitFor("id:settings", time.Second)
+	app.Press("id:settings-nav-agents")
 	// The agent's models load before it turns off.
 	app.WaitFor("id:models-claude >> text:1/1 model", 5*time.Second)
 	app.Press("id:agent-claude")
@@ -73,8 +74,9 @@ func TestSettingsTurnAgentsOff(t *testing.T) {
 
 func TestSettingsTurnOffTheStatistics(t *testing.T) {
 	app := startApp(t)
-	app.Press("id:home-settings")
+	app.Press("id:open-settings")
 	app.WaitFor("id:settings", time.Second)
+	app.Press("id:settings-nav-stats")
 	app.Press("id:settings >> label:Send usage statistics")
 	if v, _ := app.Storage().GetItem(keyStats); v != "off" {
 		t.Fatalf("stats = %q, want off", v)
@@ -82,6 +84,29 @@ func TestSettingsTurnOffTheStatistics(t *testing.T) {
 	app.Press("id:settings >> label:Send usage statistics")
 	if _, ok := app.Storage().GetItem(keyStats); ok {
 		t.Fatal("stats still stored after turning them back on")
+	}
+}
+
+// TestThemeSetting shows the appearance chosen in the settings and starts
+// in it again.
+func TestThemeSetting(t *testing.T) {
+	app := startApp(t)
+	app.Press("id:open-settings")
+	app.WaitFor("id:settings", time.Second)
+	app.Press("id:theme")
+	app.Press("text:Dark")
+	if v, _ := app.Storage().GetItem(keyTheme); v != "dark" {
+		t.Fatalf("theme = %q, want dark", v)
+	}
+	app.WaitFor("id:theme >> text:Dark", time.Second)
+
+	again := startApp(t, nsgotest.Storage(map[string]string{keyTheme: "light"}))
+	again.Press("id:open-settings")
+	again.WaitFor("id:theme >> text:Light", time.Second)
+	again.Press("id:theme")
+	again.Press("id:theme-0")
+	if _, ok := again.Storage().GetItem(keyTheme); ok {
+		t.Fatal("following the system keeps a theme")
 	}
 }
 
@@ -101,8 +126,8 @@ func TestLanguageSetting(t *testing.T) {
 	app.Press("id:files >> label:home")
 	app.WaitFor("design >> text:Welcome to alpha", time.Second)
 	app.Find("design >> text:Hello")
-	app.Press("id:tab-home")
-	app.Press("id:home-settings")
+	// The settings open over the tab shown.
+	app.Press("id:open-settings")
 	app.WaitFor("id:settings", time.Second)
 	app.Press("id:language")
 	app.Press("text:简体中文")
@@ -112,14 +137,15 @@ func TestLanguageSetting(t *testing.T) {
 	// The settings stay open in the new language, and the tab with its
 	// file.
 	app.WaitFor("id:settings >> text:语言", time.Second)
-	app.Press("id:tab")
+	app.Press("id:settings-close")
+	app.WaitUntil(time.Second, func() bool { return len(app.Query("id:settings")) == 0 })
 	app.WaitFor("design >> text:你好", time.Second)
 
 	again := startApp(t, nsgotest.Storage(map[string]string{keyLanguage: "zh-Hans"}))
-	again.Press("id:home-settings")
+	again.Press("id:open-settings")
 	again.WaitFor("id:settings >> text:语言", time.Second)
 	again.Press("id:language")
-	again.Press("text:跟随系统")
+	again.Press("id:language-0")
 	if _, ok := again.Storage().GetItem(keyLanguage); ok {
 		t.Fatal("following the system keeps a language")
 	}

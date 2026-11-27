@@ -8,17 +8,10 @@ import (
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
-	"github.com/oneo-me/nsgo-agio/chatview"
 
 	"github.com/oneo-me/nsgo-scenra/cmd/scenra/locales"
 	"github.com/oneo-me/nsgo-scenra/scenraview"
 	words "github.com/oneo-me/nsgo-scenra/scenraview/locales"
-)
-
-// The home page's pages, which its sidebar chooses.
-const (
-	pageRecent   = "recent"
-	pageSettings = "settings"
 )
 
 // Sizes of a recent folder's card and of its cover.
@@ -27,31 +20,10 @@ const (
 	coverHeight core.Points = 156
 )
 
-// homePage is the tab always first: the folders opened lately, each
-// opening in a tab of its own, or the settings, which its sidebar
-// chooses between.
-func homePage(cx *core.Scope, t *tabs, page *core.Signal[string], m *chatview.Model, n *namer) core.Node {
-	tr := locales.For(cx)
-	colors := ui.ColorsOf(cx)
-	nav := ui.Sidebar{TestID: "home-sidebar", Selected: page.Get, OnSelect: page.Set, Sections: []ui.SidebarSection{{Items: []ui.SidebarItem{
-		{ID: pageRecent, Text: tr.Recent(), Icon: lucide.Clock, TestID: "home-recent"},
-		{ID: pageSettings, Text: tr.SettingsTitle(), Icon: lucide.Settings, TestID: "home-settings"},
-	}}}}
-	return core.View{TestID: "home", Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{
-		core.View{Style: core.Style{Width: core.Pt(220), FlexShrink: 0, Padding: core.Edges{Top: 8}, Borders: core.Edges{Right: 1}},
-			StyleFunc: func() core.Style {
-				return core.Style{Background: colors.Surface(), BorderColors: core.EdgeColors{Right: colors.Line()}}
-			},
-			Children: []core.Node{nav}},
-		core.Show{When: func() bool { return page.Get() == pageSettings },
-			Then: func(cx *core.Scope) core.Node { return settingsPage(cx, m, n) },
-			Else: func(cx *core.Scope) core.Node { return recentPage(cx, t) }},
-	}}
-}
-
-// recentPage is the folders opened lately as cards, the latest first,
-// with a way to open another.
-func recentPage(cx *core.Scope, t *tabs) core.Node {
+// homePage is the tab always first: the folders opened lately as cards,
+// the latest first, each opening in a tab of its own, with a way to open
+// another.
+func homePage(cx *core.Scope, t *tabs) core.Node {
 	tr, w := locales.For(cx), words.For(cx)
 	colors := ui.ColorsOf(cx)
 	empty := core.View{TestID: "recent-empty", Style: core.Style{AlignItems: core.AlignCenter, Gap: 12, Padding: core.Symmetric(64, 0)}, Children: []core.Node{
@@ -64,7 +36,7 @@ func recentPage(cx *core.Scope, t *tabs) core.Node {
 			return recentCard(cx, t, item)
 		}),
 	}}
-	return ui.ScrollView{Style: ui.FillRest, Children: []core.Node{
+	return ui.ScrollView{TestID: "home", Style: ui.FillRest, Children: []core.Node{
 		core.View{Style: core.Style{Padding: core.All(32), Gap: 20}, Children: []core.Node{
 			core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 12}, Children: []core.Node{
 				ui.Text(tr.Recent(), 20, ui.Semibold, colors.Text),

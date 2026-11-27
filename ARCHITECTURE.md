@@ -1,6 +1,6 @@
 # Scenra architecture
 
-Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only, built from `scenraview`, which gives other NSGo apps the same support for Scenra files, as Agio's `chatview` does for conversations. Its title bar holds tabs, as Figma's does: a home page always first, of the folders opened lately and the settings, then a tab per open folder, each an editor of its own. An editor works in one folder, whose Scenra files the sidebar lists in the groups their names give them; each file holds designs of screens, one component designs share or flow charts, never two kinds. One file at a time shows as the document, with its undo history, under a header naming it, beside the assistant running the window's height, whose conversations, one shown at a time and chosen in its header, are about the folder. The design and diagram draw it.
+Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, for desktops only, built from `scenraview`, which gives other NSGo apps the same support for Scenra files, as Agio's `chatview` does for conversations. Its title bar holds tabs, as Figma's does: a home page always first, of the folders opened lately, then a tab per open folder, each an editor of its own, and at its end the button opening the settings, a dialog over whichever tab shows. An editor works in one folder, whose Scenra files the sidebar lists in the groups their names give them; each file holds designs of screens, one component designs share or flow charts, never two kinds. One file at a time shows as the document, with its undo history, under a header naming it, beside the assistant running the window's height, whose conversations, one shown at a time and chosen in its header, are about the folder. The design and diagram draw it.
 
 ## Code map
 
@@ -68,7 +68,7 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 
 ## Data and state
 
-Settings, the naming model's API key among them, the open tabs with the file each shows and the tab shown, the folders opened lately with the file each showed last, each folder's conversations as their agents' sessions, choices and titles, the agent, model and settings chosen last, which new conversations start with, and the install's random statistics ID live in NSGo's storage on the device; the transcripts stay in the agents' own sessions. Documents live only in the folder's files.
+Settings, the language and theme and the naming model's API key among them, the open tabs with the file each shows and the tab shown, the folders opened lately with the file each showed last, each folder's conversations as their agents' sessions, choices and titles, the agent, model and settings chosen last, which new conversations start with, and the install's random statistics ID live in NSGo's storage on the device; the transcripts stay in the agents' own sessions. Documents live only in the folder's files.
 
 ## Verification
 

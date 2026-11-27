@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/nsgo-dev/nsgo/core"
+	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 
 	"github.com/oneo-me/nsgo-agio/chatview"
@@ -15,29 +16,31 @@ func statsSwitch(cx *core.Scope) core.Node {
 		Label: locales.For(cx).StatsSend()}
 }
 
-// settingsPage, a page of the home page, chooses the language, turns the
-// agents and their models on or off, sets the model titling
-// conversations, and turns the usage statistics on or off.
-func settingsPage(cx *core.Scope, m *chatview.Model, n *namer) core.Node {
+// settingsDialog is the settings over the window, whichever tab shows:
+// the language and theme, the agents and their models, the model titling
+// conversations and the usage statistics. open and category live outside
+// the views a new language builds again, so the dialog stays on its page.
+func settingsDialog(cx *core.Scope, m *chatview.Model, n *namer, open *core.Signal[bool], category *core.Signal[string]) core.Node {
+	return chatview.SettingsDialog{Model: m, Open: open, Category: category,
+		Settings: func(agents []ui.SettingsCategory) []ui.SettingsCategory { return settingsCategories(cx, n, agents) }}
+}
+
+// settingsCategories are Scenra's own categories around the agents'. The
+// controls hold their state in scopes of their own, as the page is built
+// again when the agents change.
+func settingsCategories(cx *core.Scope, n *namer, agents []ui.SettingsCategory) []ui.SettingsCategory {
 	tr := locales.For(cx)
-	colors := ui.ColorsOf(cx)
-	return ui.ScrollView{Style: ui.FillRest, ContentStyle: core.Style{AlignItems: core.AlignCenter}, Children: []core.Node{
-		core.View{TestID: "settings", Style: core.Style{Width: core.Pct(100), MaxWidth: core.Pt(640),
-			Padding: core.Symmetric(32, 32), Gap: 24}, Children: []core.Node{
-			ui.Text(tr.SettingsTitle(), 20, ui.Semibold, colors.Text),
-			languageSection(cx),
-			chatview.Agents{Model: m},
-			namingSection(cx, n),
-			core.View{Style: core.Style{Gap: 4}, Children: []core.Node{
-				ui.Text(tr.StatsSection(), 15, ui.Semibold, colors.Text),
-				core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 12}, Children: []core.Node{
-					core.View{Style: core.Style{FlexGrow: 1, FlexShrink: 1, Gap: 2}, Children: []core.Node{
-						ui.Text(tr.StatsSend(), 13, ui.Medium, colors.Text),
-						core.Text{Content: tr.StatsDetail(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
-					}},
-					statsSwitch(cx),
-				}},
-			}},
-		}},
-	}}
+	general := ui.SettingsCategory{ID: "general", Title: tr.SettingsGeneral(), Icon: lucide.Settings, Groups: []ui.SettingsGroup{{
+		ID: "general", Items: []ui.SettingsItem{{
+			ID: "language", Title: tr.LanguageSection(), Keywords: append([]string{"language"}, languageNames()...), Control: core.Func(languageSelect),
+		}, {
+			ID: "theme", Title: tr.Theme(), Keywords: []string{"theme", "appearance", "dark", "light", tr.ThemeLight(), tr.ThemeDark()},
+			Control: core.Func(themeSelect),
+		}}}}}
+	stats := ui.SettingsCategory{ID: "stats", Title: tr.StatsSection(), Icon: lucide.ChartColumn, Groups: []ui.SettingsGroup{{
+		ID: "stats", Items: []ui.SettingsItem{{
+			ID: "send", Title: tr.StatsSend(), Description: tr.StatsDetail(), Keywords: []string{"statistics", "privacy"}, Control: core.Func(statsSwitch),
+		}}}}}
+	out := append([]ui.SettingsCategory{general}, agents...)
+	return append(out, namingSettings(cx, n), stats)
 }

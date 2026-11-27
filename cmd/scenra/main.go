@@ -4,8 +4,8 @@
 // agent, such as Claude Code or Codex, run through Agio, which edits the
 // folder's files as the scenra skill among the app's resources teaches.
 // Each folder opens in a tab of its own, scenraview's Window, beside a
-// home page of the folders opened lately and the settings, with the app's
-// menu and usage statistics.
+// home page of the folders opened lately, with the app's menu, its
+// settings in a dialog and usage statistics.
 package main
 
 import (
@@ -47,8 +47,9 @@ func Root(cx *core.Scope) core.Node {
 // root is Root with the agents agents runs.
 func root(cx *core.Scope, agents host.Options) core.Node {
 	rememberLanguage(cx)
+	rememberAppearance(cx)
 	toasts := ui.NewToaster(cx)
-	page := core.NewSignal(cx, pageRecent)
+	settingsOpen, settingsPage := core.NewSignal(cx, false), core.NewSignal(cx, "")
 	stats := newUsage(cx)
 	var m *chatview.Model
 	var srv *scenraview.Server
@@ -59,13 +60,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 	}
 	namer := newNamer(cx, m)
 	var t *tabs
-	// The menu's Settings shows the home page's.
-	settings := func() {
-		cx.Batch(func() {
-			t.shown.Set(nil)
-			page.Set(pageSettings)
-		})
-	}
+	settings := func() { settingsOpen.Set(true) }
 	// Each tab's editor works in its own folder, which its conversations
 	// name to the server.
 	t = newTabs(cx, toasts, newRecents(cx), func(cx *core.Scope, dir string) *scenraview.Editor {
@@ -140,6 +135,7 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		cx.OnKey("mod+=", do((*scenraview.Editor).ZoomIn))
 		cx.OnKey("mod+-", do((*scenraview.Editor).ZoomOut))
 		cx.OnKey("mod+w", t.closeShown)
+		cx.OnKey("mod+,", settings)
 	}
 
 	// A new language builds the window's views again in it; the tabs'
@@ -151,14 +147,15 @@ func root(cx *core.Scope, agents host.Options) core.Node {
 		return core.Func(func(cx *core.Scope) core.Node {
 			colors := ui.ColorsOf(cx)
 			return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
-				tabBar(cx, t, titleBar),
+				tabBar(cx, t, titleBar, settings),
 				core.View{Style: ui.FillRest, Children: []core.Node{
-					layer(func() bool { return t.shown.Get() == nil }, homePage(cx, t, page, m, namer)),
+					layer(func() bool { return t.shown.Get() == nil }, homePage(cx, t)),
 					core.Each(t.open.Get, func(tb *tab) *tab { return tb }, func(cx *core.Scope, item func() *tab, _ func() int) core.Node {
 						tb := item()
 						return layer(func() bool { return t.shown.Get() == tb }, scenraview.Window{Editor: tb.e, NoHeader: true})
 					}),
 				}},
+				settingsDialog(cx, m, namer, settingsOpen, settingsPage),
 				ui.Toasts{Toaster: toasts, Placement: ui.ToastBottomStart},
 			}}
 		})
@@ -180,9 +177,10 @@ func layer(shown func() bool, page core.Node) core.Node {
 
 // tabBar is the bar of the window's tabs: the home page's, then one per
 // open folder, marked while its file has unsaved changes, which closes
-// from its button. As the window's title bar,
+// from its button, and at its end the button opening the settings. As the
+// window's title bar,
 // with titleBar, it drags the window and keeps clear of its controls.
-func tabBar(cx *core.Scope, t *tabs, titleBar bool) core.Node {
+func tabBar(cx *core.Scope, t *tabs, titleBar bool, settings func()) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	inset, drag := core.Edges{}, core.WindowDragInherit
@@ -246,7 +244,10 @@ func tabBar(cx *core.Scope, t *tabs, titleBar bool) core.Node {
 				Height: core.Pt(max(scenraview.HeaderHeight, b.Top)), Padding: core.Edges{Left: b.Left + 8, Right: b.Right + 8},
 				Background: ui.Chrome(cx), Borders: core.Edges{Bottom: 1}, BorderColors: core.EdgeColors{Bottom: colors.Line()}}
 		},
-		Children: []core.Node{homeTab, folders}}
+		Children: []core.Node{homeTab, folders, ui.Spacer{},
+			core.View{Desktop: core.DesktopViewProps{WindowDrag: core.WindowDragOff}, Style: core.Style{FlexShrink: 0}, Children: []core.Node{
+				ui.IconButton{Icon: lucide.Settings, Label: tr.SettingsTitle(), Size: 28, Tint: colors.Muted, OnPress: settings, TestID: "open-settings"},
+			}}}}
 }
 
 // menu is the application menu, whose document's items act on the tab

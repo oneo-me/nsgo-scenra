@@ -34,8 +34,9 @@ func TestFirstMessageTitlesTheConversation(t *testing.T) {
 	defer service.Close()
 
 	app := nsgotest.Start(t, testRoot(t), nsgotest.Size(1280, 800))
-	app.Press("id:home-settings")
+	app.Press("id:open-settings")
 	app.WaitFor("id:settings", time.Second)
+	app.Press("id:settings-nav-naming")
 	app.Type("id:settings >> label:Base URL", service.URL+"/v1")
 	app.Type("id:settings >> label:API key", "secret")
 	app.Type("id:settings >> label:Model", " small ")
@@ -51,7 +52,8 @@ func TestFirstMessageTitlesTheConversation(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "coffee")
 	os.Mkdir(dir, 0o755)
 	app.PickDirectories = func(nsgotest.DirectoryPick) []core.Directory { return []core.Directory{{Path: dir}} }
-	app.Press("id:home-recent")
+	app.Press("id:settings-close")
+	app.WaitUntil(time.Second, func() bool { return len(app.Query("id:settings")) == 0 })
 	app.Press("id:home-open-folder")
 	app.WaitFor("id:files", 5*time.Second)
 	app.WaitUntil(5*time.Second, func() bool { return len(app.Query("id:composer")) > 0 })
@@ -68,7 +70,6 @@ func TestNoNamingModelKeepsTheFirstLine(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "coffee")
 	os.Mkdir(dir, 0o755)
 	app.PickDirectories = func(nsgotest.DirectoryPick) []core.Directory { return []core.Directory{{Path: dir}} }
-	app.Press("id:home-recent")
 	app.Press("id:home-open-folder")
 	app.WaitFor("id:files", 5*time.Second)
 	app.WaitUntil(5*time.Second, func() bool { return len(app.Query("id:composer")) > 0 })
