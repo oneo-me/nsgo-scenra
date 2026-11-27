@@ -4,6 +4,9 @@
 
 - Support macOS QuickLook previews of `.scenra` files in Finder, backed by a reusable read-only `scenraview.Preview` canvas.
 - Open the settings in a dialog from a gear at the end of the title bar, over any tab, leaving the Home tab to the recent folders.
+- Float the sidebar and the assistant as cards over the canvas, which runs under them while **Fit** still centers between them, and make the title bar's tabs full-height rectangles, the Home tab named **Home**.
+- Open a folder or a Scenra file by dropping it on the home page.
+- Drop recent folders that no longer exist from the home page.
 - Choose a light or dark theme, or follow the system, in **Settings** → **General**.
 - Support Liquid Glass on design boxes, slots and component uses with `glass=regular`, `glass=clear`, `glass=none` and optional `interactive`.
 - Add `OnElementMenu` and `OnNodeMenu` to `scenraview.Options`, telling the host app of right clicks on a design's elements and a flow chart's nodes, such as to open its own menus there.

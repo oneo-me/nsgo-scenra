@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -150,6 +152,50 @@ func TestLanguageSetting(t *testing.T) {
 		t.Fatal("following the system keeps a language")
 	}
 	again.WaitFor("id:settings >> text:Language", time.Second)
+}
+
+func TestRecentFoldersGoneLeaveTheHomePage(t *testing.T) {
+	a, gone := folder(t, "alpha"), filepath.Join(t.TempDir(), "gone")
+	data, _ := json.Marshal([]recentFolder{{Folder: gone}, {Folder: a}})
+	app := startApp(t, nsgotest.Storage(map[string]string{keyRecent: string(data)}))
+	app.WaitFor("id:recent-alpha", time.Second)
+	if app.Exists("id:recent-gone") {
+		t.Fatal("a folder gone shows among the recent ones")
+	}
+	kept, _ := app.Storage().GetItem(keyRecent)
+	var list []recentFolder
+	json.Unmarshal([]byte(kept), &list)
+	if len(list) != 1 || list[0].Folder != a {
+		t.Fatalf("recent kept = %v", list)
+	}
+}
+
+func TestAFolderDroppedOnTheHomePageOpens(t *testing.T) {
+	app := startApp(t)
+	a := folder(t, "alpha")
+	app.DropFiles("id:home-drop", (&url.URL{Scheme: "file", Path: filepath.ToSlash(a)}).String())
+	app.WaitFor("id:files >> label:home", 5*time.Second)
+	if names := tabNames(app); !slices.Equal(names, []string{"alpha"}) {
+		t.Fatalf("tabs = %v", names)
+	}
+}
+
+func TestTheCanvasRunsUnderTheFloatingPanels(t *testing.T) {
+	app := startApp(t)
+	shown.openFolder(folder(t, "alpha"))
+	app.WaitFor("id:files >> label:home", 5*time.Second)
+	app.Press("id:files >> label:home")
+	app.WaitFor("design >> text:Welcome to alpha", time.Second)
+	// The workspace fills the window under the panels, while the camera,
+	// which fits and centers, keeps clear of them.
+	files, chat := app.Find("id:files").Bounds(), app.Find("id:conversation").Bounds()
+	camera := app.Find("id:design-camera-pointer").Bounds()
+	if camera.Origin.X < files.Origin.X+files.Size.Width || camera.Origin.X+camera.Size.Width > chat.Origin.X {
+		t.Fatalf("camera %v is under the panels %v and %v", camera, files, chat)
+	}
+	if home := app.Find("id:tabs").Bounds(); app.Find("id:workspace").Bounds().Size.Width != home.Size.Width {
+		t.Fatal("the workspace does not run under the panels")
+	}
 }
 
 func TestFoldersOpenInTabsFromTheHomePage(t *testing.T) {

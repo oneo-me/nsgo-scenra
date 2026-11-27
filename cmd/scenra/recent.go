@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"slices"
 	"time"
 
@@ -34,7 +35,21 @@ func newRecents(cx *core.Scope) *recents {
 	if data, ok := cx.Storage().GetItem(keyRecent); ok {
 		json.Unmarshal([]byte(data), &list)
 	}
-	return &recents{cx: cx, list: core.NewSignalFunc(cx, list, slices.Equal[[]recentFolder])}
+	r := &recents{cx: cx, list: core.NewSignalFunc(cx, []recentFolder(nil), slices.Equal[[]recentFolder])}
+	// Folders moved or deleted since leave the list.
+	kept := slices.DeleteFunc(slices.Clone(list), func(f recentFolder) bool { return !isDir(f.Folder) })
+	if len(kept) != len(list) {
+		r.set(kept)
+	} else {
+		r.list.Set(list)
+	}
+	return r
+}
+
+// isDir says a folder is at path.
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 // set keeps list as the recent folders.

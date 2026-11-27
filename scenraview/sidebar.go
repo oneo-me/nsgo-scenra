@@ -51,7 +51,7 @@ const componentsItem = "\x00components"
 // own and its other designs in the groups their names give them; in
 // which choosing a file shows it, with the lines Git says each changed;
 // or, while no folder is open, a way to open one.
-func sidebar(cx *core.Scope, e *Editor) core.Node {
+func sidebar(cx *core.Scope, e *Editor, floating bool) core.Node {
 	tr := locales.For(cx)
 	colors := ui.ColorsOf(cx)
 	groups := core.NewMemoFunc(cx, func() []fileGroup { return groupFiles(e.files.Get()) }, func(a, b []fileGroup) bool { return false })
@@ -147,9 +147,13 @@ func sidebar(cx *core.Scope, e *Editor) core.Node {
 		core.Text{Content: tr.NoFolder(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
 		ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: e.OpenFolder, TestID: "sidebar-open-folder"},
 	}}
-	return core.View{Style: core.Style{Width: core.Pt(sidebarWidth), FlexShrink: 0, Padding: core.Edges{Top: 8}, Borders: core.Edges{Right: 1}},
+	return core.View{Style: core.Style{Width: core.Pt(sidebarWidth), FlexShrink: 0, Padding: core.Edges{Top: 8}},
 		StyleFunc: func() core.Style {
-			return core.Style{Background: colors.Surface(), BorderColors: core.EdgeColors{Right: colors.Line()}}
+			// A floating sidebar is a card's, which draws its edge.
+			if floating {
+				return core.Style{}
+			}
+			return core.Style{Background: colors.Surface(), Borders: core.Edges{Right: 1}, BorderColors: core.EdgeColors{Right: colors.Line()}}
 		},
 		Children: []core.Node{
 			core.Show{When: func() bool { return e.folder.Get() == "" },
@@ -199,31 +203,48 @@ func workspacePane(cx *core.Scope, e *Editor) core.Node {
 		}},
 		core.Show{When: func() bool { return e.cur().unread() }, Then: func(cx *core.Scope) core.Node {
 			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
-				StyleFunc: ui.Filled(colors.Background), Children: []core.Node{brokenPane(cx, e, e.a.ask())}}
+				Children: []core.Node{backdrop(e, colors.Background), brokenPane(cx, e, e.a.ask())}}
 		}},
 	}}
 	// The components cover the document while they show, which stays, as
 	// its flow pane must.
-	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), Children: []core.Node{
-		probeLayer(cx, e),
-		core.Show{When: e.empty,
-			Then: func(*core.Scope) core.Node {
-				return core.Show{When: func() bool { return e.folder.Get() == "" },
-					Then: func(*core.Scope) core.Node {
-						return message(lucide.FolderOpen, tr.NoFolder(),
-							ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonPrimary, OnPress: e.OpenFolder, TestID: "open-folder-start"})
-					},
-					Else: func(*core.Scope) core.Node {
-						return message(lucide.FileStack, tr.NoFileOpen())
-					}}
-			},
-			Else: func(*core.Scope) core.Node { return body }},
-		core.Show{When: func() bool { return e.showcase.Get() && e.folder.Get() != "" }, Then: func(cx *core.Scope) core.Node {
-			return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
-				Children: []core.Node{showcasePane(cx, e)}}
-		}},
+	// What floats over the workspace covers its backdrop, which the
+	// canvases draw on beyond their frames, laid out clear of it.
+	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Background), Children: []core.Node{core.View{
+		StyleFunc: func() core.Style { return ui.FillRest.Merge(core.Style{Margin: e.insets.Get()}) }, Children: []core.Node{
+			probeLayer(cx, e),
+			core.Show{When: e.empty,
+				Then: func(*core.Scope) core.Node {
+					return core.Show{When: func() bool { return e.folder.Get() == "" },
+						Then: func(*core.Scope) core.Node {
+							return message(lucide.FolderOpen, tr.NoFolder(),
+								ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonPrimary, OnPress: e.OpenFolder, TestID: "open-folder-start"})
+						},
+						Else: func(*core.Scope) core.Node {
+							return message(lucide.FileStack, tr.NoFileOpen())
+						}}
+				},
+				Else: func(*core.Scope) core.Node { return body }},
+			core.Show{When: func() bool { return e.showcase.Get() && e.folder.Get() != "" }, Then: func(cx *core.Scope) core.Node {
+				return core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0)},
+					Children: []core.Node{showcasePane(cx, e)}}
+			}},
+		}}}}
+}
+
+// backdrop fills the pane it is first in with color, out under what
+// floats over the workspace.
+func backdrop(e *Editor, color func() core.Color) core.Node {
+	return core.View{NoFocus: true, PointerEvents: core.PointerEventsNone, StyleFunc: func() core.Style {
+		in := e.insets.Get()
+		return core.Style{Position: core.Absolute, Left: core.Pt(-in.Left), Top: core.Pt(-in.Top), Right: core.Pt(-in.Right), Bottom: core.Pt(-in.Bottom),
+			Background: color()}
 	}}
 }
+
+// overflowing lets a canvas draw beyond its frame, under what floats over
+// the workspace, which clips it.
+var overflowing = core.Style{Overflow: core.Visible}
 
 // brokenPane tells why the file shown does not parse, as it never has,
 // and with ask asks the assistant to fix it; the file shows once it
