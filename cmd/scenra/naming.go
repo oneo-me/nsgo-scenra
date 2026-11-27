@@ -7,6 +7,7 @@ import (
 
 	"github.com/nsgo-dev/nsgo/core"
 	"github.com/nsgo-dev/nsgo/i18n"
+	"github.com/nsgo-dev/nsgo/icons/lucide"
 	"github.com/nsgo-dev/nsgo/ui"
 	agio "github.com/oneo-me/nsgo-agio"
 	"github.com/oneo-me/nsgo-agio/chatview"
@@ -105,65 +106,61 @@ func (n *namer) name(p naming.Provider, id, title, prompt string) {
 	})
 }
 
-// namingSection sets the OpenAI-compatible model titling new
+// namingSettings sets the OpenAI-compatible model titling new
 // conversations and its reasoning effort, saying why naming last failed.
-func namingSection(cx *core.Scope, n *namer) core.Node {
+func namingSettings(cx *core.Scope, n *namer) ui.SettingsCategory {
 	tr := locales.For(cx)
-	colors := ui.ColorsOf(cx)
 	st := cx.Storage()
-	row := func(title string, control core.Node) core.Node {
-		return core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 12}, Children: []core.Node{
-			core.Text{Content: title, Style: core.Style{FontSize: 13, Width: core.Pt(96), FlexShrink: 0}, StyleFunc: ui.Colored(colors.Text)},
-			control,
-		}}
-	}
-	field := func(key, title, placeholder string, masked bool) core.Node {
-		initial, _ := st.GetItem(key)
-		value := core.NewSignal(cx, initial)
-		return row(title, ui.Input{Value: value.Get, Label: title, Placeholder: placeholder, Masked: masked,
-			Style: core.Style{FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0)},
-			OnChange: func(text string) {
-				value.Set(text)
-				if text = strings.TrimSpace(text); text == "" {
-					st.RemoveItem(key)
-				} else {
-					st.SetItem(key, text)
-				}
-				n.failure.Set("")
-			}})
+	wide := core.Style{Width: core.Pt(260)}
+	field := func(key, title, placeholder string, masked bool) ui.SettingsItem {
+		return ui.SettingsItem{ID: strings.TrimPrefix(key, "naming."), Title: title, Control: core.Func(func(cx *core.Scope) core.Node {
+			initial, _ := st.GetItem(key)
+			value := core.NewSignal(cx, initial)
+			return ui.Input{Value: value.Get, Label: title, Placeholder: placeholder, Masked: masked, Style: wide,
+				OnChange: func(text string) {
+					value.Set(text)
+					if text = strings.TrimSpace(text); text == "" {
+						st.RemoveItem(key)
+					} else {
+						st.SetItem(key, text)
+					}
+					n.failure.Set("")
+				}}
+		})}
 	}
 	// An effort is sent only once chosen, as models without reasoning
 	// reject one.
-	initial, _ := st.GetItem(keyNamingEffort)
-	effort := core.NewSignal(cx, initial)
-	setEffort := func(v string) {
-		effort.Set(v)
-		if v == "" {
-			st.RemoveItem(keyNamingEffort)
-		} else {
-			st.SetItem(keyNamingEffort, v)
+	effort := core.Func(func(cx *core.Scope) core.Node {
+		initial, _ := st.GetItem(keyNamingEffort)
+		effort := core.NewSignal(cx, initial)
+		set := func(v string) {
+			effort.Set(v)
+			if v == "" {
+				st.RemoveItem(keyNamingEffort)
+			} else {
+				st.SetItem(keyNamingEffort, v)
+			}
+			n.failure.Set("")
 		}
-		n.failure.Set("")
-	}
-	names := []string{tr.NamingEffortOff(), tr.NamingEffortLow(), tr.NamingEffortMedium(), tr.NamingEffortHigh(), tr.NamingEffortMax()}
-	efforts := make([]ui.Option[string], len(naming.Efforts))
-	for i, e := range naming.Efforts {
-		efforts[i] = ui.Option[string]{Value: e, Label: names[i]}
-	}
-	return core.View{Style: core.Style{Gap: 8}, Children: []core.Node{
-		core.View{Style: core.Style{Gap: 2}, Children: []core.Node{
-			ui.Text(tr.NamingSection(), 15, ui.Semibold, colors.Text),
-			core.Text{Content: tr.NamingDetail(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
-		}},
-		field(keyNamingURL, tr.NamingURL(), naming.DefaultBaseURL, false),
-		field(keyNamingKey, tr.NamingKey(), tr.NamingKeyPlaceholder(), true),
-		field(keyNamingModel, tr.NamingModel(), tr.NamingModelPlaceholder(), false),
-		row(tr.NamingEffort(), ui.Select[string]{Options: efforts, Value: effort.Get, OnChange: setEffort, OnClear: func() { setEffort("") },
-			Label: tr.NamingEffort(), Placeholder: tr.NamingEffortDefault(), TestID: "naming-effort",
-			Style: core.Style{FlexGrow: 1, FlexShrink: 1, MinWidth: core.Pt(0)}}),
-		core.Show{When: func() bool { return n.failure.Get() != "" }, Then: func(cx *core.Scope) core.Node {
-			return core.Text{Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Danger),
-				ContentFunc: func() string { return tr.NamingFailed(n.failure.Get()) }}
-		}},
+		names := []string{tr.NamingEffortOff(), tr.NamingEffortLow(), tr.NamingEffortMedium(), tr.NamingEffortHigh(), tr.NamingEffortMax()}
+		efforts := make([]ui.Option[string], len(naming.Efforts))
+		for i, e := range naming.Efforts {
+			efforts[i] = ui.Option[string]{Value: e, Label: names[i]}
+		}
+		return ui.Select[string]{Options: efforts, Value: effort.Get, OnChange: set, OnClear: func() { set("") },
+			Label: tr.NamingEffort(), Placeholder: tr.NamingEffortDefault(), TestID: "naming-effort", Style: wide}
+	})
+	colors := ui.ColorsOf(cx)
+	failure := core.Show{When: func() bool { return n.failure.Get() != "" }, Then: func(cx *core.Scope) core.Node {
+		return core.Text{Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Danger),
+			ContentFunc: func() string { return tr.NamingFailed(n.failure.Get()) }}
 	}}
+	return ui.SettingsCategory{ID: "naming", Title: tr.NamingSection(), Description: tr.NamingDetail(), Icon: lucide.Captions,
+		Groups: []ui.SettingsGroup{{ID: "naming", Items: []ui.SettingsItem{
+			field(keyNamingURL, tr.NamingURL(), naming.DefaultBaseURL, false),
+			field(keyNamingKey, tr.NamingKey(), tr.NamingKeyPlaceholder(), true),
+			field(keyNamingModel, tr.NamingModel(), tr.NamingModelPlaceholder(), false),
+			{ID: "effort", Title: tr.NamingEffort(), Control: effort},
+			{ID: "failure", Content: failure},
+		}}}}
 }

@@ -28,20 +28,26 @@ func setLanguage(cx *core.Scope, lang string) {
 	}
 }
 
-// languageSection chooses the language the app shows: the system's or one
+// languageSelect chooses the language the app shows: the system's or one
 // of its catalog's, each named in itself.
-func languageSection(cx *core.Scope) core.Node {
+func languageSelect(cx *core.Scope) core.Node {
 	tr := locales.For(cx)
-	colors := ui.ColorsOf(cx)
 	initial, _ := cx.Storage().GetItem(keyLanguage)
 	chosen := core.NewSignal(cx, initial)
 	options := []ui.Option[string]{{Value: "", Label: tr.LanguageSystem()}}
 	for _, lang := range locales.Catalog.Languages() {
 		options = append(options, ui.Option[string]{Value: lang, Label: locales.In(lang).LanguageName()})
 	}
-	return core.View{Style: core.Style{Gap: 8}, Children: []core.Node{
-		ui.Text(tr.LanguageSection(), 15, ui.Semibold, colors.Text),
-		ui.Select[string]{Options: options, Value: chosen.Get, OnChange: func(lang string) { chosen.Set(lang); setLanguage(cx, lang) },
-			Label: tr.LanguageSection(), TestID: "language"},
-	}}
+	return ui.Select[string]{Options: options, Value: chosen.Get, OnChange: func(lang string) { chosen.Set(lang); setLanguage(cx, lang) },
+		Label: tr.LanguageSection(), TestID: "language", Style: core.Style{Width: core.Pt(180)}}
+}
+
+// languageNames are the catalog's languages named in themselves, for the
+// language row's search.
+func languageNames() []string {
+	var names []string
+	for _, lang := range locales.Catalog.Languages() {
+		names = append(names, locales.In(lang).LanguageName())
+	}
+	return names
 }

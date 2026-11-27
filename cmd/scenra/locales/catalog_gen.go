@@ -73,8 +73,13 @@ const (
 	textCloseTab
 	textTabs
 	textSettingsTitle
+	textSettingsGeneral
 	textLanguageSection
 	textLanguageSystem
+	textTheme
+	textThemeSystem
+	textThemeLight
+	textThemeDark
 	textLanguageName
 	textNamingSection
 	textNamingDetail
@@ -113,8 +118,13 @@ var keyOfText = [numTexts]string{
 	"closeTab",
 	"tabs",
 	"settingsTitle",
+	"settingsGeneral",
 	"languageSection",
 	"languageSystem",
+	"theme",
+	"themeSystem",
+	"themeLight",
+	"themeDark",
 	"languageName",
 	"namingSection",
 	"namingDetail",
@@ -151,8 +161,13 @@ var textsEn = i18n.NewTexts(""+
 	"Close Tab"+
 	"Tabs"+
 	"Settings"+
+	"General"+
 	"Language"+
 	"Follow system"+
+	"Theme"+
+	"Follow system"+
+	"Light"+
+	"Dark"+
 	"English"+
 	"Conversation titles"+
 	"Titles a new conversation from its first message with a model behind an OpenAI-compatible API, else with that message's first line."+
@@ -186,8 +201,13 @@ var textsEn = i18n.NewTexts(""+
 		9,
 		4,
 		8,
+		7,
 		8,
 		13,
+		5,
+		13,
+		5,
+		4,
 		7,
 		19,
 		131,
@@ -224,8 +244,13 @@ var textsZhHans = i18n.NewTexts(""+
 	"关闭标签页"+
 	"标签页"+
 	"设置"+
+	"通用"+
 	"语言"+
 	"跟随系统"+
+	"主题"+
+	"跟随系统"+
+	"浅色"+
+	"深色"+
 	"简体中文"+
 	"对话命名"+
 	"用 OpenAI 兼容接口的模型根据第一条消息为新对话命名，未设置时使用该消息的首行。"+
@@ -260,7 +285,12 @@ var textsZhHans = i18n.NewTexts(""+
 		9,
 		6,
 		6,
+		6,
 		12,
+		6,
+		12,
+		6,
+		6,
 		12,
 		12,
 		113,
@@ -451,6 +481,13 @@ func SettingsTitle(cx *core.Scope) string { return For(cx).SettingsTitle() }
 // SettingsTitle is the package's SettingsTitle in the language of msgs.
 func (msgs Messages) SettingsTitle() string { return msgs.text(textSettingsTitle) }
 
+// SettingsGeneral says "General"
+// in the language the app shows under cx.
+func SettingsGeneral(cx *core.Scope) string { return For(cx).SettingsGeneral() }
+
+// SettingsGeneral is the package's SettingsGeneral in the language of msgs.
+func (msgs Messages) SettingsGeneral() string { return msgs.text(textSettingsGeneral) }
+
 // LanguageSection says "Language"
 // in the language the app shows under cx.
 func LanguageSection(cx *core.Scope) string { return For(cx).LanguageSection() }
@@ -466,6 +503,36 @@ func LanguageSystem(cx *core.Scope) string { return For(cx).LanguageSystem() }
 
 // LanguageSystem is the package's LanguageSystem in the language of msgs.
 func (msgs Messages) LanguageSystem() string { return msgs.text(textLanguageSystem) }
+
+// Theme says "Theme"
+// in the language the app shows under cx.
+func Theme(cx *core.Scope) string { return For(cx).Theme() }
+
+// Theme is the package's Theme in the language of msgs.
+func (msgs Messages) Theme() string { return msgs.text(textTheme) }
+
+// ThemeSystem says "Follow system"
+// in the language the app shows under cx.
+//
+// The theme setting's choice that follows the system's appearance.
+func ThemeSystem(cx *core.Scope) string { return For(cx).ThemeSystem() }
+
+// ThemeSystem is the package's ThemeSystem in the language of msgs.
+func (msgs Messages) ThemeSystem() string { return msgs.text(textThemeSystem) }
+
+// ThemeLight says "Light"
+// in the language the app shows under cx.
+func ThemeLight(cx *core.Scope) string { return For(cx).ThemeLight() }
+
+// ThemeLight is the package's ThemeLight in the language of msgs.
+func (msgs Messages) ThemeLight() string { return msgs.text(textThemeLight) }
+
+// ThemeDark says "Dark"
+// in the language the app shows under cx.
+func ThemeDark(cx *core.Scope) string { return For(cx).ThemeDark() }
+
+// ThemeDark is the package's ThemeDark in the language of msgs.
+func (msgs Messages) ThemeDark() string { return msgs.text(textThemeDark) }
 
 // LanguageName says "English"
 // in the language the app shows under cx.

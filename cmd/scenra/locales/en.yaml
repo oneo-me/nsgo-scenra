@@ -14,10 +14,17 @@ checkForUpdates: Check for Updates…
 closeTab: Close Tab
 tabs: Tabs
 settingsTitle: Settings
+settingsGeneral: General
 languageSection: Language
 languageSystem:
   message: Follow system
   description: The language setting's choice that follows the system's language.
+theme: Theme
+themeSystem:
+  message: Follow system
+  description: The theme setting's choice that follows the system's appearance.
+themeLight: Light
+themeDark: Dark
 languageName:
   message: English
   description: This language's name in itself, as the language setting lists it.
