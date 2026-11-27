@@ -49,6 +49,33 @@ type Options struct {
 	Folder string
 	// OnSend, when set, hears of each message sent to the assistant.
 	OnSend func()
+	// OnElementMenu and OnNodeMenu, when set, hear a secondary click, as
+	// a right click, on an element of a design shown or a node of a flow
+	// chart shown, such as to open a menu of the host's there; clicks
+	// elsewhere on the canvas are not heard.
+	OnElementMenu func(ElementMenuEvent)
+	OnNodeMenu    func(NodeMenuEvent)
+}
+
+// ElementMenuEvent is a secondary click on the element at Path of the
+// design at index Design of the file shown, Path joining a use's path and
+// its component's for what a component holds. At is where in the window
+// it was, where a menu opens.
+type ElementMenuEvent struct {
+	Design    int
+	Path      string
+	At        core.Point
+	Modifiers core.Modifiers
+}
+
+// NodeMenuEvent is a secondary click on the node with ID Node of the flow
+// at index Flow of the file shown. At is where in the window it was,
+// where a menu opens.
+type NodeMenuEvent struct {
+	Flow      int
+	Node      string
+	At        core.Point
+	Modifiers core.Modifiers
 }
 
 // document is the Scenra file shown: its content and path, its history

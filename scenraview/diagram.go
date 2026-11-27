@@ -335,7 +335,18 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 	empty := core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0), Right: core.Pt(0), Bottom: core.Pt(0),
 		AlignItems: core.AlignCenter, JustifyContent: core.JustifyCenter, Padding: core.All(24)}, PointerEvents: core.PointerEventsNone,
 		Children: []core.Node{core.Text{Content: tr.FlowEmpty(), Style: ui.TypeBody, StyleFunc: ui.Colored(colors.Muted)}}}
-	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{canvas,
+	var menu func(core.ContextMenuEvent)
+	if e.opts.OnNodeMenu != nil {
+		menu = func(ev core.ContextMenuEvent) {
+			for i := range count.GetUntracked() {
+				if id := core.Untracked(cx, e.chart(i).Hovered); id != "" {
+					e.opts.OnNodeMenu(NodeMenuEvent{Flow: i, Node: id, At: ev.PagePosition, Modifiers: ev.Modifiers})
+					return
+				}
+			}
+		}
+	}
+	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{withMenu(canvas, menu),
 		core.Show{When: func() bool { return !full() }, Then: func(*core.Scope) core.Node { return empty }}}}
 }
 
