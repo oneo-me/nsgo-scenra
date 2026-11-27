@@ -17,7 +17,7 @@ Let a design show what happens on it, as the user sees it there: taps opening th
 ## Working on files
 
 1. Read the files and edit them, or make new ones in the folder, with your own file tools. Change only what the request needs, keep the IDs and files that exist and never invent screens or nodes the user did not ask for without saying so.
-2. Say briefly what you changed. Keep labels short and put detail in notes. Write the interface's texts in the user's language.
+2. Say briefly what you changed. Keep labels short and put detail in notes. By default, support both light and dark mode in every design and component, and keep interface copy in `locales/` catalogs for the user's language and English (`en.yaml`)—or `en.yaml` alone when the user writes in English.
 
 When the editor tells you what the user sees and reports the problems of the files, as the Scenra app's MCP server does, the scenra-app skill says how to ask it; the problems it reports are those this skill names. Without an editor, a check tool your host gives, if any, reports the same problems, except how the designs lay out; run it after writing the files.
 
@@ -36,15 +36,14 @@ When the user asks for them together, a file may hold several designs, or severa
 ```
 # A comment runs to the end of the line; indentation is free.
 design device=phone
-box class="flex-1 gap-4 bg-zinc-50 p-6 pt-16"
-  text "Welcome back" class="text-3xl font-bold text-zinc-900"
-  text "Sign in to order ahead." class="text-zinc-500"
-  box class="h-12 flex-row items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4"
-    icon mail class="size-4 text-zinc-400"
-    text "you@example.com" class="text-zinc-400"
+box class="flex-1 gap-4 p-6 pt-16"
+  text key=welcome class="text-3xl font-bold text-foreground"
+  box class="h-12 flex-row items-center gap-3 rounded-xl border border-border bg-card px-4"
+    icon mail class="size-4 text-muted-foreground"
+    text "you@example.com" class="text-muted-foreground"
   end
-  box class="h-12 items-center justify-center rounded-xl bg-amber-600 shadow-md"
-    text "Sign in" class="font-semibold text-white"
+  box class="h-12 items-center justify-center rounded-xl bg-primary"
+    text key=signIn class="font-semibold text-primary-foreground"
   end
   image "Latte art seen from above" class="h-40 rounded-2xl"
   svg "<svg viewBox='0 0 120 40'><path d='M0 32 L30 20 L60 26 L90 8 L120 14' stroke='#d97706' stroke-width='3' fill='none'/></svg>" class="h-16 w-full"
@@ -98,11 +97,27 @@ A design is drawn with a few primitives, an element a line, each styled with Tai
 
 Draw any interface with them, as a designer draws in Figma: buttons, fields, switches, tabs, cards, lists, charts and navigation are boxes, texts, icons and SVG shaped by classes, with exactly the look the app needs. Make designs look like a finished product, with a clear hierarchy, consistent spacing and realistic content, not wireframes.
 
-Layout is flexbox: a box is a column unless flex-row, children stretch across it, flex-1 fills the rest, and absolute with top-*, left-*, right-* or bottom-* places a box over its parent, as a badge or a floating button. Classes cover sizes (w-*, h-*, size-*, w-full, w-1/2), spacing (p-*, gap-*, m-*), colors (bg-*, text-*, border-*, with /opacity such as bg-black/40, and any value as bg-[#0f172a]), the palette (zinc, slate, blue, amber, emerald, rose and the others, 50 to 950), corners (rounded-*, rounded-full), borders, shadows (shadow-sm to shadow-2xl), gradients (bg-linear-to-br from-indigo-500 to-pink-500), opacity, overflow-hidden, text (text-xs to text-6xl, font-medium, font-bold, leading-*, tracking-*, text-center, truncate, line-clamp-2, uppercase) and theme colors that follow light and dark mode (bg-background, text-foreground, bg-card, bg-primary, text-primary-foreground, bg-muted, text-muted-foreground, border-border).
+Layout is flexbox: a box is a column unless flex-row, children stretch across it, flex-1 fills the rest, and absolute with top-*, left-*, right-* or bottom-* places a box over its parent, as a badge or a floating button. Classes cover sizes (w-*, h-*, size-*, w-full, w-1/2), spacing (p-*, gap-*, m-*), colors (bg-*, text-*, border-*, with /opacity such as bg-black/40, and any value as bg-[#0f172a]), the palette (zinc, slate, blue, amber, emerald, rose and the others, 50 to 950), corners (rounded-*, rounded-full), borders, shadows (shadow-sm to shadow-2xl), gradients (bg-linear-to-br from-indigo-500 to-pink-500), opacity, overflow-hidden, text (text-xs to text-6xl, font-medium, font-bold, leading-*, tracking-*, text-center, truncate, line-clamp-2, uppercase), `dark:*` overrides (such as `dark:bg-zinc-900` or `dark:text-amber-400`) and theme colors that follow light and dark mode (bg-background, text-foreground, bg-card, bg-primary, text-primary-foreground, bg-muted, text-muted-foreground, border-border).
 
 The design is its size, the device's or its own, and clips what overflows; change `width=` or `height=` when the content needs room or the user asks for a screen size; give the main box flex-1 to fill it, and draw the status bar, navigation bars and tab bars yourself where the app has them. The design is the screen's frame, drawn on bg-background with an outline and the device's corners: shape it with `class="…"` on its line, such as `design device=desktop class="bg-zinc-50"` for another background or `class="rounded-none border-0"` for a frameless window, rather than with a box drawing a second background, border or corners inside it. Likewise, a component whose `backdrop=` gives what it sits on leaves that color off its own elements.
 
 An icon takes the name of any Lucide icon (lucide.dev), by its current name or an older one such as home or alert-circle; common ones are house, search, bell, settings, user, users, circle-user, mail, message-circle, message-square, phone, send, inbox, heart, star, bookmark, share-2, link, paperclip, image, camera, video, mic, music, play, pause, calendar, clock, map-pin, navigation, compass, globe, shopping-cart, shopping-bag, store, credit-card, wallet, gift, tag, package, truck, file, file-text, folder, download, upload, cloud, plus, minus, x, check, pencil, trash, copy, funnel, sliders-horizontal, list, layout-grid, layout-dashboard, menu, ellipsis, ellipsis-vertical, chevron-right, chevron-left, chevron-down, chevron-up, arrow-right, arrow-left, arrow-up, arrow-down, external-link, refresh-cw, rotate-ccw, log-in, log-out, lock, key, shield, eye, eye-off, info, circle-alert, triangle-alert, circle-check, circle-x, circle-question-mark, chart-bar, chart-line, chart-pie, activity, trending-up, trending-down, zap, sparkles, flame, award, trophy, target, sun, moon, wifi, battery, smartphone, monitor, qr-code, scan, book, briefcase, building, coffee, utensils, car, plane, bike, dumbbell, headphones, graduation-cap. Draw a logo, a chart or an illustration with svg.
+
+### Design defaults
+
+Unless the user asks for another style, density or palette, keep designs clean with these defaults:
+
+- **Light and dark mode in one design**: build every screen and component to work in both light and dark mode in a single file—never duplicate a design or component for light and dark, and never add light/dark variants. Prefer theme colors (`bg-background`, `bg-card`, `bg-muted`, `text-foreground`, `text-muted-foreground`, `border-border`, `bg-primary`, `text-primary-foreground`), and pair any fixed palette color with `dark:*` (such as `bg-amber-50 dark:bg-amber-950/40` or `text-amber-700 dark:text-amber-400`) so both appearances stay legible.
+- **Multilingual by default**: put interface labels in `locales/` catalogs and reference them with `key=`—providing both the user's language and English (`en.yaml`), or `en.yaml` alone when the user writes in English; keep sample data such as names, emails or prices inline.
+- **No boxes inside boxes**: avoid nested cards, redundant borders and extra dividers; separate groups with alignment and spacing instead.
+- **No filler copy**: leave out taglines, subtitles, secondary labels and explanatory text that restate a heading or explain the interface unless requested.
+- **90:10 color ratio**: keep roughly 90% of the screen in neutral surfaces and text and reserve one accent color (`bg-primary` or a single palette hue) for the primary action or key status.
+- **Calm surfaces**: avoid gradients, saturated or neon fills and heavy shadows by default.
+- **Generous whitespace**: give sections room to breathe for the target device and task; leave space empty rather than filling it with decoration.
+- **Clear type hierarchy**: use a small, consistent set of sizes and weights—headings bolder and darker, body regular or medium, metadata smaller and muted—avoiding harsh pure black on white.
+- **Standard spacing scale**: stick to Tailwind's 4pt spacing steps (`p-2`, `p-4`, `p-6`, `gap-2`, `gap-3`, `gap-4`, and `1.5` only for compact controls); never use arbitrary pixel spacings such as `p-[7px]` or `gap-[13px]`.
+- **Scaled corners and uniform icons**: size corner radii to the element's scale (`rounded-md`/`rounded-lg` for buttons and fields, `rounded-xl`/`rounded-2xl` for cards and dialogs), and give sibling icons a uniform `size-*` (such as `size-4` or `size-5`) so rows stay aligned.
+- **Reveal secondary actions by intent**: do not repeat edit, copy or delete buttons on every row. Keep resting rows clean; reveal row actions with `group` and `opacity-0 group-hover:opacity-100` (using `variant hover state=hover`, or one row with `state=hover` to show it) and note the hover behavior in `note=` when helpful.
 
 ## Pictures
 
@@ -112,7 +127,7 @@ Elements are named by their paths: an element's index among its siblings at each
 
 ## Languages
 
-When the user wants designs in several languages, write their words as messages in `locales/` at the top of the open folder, a YAML file per language named by its BCP 47 tag as NSGo's catalogs are, such as `locales/en.yaml` and `locales/zh-Hans.yaml`, each mapping keys, a letter then letters, digits and `_`, to messages, and give each text the key of its message instead of its words: `text key=signIn class="font-semibold text-white"`. The editor shows texts in the language of its own interface, from the catalog that suits it best, else English's, as an NSGo app matches its catalogs, so an app built from the designs takes the catalogs as they are.
+By default, keep every design's interface words as messages in `locales/` at the top of the open folder, a YAML file per language named by its BCP 47 tag as NSGo's catalogs are: include the user's language and English (such as `locales/zh-Hans.yaml` and `locales/en.yaml`), or keep `locales/en.yaml` alone when the user writes in English. Each file maps keys, a letter then letters, digits and `_`, to messages, and each text names the key of its message instead of its words: `text key=signIn class="font-semibold text-primary-foreground"`. The editor shows texts in the language of its own interface, from the catalog that suits it best, else English's, as an NSGo app matches its catalogs, so an app built from the designs takes the catalogs as they are.
 
 ```
 # locales/en.yaml
@@ -126,6 +141,7 @@ welcome: 欢迎回来
 
 - Give every message in every catalog; a text whose message the catalog shown lacks shows its own words, as in `text "Sign in" key=signIn`, else English's message, else its key.
 - Give a component's texts keys, and change them where it is used with `<name>.key="…"`, as Components says.
+- Keep realistic sample data (such as names, emails, dates or prices) as inline text rather than catalog keys unless it needs translation.
 - The editor reports keys a catalog lacks and catalogs it cannot read.
 
 ## Components
@@ -156,6 +172,7 @@ end
 - Make a component of a piece the app's screens repeat, such as their tab bar, or when the user asks for one.
 - Components may use other components, and fill their slots with them, never themselves, directly or through others, as `a` using `b` whose fill uses `a`.
 - Write a component as a whole, the same on every screen, and leave what pressing it does to the designs: name the elements a use makes tappable and write no `tap=` in it, as Interactions shows.
+- Build each component once for both light and dark mode using theme colors or `dark:*` classes—never separate light and dark components or variants.
 - The editor lists the components there are and reports uses of missing ones, loops and changes that reach nothing.
 
 ### Changing a component where it is used
