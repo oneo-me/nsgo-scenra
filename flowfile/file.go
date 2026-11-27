@@ -207,13 +207,13 @@ type ElementSpec struct {
 // primitives that classes shape into anything, rather than ready-made
 // controls whose look cannot change.
 var Elements = []ElementSpec{
-	{Kind: "box", Holds: true, Attrs: []string{"outlet"}, Doc: "a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line; outlet= names it a place designs of other files fill, what it holds showing until one does"},
+	{Kind: "box", Holds: true, Attrs: []string{"glass", "outlet"}, Doc: "a rectangle laying out what it holds, a column unless its class has flex-row: with classes, any bar, panel, card, button, field, pill, circle or line; glass= draws Liquid Glass (regular, clear or none, with optional interactive); outlet= names it a place designs of other files fill, what it holds showing until one does"},
 	{Kind: "text", Attrs: []string{"key"}, Doc: "its text, which wraps; size, weight and color it with classes; key= names its message in the catalogs of the locales folder, which shows in the editor's language in place of the text"},
 	{Kind: "icon", Doc: "the Lucide icon its text names, as high as its font size: size it with size-* and color it with text-*"},
 	{Kind: "image", Attrs: []string{"src"}, Doc: "a picture its text describes: the one src names, a file of the assets folder such as assets/latte.jpg or a URL, or a placeholder; size it with classes"},
 	{Kind: "svg", Doc: "any drawing, such as a chart, a logo or an illustration: its text is an SVG document, quoted with single quotes inside, sized by its class or else its viewBox"},
 	{Kind: "use", Doc: "the component its text names, a file of the components folder, or else the design, at the top or in the views folder, its classes added to the component's element when it has one at its top, which win over its own, or else drawn as a box with its classes holding them; fill lines right after it, up to its end, fill the component's slots"},
-	{Kind: "slot", Holds: true, Doc: "in a component, a box holding what a use's fill of the name its text gives holds, the default slot without one, or else what the slot holds"},
+	{Kind: "slot", Holds: true, Attrs: []string{"glass"}, Doc: "in a component, a box holding what a use's fill of the name its text gives holds, the default slot without one, or else what the slot holds"},
 	{Kind: "fill", Holds: true, Doc: "inside a use, what the slot of its component the text names draws, the default slot without one"},
 }
 
@@ -230,7 +230,7 @@ var commonAttrs = []string{"name", "class", "tap", "panel", "comment", "note"}
 
 // attrOrder is the order Format writes attributes in.
 // What a use changes in its component goes before the comment.
-var attrOrder = []string{"name", "key", "variant", "state", "src", "class", "tap", "panel", "outlet", "comment", "note"}
+var attrOrder = []string{"name", "key", "variant", "state", "src", "class", "glass", "tap", "panel", "outlet", "comment", "note"}
 
 // Spec returns the spec of the element kind.
 func Spec(kind string) (ElementSpec, bool) {
@@ -360,6 +360,11 @@ func checkElement(el Element) string {
 	}
 	if outlet, ok := el.Attrs["outlet"]; ok && !ValidName(outlet) {
 		return fmt.Sprintf("outlet %q is not a name of letters, digits, _ or -", outlet)
+	}
+	if glass, ok := el.Attrs["glass"]; ok {
+		if _, err := ParseGlass(glass); err != nil {
+			return err.Error()
+		}
 	}
 	if tap, ok := el.Attrs["tap"]; ok {
 		if _, err := ParseTap(tap); err != nil {
@@ -759,7 +764,7 @@ func (f File) Format() string {
 		formatUI(&b, s.UI, "")
 		for _, v := range s.Variants {
 			b.WriteString("variant " + v.ID)
-			for _, key := range []string{"variant", "state", "class"} {
+			for _, key := range []string{"variant", "state", "class", "glass"} {
 				if value, ok := v.Attrs[key]; ok {
 					fmt.Fprintf(&b, " %s=%s", key, quote(value))
 				}

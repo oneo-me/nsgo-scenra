@@ -226,7 +226,7 @@ func TestUsesNoteAndSetPanels(t *testing.T) {
 	if got := Instance(f.Screens[0].UI[0].Children[1], card)[0].Attr("panel"); got != "a" {
 		t.Fatalf("panel %q", got)
 	}
-	if _, err := ParseUI("text x name=variant"); err == nil || !strings.Contains(err.Error(), "name, class, tap, panel, comment, note, variant, state, outlet, key, src") {
+	if _, err := ParseUI("text x name=variant"); err == nil || !strings.Contains(err.Error(), "name, class, tap, panel, comment, note, variant, state, glass, outlet, key, src") {
 		t.Fatalf("a reserved name: %v", err)
 	}
 }

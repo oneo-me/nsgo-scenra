@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Support Liquid Glass on design boxes, slots and component uses with `glass=regular`, `glass=clear`, `glass=none` and optional `interactive`.
 - Add `OnElementMenu` and `OnNodeMenu` to `scenraview.Options`, telling the host app of right clicks on a design's elements and a flow chart's nodes, such as to open its own menus there.
 - Add default visual, layout, multilingual, light/dark mode and render-check design guidelines to the bundled `scenra` and `scenra-app` skills so the assistant draws cleaner, adaptive interfaces by default.
 

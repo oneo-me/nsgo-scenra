@@ -34,15 +34,15 @@ import (
 // puts the elements named option in the state instead.
 
 // OverrideAttrs are the attributes of a named element a use may change
-// besides its text: classes, which add to its own, those replacing its
+// besides its text: classes, which add to its own, glass, those replacing its
 // own, a text's message key, the note the using file keeps on it, and the variants and states
 // of what it draws.
-var OverrideAttrs = []string{"class", "key", "src", "tap", "panel", "note", "variant", "state"}
+var OverrideAttrs = []string{"class", "glass", "key", "src", "tap", "panel", "note", "variant", "state"}
 
 // useAttrs are the attributes a use takes besides the common ones and
-// what it changes by names: the variants of its component it draws and
-// the states it puts it in.
-var useAttrs = []string{"variant", "state"}
+// what it changes by names: the variants of its component it draws,
+// the states it puts it in and its Liquid Glass effect.
+var useAttrs = []string{"variant", "state", "glass"}
 
 // States are the states state= puts an element in, and the class variant
 // each applies.
@@ -119,6 +119,10 @@ func parseOverride(key, value string) (Override, string) {
 // sets, on itself or by a name.
 func checkUseAttr(attr, value string) string {
 	switch attr {
+	case "glass":
+		if _, err := ParseGlass(value); err != nil {
+			return err.Error()
+		}
 	case "tap":
 		if _, err := ParseTap(value); err != nil {
 			return err.Error()
@@ -247,6 +251,9 @@ func settings(attrs map[string]string, part Part, picking []string) []setting {
 	if class, ok := attrs["class"]; ok {
 		out = append(out, setting{"class", class})
 	}
+	if glass, ok := attrs["glass"]; ok {
+		out = append(out, setting{"glass", glass})
+	}
 	for _, key := range overrideKeys(attrs) {
 		out = append(out, setting{key, attrs[key]})
 	}
@@ -285,6 +292,10 @@ func joins(key string) bool {
 // draws as a box of them.
 func UseClass(use Element, part Part) string { return Settled(use, part)["class"] }
 
+// UseGlass is the Liquid Glass effect use gives the component it draws,
+// from its variants and itself, the last winning.
+func UseGlass(use Element, part Part) string { return Settled(use, part)["glass"] }
+
 // Instance returns the elements of part, the component use draws, as it
 // draws them: changed by the variants it picks, in order, then by what it
 // changes itself, and what it changes inside the components those
@@ -305,6 +316,10 @@ func Instance(use Element, part Part) []Element {
 		case "class":
 			if Rooted(out) {
 				out[0].setAttr("class", "class", s.value)
+			}
+		case "glass":
+			if Rooted(out) && (out[0].Kind == "box" || out[0].Kind == "slot" || out[0].Kind == "use") {
+				out[0].setAttr("glass", "glass", s.value)
 			}
 		case "state":
 			for _, word := range strings.Fields(s.value) {
@@ -363,7 +378,7 @@ func (el Element) called(name string) bool {
 
 // override changes el as o, which names el first.
 func (el *Element) override(o Override) {
-	if el.Kind == "slot" && (len(o.Path) > 1 || o.Attr != "class") {
+	if el.Kind == "slot" && (len(o.Path) > 1 || o.Attr != "class" && o.Attr != "glass") {
 		// A use only shapes a slot; what it shows is the fill's.
 		return
 	}
@@ -655,8 +670,8 @@ func overrideProblem(o Override, path []string, name string, els []Element, part
 				return fmt.Sprintf("goes inside %s, a slot of %s, not a use; change what a fill holds where it is written", path[0], PartPath(name, parts))
 			case o.Attr == "":
 				return fmt.Sprintf("sets the text of %s, a slot, which has none; fill it, or change its class", path[0])
-			case o.Attr != "class":
-				return fmt.Sprintf("sets the %s of %s, a slot, which takes only class; set it on what a fill holds", o.Attr, path[0])
+			case o.Attr != "class" && o.Attr != "glass":
+				return fmt.Sprintf("sets the %s of %s, a slot, which takes only class and glass; set it on what a fill holds", o.Attr, path[0])
 			}
 			continue
 		}
@@ -672,6 +687,8 @@ func overrideProblem(o Override, path []string, name string, els []Element, part
 			continue
 		}
 		switch {
+		case o.Attr == "glass" && el.Kind != "box" && el.Kind != "slot" && el.Kind != "use":
+			return fmt.Sprintf("sets the glass of %s, a %s, which only boxes take", path[0], el.Kind)
 		case o.Attr == "key" && el.Kind != "text":
 			return fmt.Sprintf("sets the key of %s, a %s, which only texts take", path[0], el.Kind)
 		case o.Attr == "src" && el.Kind != "image":
