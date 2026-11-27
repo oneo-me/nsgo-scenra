@@ -2,6 +2,7 @@
 
 ## [Unreleased]
 
+- Support macOS QuickLook previews of `.scenra` files in Finder, backed by a reusable read-only `scenraview.Preview` canvas.
 - Open the settings in a dialog from a gear at the end of the title bar, over any tab, leaving the Home tab to the recent folders.
 - Choose a light or dark theme, or follow the system, in **Settings** → **General**.
 - Support Liquid Glass on design boxes, slots and component uses with `glass=regular`, `glass=clear`, `glass=none` and optional `interactive`.
