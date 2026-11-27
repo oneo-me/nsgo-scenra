@@ -10,12 +10,12 @@ Scenra is a single-window [NSGo](https://github.com/nsgo-dev/nsgo) desktop app, 
 | `scenraview/` | The `Editor` an app opens a folder of Scenra files in, and its views: `Window`, or the `Header`, `Sidebar`, `Workspace` and `Assistant` it lays out. |
 | `scenraview/editor.go`, `folder.go`, `header.go`, `diagram.go` | The open folder and the files found in it, the document shown and its history, the header naming it, and the flow chart. |
 | `scenraview/sidebar.go`, `mockup.go`, `icons.go`, `comments.go` | The list of the folder's Flows and Views groups and grouped designs, the drawing and playing of a design, and the comments and notes on its elements. |
-| `scenraview/showcase.go`, `gitdiff.go`, `cover.go` | The folder's components drawn together, the lines Git says its files changed, and a project drawn small. |
+| `scenraview/showcase.go`, `gitdiff.go`, `cover.go`, `preview.go` | The folder's components drawn together, the lines Git says its files changed, a project drawn small, and a file previewed read-only on a camera. |
 | `scenraview/outlet.go`, `layout.go` | The designs filling others' outlets, and the folder's designs laid out unseen for agents. |
 | `scenraview/assistant.go`, `files.go` | The folder's conversations, run by an Agio backend and kept to resume, and the files read again as agents write them. |
 | `scenraview/server.go`, `selection.go`, `check.go` | The MCP server telling agents what the user sees of a file, and the problems of a project's files told without an editor. |
 | `scenraview/locales/` | The views' messages, which an app's catalogs may supply other languages of. |
-| `cmd/scenra/` | Scenra, the app: the window, its tabs and home page of recent folders, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, a demo build of a scripted conversation for the website's screenshots, `nsgo.yaml`, assets and its own `locales/`. |
+| `cmd/scenra/` | Scenra, the app: the window, its tabs and home page of recent folders, menu, the agents it runs and their settings, the model titling conversations, opt-out usage statistics, a demo build of a scripted conversation for the website's screenshots, the macOS QuickLook preview extension (`quicklook/`), `nsgo.yaml`, assets and its own `locales/`. |
 | `cmd/scenra/resources/skills/scenra/` | The skill teaching agents the format and the NSGo components designs become, wherever the files are edited, which ships among the app's resources. |
 | `cmd/scenra/resources/skills/scenra-app/` | The skill teaching agents in the app to ask its server, naming their tab, what the user sees and what their files got wrong. |
 | `website/` | The official static site, in English and Simplified Chinese, deployed to GitHub Pages. |

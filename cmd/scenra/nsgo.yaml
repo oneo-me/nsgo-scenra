@@ -6,6 +6,9 @@ file_types:
   - name: Scenra File
     extensions: [scenra]
 
+quicklook:
+  main: ./quicklook
+
 dev:
   target: native
   hot_reload: true
