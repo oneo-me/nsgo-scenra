@@ -1,8 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/nsgo-dev/nsgo/core"
@@ -36,18 +39,61 @@ func homePage(cx *core.Scope, t *tabs) core.Node {
 			return recentCard(cx, t, item)
 		}),
 	}}
-	return ui.ScrollView{TestID: "home", Style: ui.FillRest, Children: []core.Node{
-		core.View{Style: core.Style{Padding: core.All(32), Gap: 20}, Children: []core.Node{
-			core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 12}, Children: []core.Node{
-				ui.Text(tr.Recent(), 20, ui.Semibold, colors.Text),
-				ui.Spacer{},
-				ui.Button{Text: w.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: t.pick, TestID: "home-open-folder"},
+	// A folder or a Scenra file dropped on the page opens as the Finder's
+	// do, tinting the page while one is dragged over it.
+	dragging := core.NewSignal(cx, false)
+	drop := func(uris []string) {
+		dragging.Set(false)
+		for _, uri := range uris {
+			path, err := fileURLPath(uri)
+			if err == nil {
+				err = t.openPath(path)
+			}
+			if err != nil {
+				t.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: w.OpenFailed(err.Error())})
+			}
+		}
+	}
+	return core.View{TestID: "home-drop", Style: ui.FillRest, OnFileDrop: drop,
+		OnFileDragEnter: func() { dragging.Set(true) }, OnFileDragLeave: func() { dragging.Set(false) },
+		StyleFunc: func() core.Style {
+			if dragging.Get() {
+				return core.Style{Background: ui.Alpha(colors.Accent(), .06)}
+			}
+			return core.Style{}
+		},
+		Children: []core.Node{ui.ScrollView{TestID: "home", Style: ui.FillRest, Children: []core.Node{
+			core.View{Style: core.Style{Padding: core.All(32), Gap: 20}, Children: []core.Node{
+				core.View{Style: core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 12}, Children: []core.Node{
+					ui.Text(tr.Recent(), 20, ui.Semibold, colors.Text),
+					ui.Spacer{},
+					ui.Button{Text: w.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: t.pick, TestID: "home-open-folder"},
+				}},
+				core.Show{When: func() bool { return len(t.recent.list.Get()) == 0 },
+					Then: func(*core.Scope) core.Node { return empty },
+					Else: func(*core.Scope) core.Node { return cards }},
 			}},
-			core.Show{When: func() bool { return len(t.recent.list.Get()) == 0 },
-				Then: func(*core.Scope) core.Node { return empty },
-				Else: func(*core.Scope) core.Node { return cards }},
-		}},
-	}}
+		}}}}
+}
+
+// fileURLPath is the local path a file: URL dropped from another app
+// names, which may be a folder, unlike what core.FileFromURL opens.
+func fileURLPath(raw string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	if u.Scheme != "file" {
+		return "", fmt.Errorf("%s is not a local file", raw)
+	}
+	path := u.Path
+	if runtime.GOOS == "windows" {
+		path = strings.TrimPrefix(path, "/")
+		if u.Host != "" && u.Host != "localhost" {
+			path = "//" + u.Host + "/" + path
+		}
+	}
+	return filepath.FromSlash(path), nil
 }
 
 // recentCard is a folder opened lately: its cover, a design of the file

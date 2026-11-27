@@ -405,10 +405,10 @@ func showcasePane(cx *core.Scope, e *Editor) core.Node {
 			tool(lucide.ZoomIn, tr.ZoomIn(), c.ZoomIn, "showcase-zoom-in"),
 			tool(lucide.Scan, tr.Fit(), c.Fit, "showcase-fit"),
 		}}
-	canvas := camera.View{TestID: "showcase-camera", State: c, Content: picture, FitMargin: designFitMargin,
+	canvas := camera.View{TestID: "showcase-camera", State: c, Content: picture, FitMargin: designFitMargin, Style: overflowing,
 		Children: []core.Node{toolbar}}
-	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
-		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{canvas}}
+	return core.View{Style: ui.FillRest, NoFocus: true,
+		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{backdrop(e, colors.Inset), canvas}}
 }
 
 // Showcase draws the components of the project at Project, the folder

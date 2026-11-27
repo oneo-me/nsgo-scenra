@@ -193,29 +193,21 @@ func tabBar(cx *core.Scope, t *tabs, titleBar bool, settings func()) core.Node {
 		}
 		return inset
 	}
+	// A tab is a rectangle the bar's height, edged apart from the next,
+	// whose shown one takes the page's background.
 	look := func(shown func() bool) func() core.Style {
 		return func() core.Style {
-			st := core.Style{Hover: &core.Style{Background: ui.Alpha(colors.Text(), .06)}}
+			st := core.Style{BorderColors: core.EdgeColors{Right: colors.Line()}}
 			if shown() {
 				st.Background = colors.Background()
+			} else {
+				st.Hover = &core.Style{Background: ui.Alpha(colors.Text(), .06)}
 			}
 			return st
 		}
 	}
-	face := core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 6, Height: core.Pt(28), CornerRadius: ui.RadiusControl}
-	// A tab takes the pointer from the bar, which drags the window.
-	own := func(n core.Node) core.Node {
-		return core.View{Desktop: core.DesktopViewProps{WindowDrag: core.WindowDragOff},
-			Style: core.Style{MinWidth: core.Pt(0), FlexShrink: 1}, Children: []core.Node{n}}
-	}
-	home := func() bool { return t.shown.Get() == nil }
-	homeTab := own(ui.Press{OnPress: func() { t.shown.Set(nil) }, Label: tr.Home(), TestID: "tab-home", Selected: home, Scale: 1,
-		Style: face.Merge(core.Style{Width: core.Pt(36), JustifyContent: core.JustifyCenter}), StyleFunc: look(home),
-		Children: []core.Node{ui.Icon(lucide.House, 15, colors.Text)}})
-	folders := core.Each(t.open.Get, func(tb *tab) *tab { return tb }, func(cx *core.Scope, item func() *tab, _ func() int) core.Node {
-		tb := item()
-		shown := func() bool { return t.shown.Get() == tb }
-		name := core.Text{ContentFunc: func() string { return filepath.Base(tb.e.Folder()) }, MaxLines: 1,
+	label := func(text func() string, shown func() bool) core.Node {
+		return core.Text{ContentFunc: text, MaxLines: 1,
 			Style: ui.TypeBody.Merge(core.Style{FlexShrink: 1, MinWidth: core.Pt(0)}),
 			StyleFunc: func() core.Style {
 				if shown() {
@@ -223,9 +215,24 @@ func tabBar(cx *core.Scope, t *tabs, titleBar bool, settings func()) core.Node {
 				}
 				return core.Style{Color: colors.Muted()}
 			}}
+	}
+	face := core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 8, FlexGrow: 1, Borders: core.Edges{Right: 1}}
+	// A tab takes the pointer from the bar, which drags the window.
+	own := func(n core.Node) core.Node {
+		return core.View{Desktop: core.DesktopViewProps{WindowDrag: core.WindowDragOff},
+			Style: core.Style{MinWidth: core.Pt(0), FlexShrink: 1}, Children: []core.Node{n}}
+	}
+	home := func() bool { return t.shown.Get() == nil }
+	homeTab := own(ui.Press{OnPress: func() { t.shown.Set(nil) }, Label: tr.Home(), TestID: "tab-home", Selected: home, Scale: 1,
+		Style: face.Merge(core.Style{Padding: core.Symmetric(0, 16)}), StyleFunc: look(home),
+		Children: []core.Node{ui.Icon(lucide.House, 15, colors.Muted), label(tr.Home, home)}})
+	folders := core.Each(t.open.Get, func(tb *tab) *tab { return tb }, func(cx *core.Scope, item func() *tab, _ func() int) core.Node {
+		tb := item()
+		shown := func() bool { return t.shown.Get() == tb }
+		name := label(func() string { return filepath.Base(tb.e.Folder()) }, shown)
 		return own(ui.Press{OnPress: func() { t.shown.Set(tb) }, LabelFunc: func() string { return filepath.Base(tb.e.Folder()) },
 			TestID: "tab", Selected: shown, Scale: 1,
-			Style: face.Merge(core.Style{MaxWidth: core.Pt(220), MinWidth: core.Pt(0), Padding: core.Edges{Left: 10, Right: 4}}), StyleFunc: look(shown),
+			Style: face.Merge(core.Style{MaxWidth: core.Pt(220), MinWidth: core.Pt(0), Padding: core.Edges{Left: 14, Right: 8}}), StyleFunc: look(shown),
 			Children: []core.Node{
 				ui.Icon(lucide.Folder, 14, colors.Muted),
 				name,
@@ -240,12 +247,12 @@ func tabBar(cx *core.Scope, t *tabs, titleBar bool, settings func()) core.Node {
 	return core.View{TestID: "tabs", Label: tr.Tabs(), Desktop: core.DesktopViewProps{WindowDrag: drag},
 		StyleFunc: func() core.Style {
 			b := bar()
-			return core.Style{Direction: core.Row, AlignItems: core.AlignCenter, Gap: 4, FlexShrink: 0,
-				Height: core.Pt(max(scenraview.HeaderHeight, b.Top)), Padding: core.Edges{Left: b.Left + 8, Right: b.Right + 8},
+			return core.Style{Direction: core.Row, AlignItems: core.AlignStretch, FlexShrink: 0,
+				Height: core.Pt(max(scenraview.HeaderHeight, b.Top)), Padding: core.Edges{Left: b.Left, Right: b.Right + 8},
 				Background: ui.Chrome(cx), Borders: core.Edges{Bottom: 1}, BorderColors: core.EdgeColors{Bottom: colors.Line()}}
 		},
 		Children: []core.Node{homeTab, folders, ui.Spacer{},
-			core.View{Desktop: core.DesktopViewProps{WindowDrag: core.WindowDragOff}, Style: core.Style{FlexShrink: 0}, Children: []core.Node{
+			core.View{Desktop: core.DesktopViewProps{WindowDrag: core.WindowDragOff}, Style: core.Style{FlexShrink: 0, JustifyContent: core.JustifyCenter}, Children: []core.Node{
 				ui.IconButton{Icon: lucide.Settings, Label: tr.SettingsTitle(), Size: 28, Tint: colors.Muted, OnPress: settings, TestID: "open-settings"},
 			}}}}
 }

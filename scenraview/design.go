@@ -492,7 +492,7 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			tappable.Set(tap != nil)
 		})
 	}
-	canvas := camera.View{TestID: "design-camera", State: c, Content: picture, OnPress: press, OnHover: pointAt, FitMargin: designFitMargin,
+	canvas := camera.View{TestID: "design-camera", State: c, Content: picture, OnPress: press, OnHover: pointAt, FitMargin: designFitMargin, Style: overflowing,
 		Cursor: func() core.Cursor {
 			if tappable.Get() {
 				return core.CursorPointer
@@ -505,8 +505,8 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 				return remarkCard(cx, e, remarkOptions{path: peek.Get, ask: ask, place: place, over: overCard.Set, held: held.Set})
 			}},
 		}}
-	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
-		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{hostsOf(cx, e, look, hosted), withMenu(canvas, elementMenu(e, hovered.GetUntracked))}}
+	return core.View{Style: ui.FillRest, NoFocus: true,
+		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{backdrop(e, colors.Inset), hostsOf(cx, e, look, hosted), withMenu(canvas, elementMenu(e, hovered.GetUntracked))}}
 }
 
 // withMenu has a pane's canvas hear secondary clicks with menu, unless

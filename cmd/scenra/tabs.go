@@ -137,6 +137,8 @@ func (t *tabs) openFolder(dir string) *tab {
 		if err == nil {
 			err = os.ErrNotExist
 		}
+		// A recent folder gone since the list was read leaves it.
+		t.recent.remove(dir)
 		t.toasts.Show(ui.ToastContent{Type: ui.ToastError, Title: words.For(t.cx).OpenFailed(err.Error())})
 		return nil
 	}

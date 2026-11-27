@@ -159,6 +159,10 @@ type Editor struct {
 	// panelsHidden hides the Window's sidebar and assistant, leaving the
 	// workspace the window's width.
 	panelsHidden *core.Signal[bool]
+	// insets are how far what floats over the workspace, such as
+	// Window's panels, reaches into it from its edges: its canvases draw
+	// under them but lay out and fit clear of them.
+	insets *core.Signal[core.Edges]
 	// outlinesHidden hides the dashed line marking a component's bounds,
 	// kept under the Remember prefix.
 	outlinesHidden *core.Signal[bool]
@@ -186,7 +190,7 @@ func New(cx *core.Scope, opts Options) *Editor {
 		parts: core.NewSignalFunc(cx, components(nil), sameComponents), designs: core.NewSignalFunc(cx, designs(nil), sameDesigns), assets: core.NewSignalFunc(cx, assets(nil), sameAssets),
 		changes: core.NewSignalFunc(cx, changes(nil), sameChanges),
 		active:  core.NewSignal[*document](cx, nil),
-		camera:  &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), outlinesHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
+		camera:  &camera.State{}, toasts: toasts, reloads: core.NewSignal(cx, 0), panelsHidden: core.NewSignal(cx, false), insets: core.NewSignal(cx, core.Edges{}), outlinesHidden: core.NewSignal(cx, false), rescan: make(chan struct{}, 1),
 		focus: core.NewSignal(cx, focusing{}), showcase: core.NewSignal(cx, false), probe: core.NewSignal[*probe](cx, nil)}
 	e.blank = e.newDocument(flowfile.File{}, "")
 	e.a = newAssistant(cx, e)

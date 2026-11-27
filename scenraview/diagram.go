@@ -314,7 +314,7 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 			e.chart(j).Hover(local, over && ok && i == j)
 		}
 	}
-	canvas := camera.View{TestID: "flow", State: e.camera, Content: board, OnPress: press, OnHover: pointAt,
+	canvas := camera.View{TestID: "flow", State: e.camera, Content: board, OnPress: press, OnHover: pointAt, Style: overflowing,
 		LabelFunc: func() string {
 			nodes, edges := 0, 0
 			for _, d := range e.cur().doc.Get().Flows {
@@ -346,7 +346,7 @@ func flowPane(cx *core.Scope, e *Editor) core.Node {
 			}
 		}
 	}
-	return core.View{Style: ui.FillRest, StyleFunc: ui.Filled(colors.Background), OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{withMenu(canvas, menu),
+	return core.View{Style: ui.FillRest, OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{backdrop(e, colors.Background), withMenu(canvas, menu),
 		core.Show{When: func() bool { return !full() }, Then: func(*core.Scope) core.Node { return empty }}}}
 }
 
