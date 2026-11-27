@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- Add `OnElementMenu` and `OnNodeMenu` to `scenraview.Options`, telling the host app of right clicks on a design's elements and a flow chart's nodes, such as to open its own menus there.
+
 ## [0.3.0] - 2026-11-24
 
 - Show designs in several languages: texts name messages of the folder's `locales/` catalogs, named as NSGo's, such as `en.yaml` and `zh-Hans.yaml`, with `key=`, and show them in the interface's language.

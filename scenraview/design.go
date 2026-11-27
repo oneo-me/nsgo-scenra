@@ -506,7 +506,31 @@ func designPane(cx *core.Scope, e *Editor, ask func(prompt string)) core.Node {
 			}},
 		}}
 	return core.View{Style: ui.FillRest.Merge(core.Style{Overflow: core.Hidden}), StyleFunc: ui.Filled(colors.Inset), NoFocus: true,
-		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{hostsOf(cx, e, look, hosted), canvas}}
+		OnLayout: func(b core.Bounds) { pane.Set(b.Size) }, Children: []core.Node{hostsOf(cx, e, look, hosted), withMenu(canvas, elementMenu(e, hovered.GetUntracked))}}
+}
+
+// withMenu has a pane's canvas hear secondary clicks with menu, unless
+// it is nil. The camera passes them on unmoved, so menu reads what the
+// pointer is over from the hovering the camera hands on, which leaves
+// what is over the camera's tools or cards.
+func withMenu(canvas core.Node, menu func(core.ContextMenuEvent)) core.Node {
+	if menu == nil {
+		return canvas
+	}
+	return core.View{Style: ui.FillRest, OnContextMenu: menu, Children: []core.Node{canvas}}
+}
+
+// elementMenu tells the editor's host of a secondary click on the element
+// at the key hovered says, nil without a host hearing them.
+func elementMenu(e *Editor, hovered func() string) func(core.ContextMenuEvent) {
+	if e.opts.OnElementMenu == nil {
+		return nil
+	}
+	return func(ev core.ContextMenuEvent) {
+		if screen, path, ok := splitKey(hovered()); ok {
+			e.opts.OnElementMenu(ElementMenuEvent{Design: screen, Path: path, At: ev.PagePosition, Modifiers: ev.Modifiers})
+		}
+	}
 }
 
 // unseen holds views laid out but neither seen, pressed nor heard by

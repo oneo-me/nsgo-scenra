@@ -1053,3 +1053,59 @@ func TestTheViewMenuZoomsTheCanvasShown(t *testing.T) {
 		t.Fatalf("zooming out shows the flows at %v", got)
 	}
 }
+
+func TestTheHostHearsSecondaryClicksOnElementsAndNodes(t *testing.T) {
+	dir := folderOfFiles(t, map[string]string{
+		"home.scenra":      "design\nbox class=\"flex-1 p-6\"\n  text \"Welcome\"\nend\n",
+		"flows/pay.scenra": "flow\nnode card \"Charge card\"\n",
+	})
+	var e *Editor
+	var elements []ElementMenuEvent
+	var nodes []NodeMenuEvent
+	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+		e = New(cx, Options{
+			OnElementMenu: func(ev ElementMenuEvent) { elements = append(elements, ev) },
+			OnNodeMenu:    func(ev NodeMenuEvent) { nodes = append(nodes, ev) },
+		})
+		if err := e.OpenPath(filepath.Join(dir, "home.scenra")); err != nil {
+			t.Error(err)
+		}
+		return core.View{Style: ui.FillRest.Merge(core.Style{Direction: core.Row}), Children: []core.Node{Sidebar{e}, Workspace{e}}}
+	}, nsgotest.Size(1000, 700))
+	app.WaitFor("design >> text:Welcome", time.Second)
+	// center is the middle of the pane, where the fitted design or flow is.
+	center := func(id string) core.Point {
+		s := app.Find(id).Frame.Size
+		return core.Point{X: s.Width / 2, Y: s.Height / 2}
+	}
+	// Space around the designs and the tools over them are no element.
+	app.HoverAt("id:design-camera-pointer", core.Point{X: 4, Y: 4})
+	app.RightClick("id:design-camera-pointer")
+	app.HoverAt("id:design-zoom-in", core.Point{X: 4, Y: 4})
+	app.RightClick("id:design-zoom-in")
+	if len(elements) != 0 {
+		t.Fatalf("clicks off the elements were heard as %v", elements)
+	}
+	app.HoverAt("id:design-camera-pointer", center("id:design-camera-pointer"))
+	app.RightClick("id:design-camera-pointer")
+	if len(elements) != 1 || elements[0].Design != 0 || elements[0].Path != "0" {
+		t.Fatalf("the click on the box was heard as %v", elements)
+	}
+	if got := e.cur().element.GetUntracked(); got != "" {
+		t.Fatalf("the click selected %q", got)
+	}
+
+	app.Press("id:files >> label:pay")
+	app.WaitFor("flow >> label:Charge card", time.Second)
+	app.WaitUntil(5*time.Second, func() bool { return e.chart(0).Ready() })
+	app.HoverAt("id:flow-pointer", core.Point{X: 4, Y: 4})
+	app.RightClick("id:flow-pointer")
+	if len(nodes) != 0 {
+		t.Fatalf("a click off the nodes was heard as %v", nodes)
+	}
+	app.HoverAt("id:flow-pointer", center("id:flow-pointer"))
+	app.RightClick("id:flow-pointer")
+	if len(nodes) != 1 || nodes[0].Flow != 0 || nodes[0].Node != "card" {
+		t.Fatalf("the click on the node was heard as %v", nodes)
+	}
+}
