@@ -541,65 +541,72 @@ func unseen(testID string, kids []core.Node) core.Node {
 }
 
 // hostsOf lays out, unseen, the designs holding those of the file shown
-// that fill outlets, each showing the design in its outlet as it plays,
-// and keeps the size each outlet lays out at in hosted, which the
-// designs filling them take. A host whose outlet does not lay out, as
-// one in a box hidden, leaves its design the size of its device.
+// that fill outlets, and keeps how each outlet lays out in hosted, which
+// the designs filling them take.
 func hostsOf(cx *core.Scope, e *Editor, look *core.Memo[lookOf], hosted *core.Signal[map[int]hosting]) core.Node {
 	return core.Dynamic(func(cx *core.Scope) core.Node {
 		lk := look.Get()
 		d := core.Untracked(cx, e.cur)
 		name, f := e.designName(d.path), d.doc.GetUntracked()
 		ds := lk.designs.with(name, f)
-		var pending map[int]hosting
-		record := func(i int, h hosting) {
-			if pending == nil {
-				pending = map[int]hosting{}
-				cx.Post(func() {
-					out := maps.Clone(hosted.GetUntracked())
-					if out == nil {
-						out = map[int]hosting{}
-					}
-					for i, h := range pending {
-						if _, ok := out[i]; !ok || h.size != (core.Size{}) {
-							out[i] = h
-						}
-					}
-					pending = nil
-					hosted.Set(out)
-				})
-			}
-			if _, ok := pending[i]; !ok || h.size != (core.Size{}) {
-				pending[i] = h
-			}
-		}
-		var nodes []core.Node
-		for i := range f.Screens {
-			if _, ok := f.HostOf(i); !ok {
-				continue
-			}
-			hops, msg := ds.hosts(place{name, i})
-			if msg != "" || len(hops) == 0 {
-				continue
-			}
-			one, shown, key := composed(ds, hops, place{name, i})
-			still := stillSelection(cx, one.Screens, lk.parts, lk.assets)
-			still.fills = func(k string) ([]flowfile.Element, bool) { return fillOf(shown, ds, k) }
-			still.unseen = true
-			device := one.Screens[0].Device
-			var look string
-			if out, ok := flowfile.ElementAt(ds[hops[0].name].Screens[hops[0].index].UI, flowfile.FormatPath(hops[0].outlet)); ok {
-				look = outletLook(out.Attr("class"))
-			}
-			still.report = func(k string, fr frame) {
-				if k == key {
-					record(i, hosting{fr.Size, device, look})
-				}
-			}
-			nodes = append(nodes, core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0)},
-				OnLayout: func(core.Bounds) { record(i, hosting{device: device, look: look}) },
-				Children: []core.Node{screenView(cx, one, 0, still)}})
-		}
-		return unseen("design-hosts", nodes)
+		return unseen("design-hosts", outletHosts(cx, ds, name, f, lk.parts, lk.assets, hosted))
 	})
+}
+
+// outletHosts are the views of the designs holding those of f, named
+// name, that fill outlets, found in ds, each showing the design in its
+// outlet, to lay out unseen, keeping how the outlet of each design, by
+// its index, lays out in hosted. A host whose outlet does not lay out, as
+// one in a box hidden, leaves its design the size of its device.
+func outletHosts(cx *core.Scope, ds designs, name string, f flowfile.File, parts components, pics assets, hosted *core.Signal[map[int]hosting]) []core.Node {
+	var pending map[int]hosting
+	record := func(i int, h hosting) {
+		if pending == nil {
+			pending = map[int]hosting{}
+			cx.Post(func() {
+				out := maps.Clone(hosted.GetUntracked())
+				if out == nil {
+					out = map[int]hosting{}
+				}
+				for i, h := range pending {
+					if _, ok := out[i]; !ok || h.size != (core.Size{}) {
+						out[i] = h
+					}
+				}
+				pending = nil
+				hosted.Set(out)
+			})
+		}
+		if _, ok := pending[i]; !ok || h.size != (core.Size{}) {
+			pending[i] = h
+		}
+	}
+	var nodes []core.Node
+	for i := range f.Screens {
+		if _, ok := f.HostOf(i); !ok {
+			continue
+		}
+		hops, msg := ds.hosts(place{name, i})
+		if msg != "" || len(hops) == 0 {
+			continue
+		}
+		one, shown, key := composed(ds, hops, place{name, i})
+		still := stillSelection(cx, one.Screens, parts, pics)
+		still.fills = func(k string) ([]flowfile.Element, bool) { return fillOf(shown, ds, k) }
+		still.unseen = true
+		device := one.Screens[0].Device
+		var look string
+		if out, ok := flowfile.ElementAt(ds[hops[0].name].Screens[hops[0].index].UI, flowfile.FormatPath(hops[0].outlet)); ok {
+			look = outletLook(out.Attr("class"))
+		}
+		still.report = func(k string, fr frame) {
+			if k == key {
+				record(i, hosting{fr.Size, device, look})
+			}
+		}
+		nodes = append(nodes, core.View{Style: core.Style{Position: core.Absolute, Left: core.Pt(0), Top: core.Pt(0)},
+			OnLayout: func(core.Bounds) { record(i, hosting{device: device, look: look}) },
+			Children: []core.Node{screenView(cx, one, 0, still)}})
+	}
+	return nodes
 }

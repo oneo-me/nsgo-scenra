@@ -1,6 +1,7 @@
 package scenraview
 
 import (
+	"maps"
 	"slices"
 
 	"github.com/nsgo-dev/nsgo/core"
@@ -18,7 +19,8 @@ const stillName = "\x00still"
 // their captions, a component beside its variants, their uses drawn from
 // the components and their images from the pictures of the project at
 // Project, the folder holding the file's project; a design filling an
-// outlet draws in its hosts there, at their size, or else alone. Flows
+// outlet there draws alone, as the editor draws it, at the outlet's size
+// and in its look. Flows
 // draw as the editor lays them out, without its tools, selection or
 // edits. It lets apps show a version of a file, such as one Git keeps,
 // beside another without opening an Editor, at the size it takes on a
@@ -89,6 +91,9 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		}
 		pending[i] = size
 	}
+	// hosted are the outlets the designs filling them lay out at, by the
+	// designs' index, as the editor measures them.
+	hosted := core.NewSignalFunc(cx, map[int]hosting(nil), maps.Equal[map[int]hosting])
 	return core.Dynamic(func(cx *core.Scope) core.Node {
 		p := read.Get()
 		sel := stillSelection(cx, f.Screens, p.parts, p.pics)
@@ -96,17 +101,17 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		// The file is the project's under a name of its own, as this
 		// version of it may not be the one the project holds.
 		ds := p.docs.with(stillName, f)
-		// draw is the design at i, in its hosts when it fills an outlet
-		// there, and the size it draws at, 0 where it is as large as it
-		// lays out, as a component beside its variants is.
+		hosts := unseen("still-hosts", outletHosts(cx, ds, stillName, f, p.parts, p.pics, hosted))
+		// draw is the design at i and the size it draws at, 0 where it is
+		// as large as it lays out, as a component beside its variants is
+		// and a design filling an outlet is once the outlet lays out.
 		draw := func(i int) (core.Node, int, int) {
 			if hops, msg := ds.hosts(place{stillName, i}); msg == "" && len(hops) > 0 {
-				one, shown, _ := composed(ds, hops, place{stillName, i})
-				host := stillSelection(cx, one.Screens, p.parts, p.pics)
-				host.bare = sel.bare
-				host.fills = func(k string) ([]flowfile.Element, bool) { return fillOf(shown, ds, k) }
-				w, h := one.Size(0)
-				return screenView(cx, one, 0, host), w, h
+				return core.Dynamic(func(cx *core.Scope) core.Node {
+					s := sel
+					s.screen, s.hosted = i, hosted.Get()
+					return screenView(cx, f, i, s)
+				}), 0, 0
 			}
 			s := sel
 			s.screen = i
@@ -118,7 +123,7 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		}
 		if !f.Several() {
 			drawing, _, _ := draw(0)
-			return core.View{TestID: s.TestID, Style: core.Style{AlignItems: core.AlignStart}.Merge(s.Style), Children: []core.Node{drawing}}
+			return core.View{TestID: s.TestID, Style: core.Style{AlignItems: core.AlignStart}.Merge(s.Style), Children: []core.Node{drawing, hosts}}
 		}
 		// Several designs pack as the editor packs them, under their
 		// captions.
@@ -150,7 +155,7 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		}, func(a, b layout) bool {
 			return slices.Equal(a.at, b.at) && slices.Equal(a.sizes, b.sizes) && a.total == b.total
 		})
-		var nodes []core.Node
+		nodes := []core.Node{hosts}
 		for i, screen := range f.Screens {
 			name := screen.Name
 			if name == "" {
