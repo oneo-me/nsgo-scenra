@@ -61,14 +61,15 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		parts components
 		pics  assets
 		docs  designs
+		read  bool
 	}
 	read := core.NewSignalFunc(cx, project{}, func(a, b project) bool {
-		return sameComponents(a.parts, b.parts) && sameAssets(a.pics, b.pics) && sameDesigns(a.docs, b.docs)
+		return a.read == b.read && sameComponents(a.parts, b.parts) && sameAssets(a.pics, b.pics) && sameDesigns(a.docs, b.docs)
 	})
 	if s.Project != "" {
 		go func() {
 			_, parts, pics, _, docs := scan(s.Project, nil)
-			cx.Post(func() { read.Set(project{parts, pics, docs}) })
+			cx.Post(func() { read.Set(project{parts, pics, docs, true}) })
 		}()
 	}
 	// measured are the sizes the designs as large as they lay out laid
@@ -102,14 +103,48 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		// version of it may not be the one the project holds.
 		ds := p.docs.with(stillName, f)
 		hosts := unseen("still-hosts", outletHosts(cx, ds, stillName, f, p.parts, p.pics, hosted))
+		// hosting tells the designs that fill outlets, which wait for the
+		// project to be read to tell whether their hosts are there.
+		hosting := func(i int) bool {
+			if _, in := f.HostOf(i); !in {
+				return false
+			}
+			if s.Project != "" && !p.read {
+				return true
+			}
+			hops, msg := ds.hosts(place{stillName, i})
+			return msg == "" && len(hops) > 0
+		}
+		// waiting reports whether a design filling an outlet has yet to
+		// learn its outlet's size. Until it does, it draws nothing and
+		// the designs stay unseen, as in the editor, rather than showing
+		// a moment at its device's size.
+		waiting := func() bool {
+			hs := hosted.Get()
+			for i := range f.Screens {
+				if _, ok := hs[i]; !ok && hosting(i) {
+					return true
+				}
+			}
+			return false
+		}
+		hide := func() core.Style {
+			if waiting() {
+				return core.Style{Opacity: core.Alpha(0)}
+			}
+			return core.Style{}
+		}
 		// draw is the design at i and the size it draws at, 0 where it is
 		// as large as it lays out, as a component beside its variants is
 		// and a design filling an outlet is once the outlet lays out.
 		draw := func(i int) (core.Node, int, int) {
-			if hops, msg := ds.hosts(place{stillName, i}); msg == "" && len(hops) > 0 {
+			if hosting(i) {
 				return core.Dynamic(func(cx *core.Scope) core.Node {
 					s := sel
 					s.screen, s.hosted = i, hosted.Get()
+					if _, ok := s.hosted[i]; !ok {
+						return core.View{}
+					}
 					return screenView(cx, f, i, s)
 				}), 0, 0
 			}
@@ -123,7 +158,9 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		}
 		if !f.Several() {
 			drawing, _, _ := draw(0)
-			return core.View{TestID: s.TestID, Style: core.Style{AlignItems: core.AlignStart}.Merge(s.Style), Children: []core.Node{drawing, hosts}}
+			return core.View{TestID: s.TestID, StyleFunc: func() core.Style {
+				return core.Style{AlignItems: core.AlignStart}.Merge(s.Style).Merge(hide())
+			}, Children: []core.Node{drawing, hosts}}
 		}
 		// Several designs pack as the editor packs them, under their
 		// captions.
@@ -177,7 +214,7 @@ func (s Still) Render(cx *core.Scope) core.Node {
 		}
 		return core.View{TestID: s.TestID, StyleFunc: func() core.Style {
 			total := placed.Get().total
-			return core.Style{Width: core.Pt(total.Width), Height: core.Pt(total.Height)}.Merge(s.Style)
+			return core.Style{Width: core.Pt(total.Width), Height: core.Pt(total.Height)}.Merge(s.Style).Merge(hide())
 		}, Children: nodes}
 	})
 }

@@ -37,11 +37,24 @@ func TestStillDrawsADesignFillingAnOutletAloneAsTheEditorDoes(t *testing.T) {
 	})
 	// This version of the view is drawn, not the one the folder holds.
 	source := strings.Replace(view, "Orders", "Draft orders", 1)
+	// The sizes the view lays out at.
+	var sizes []core.Size
 	still := nsgotest.Start(t, func(cx *core.Scope) core.Node {
-		return Still{Source: source, Project: dir, TestID: "still"}
+		return core.View{Style: core.Style{Position: core.Absolute, AlignItems: core.AlignStart}, OnLayout: func(b core.Bounds) { sizes = append(sizes, b.Size) },
+			Children: []core.Node{Still{Source: source, Project: dir, TestID: "still"}}}
 	})
 	still.WaitFor("id:still >> id:frame-0 >> text:Draft orders", 5*time.Second)
 	still.Advance(time.Second)
+	if v := still.Find("id:still"); v.Style.Opacity != 1 {
+		t.Fatal("the view stays unseen once its outlet lays out")
+	}
+	// It shows at its outlet's size without first laying out at its
+	// device's.
+	for _, size := range sizes {
+		if size.Width > 0 && size.Width < 900 {
+			t.Fatalf("the view laid out at %v before its outlet's size", sizes)
+		}
+	}
 	// The host lays out only unseen, to measure its outlet.
 	for _, v := range still.Query("id:still >> text:Sidebar") {
 		for v.Props.TestID != "still-hosts" {
