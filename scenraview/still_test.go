@@ -2,6 +2,7 @@ package scenraview
 
 import (
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,17 +28,39 @@ func TestStillDrawsAFilesDesignsWithItsProjectsComponents(t *testing.T) {
 	}
 }
 
-func TestStillDrawsADesignFillingAnOutletInItsHost(t *testing.T) {
+func TestStillDrawsADesignFillingAnOutletAloneAsTheEditorDoes(t *testing.T) {
+	view := "design in=\"main#content\"\ntext \"Orders\"\n"
 	dir := folderOfFiles(t, map[string]string{
-		"main.scenra": "design device=desktop\nbox class=\"flex-1 flex-row\"\n  text \"Sidebar\"\n  box class=\"flex-1\" outlet=content\n  end\nend\n",
+		"main.scenra": "design device=desktop\nbox class=\"flex-1 flex-row\"\n  box class=\"w-60\"\n    text \"Sidebar\"\n  end\n" +
+			"  box class=\"flex-1 bg-red-500 rounded-xl\" outlet=content\n  end\nend\n",
+		"views/orders.scenra": view,
 	})
 	// This version of the view is drawn, not the one the folder holds.
-	source := "design in=\"main#content\"\ntext \"Orders\"\n"
-	app := nsgotest.Start(t, func(cx *core.Scope) core.Node {
+	source := strings.Replace(view, "Orders", "Draft orders", 1)
+	still := nsgotest.Start(t, func(cx *core.Scope) core.Node {
 		return Still{Source: source, Project: dir, TestID: "still"}
 	})
-	app.WaitFor("id:still >> text:Sidebar", 5*time.Second)
-	app.WaitFor("id:still >> text:Orders", 5*time.Second)
+	still.WaitFor("id:still >> id:frame-0 >> text:Draft orders", 5*time.Second)
+	still.Advance(time.Second)
+	// The host lays out only unseen, to measure its outlet.
+	for _, v := range still.Query("id:still >> text:Sidebar") {
+		for v.Props.TestID != "still-hosts" {
+			if v = v.Parent; v == nil {
+				t.Fatal("the view draws in its host")
+			}
+		}
+	}
+	app, e := startEditor(t)
+	openPath(t, app, e, filepath.Join(dir, "views", "orders.scenra"))
+	app.WaitFor("design >> text:Orders", 5*time.Second)
+	app.Advance(time.Second)
+	got, want := still.Find("id:still >> id:frame-0"), app.FindMounted("design >> id:frame-0")
+	if got.Frame.Size != want.Frame.Size || got.Frame.Size.Width >= 1200-240 || got.Frame.Size.Width < 900 {
+		t.Fatalf("the view is %v, not %v at its outlet's size as in the editor", got.Frame.Size, want.Frame.Size)
+	}
+	if got.Style.Background != want.Style.Background || got.Style.CornerRadius != want.Style.CornerRadius {
+		t.Fatalf("the view is framed %+v, not %+v as its outlet is", got.Style, want.Style)
+	}
 	// Where the host is not there, it draws alone.
 	alone := nsgotest.Start(t, func(cx *core.Scope) core.Node {
 		return Still{Source: "design in=\"gone#content\"\ntext \"Alone\"\n", Project: dir, TestID: "still"}
