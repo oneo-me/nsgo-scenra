@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- Support macOS QuickLook previews of `.scenra` files in Finder, backed by a reusable read-only `scenraview.Preview` canvas.
+- Support macOS QuickLook previews and Finder thumbnails of `.scenra` files, backed by the reusable `scenraview.Preview` and `scenraview.Thumbnail`.
 - Open the settings in a dialog from a gear at the end of the title bar, over any tab, leaving the Home tab to the recent folders.
 - Float the sidebar and the assistant as cards over the canvas, which runs under them while **Fit** still centers between them, and make the title bar's tabs full-height rectangles, the Home tab named **Home**.
 - Open a folder or a Scenra file by dropping it on the home page.
