@@ -645,6 +645,17 @@ func TestTheSidebarSpacesItsGroupsEvenly(t *testing.T) {
 	}
 }
 
+func TestTheSidebarScrollsItsFiles(t *testing.T) {
+	files := map[string]string{}
+	for i := range 60 {
+		files["screen-"+strconv.Itoa(10+i)+".scenra"] = "design\n"
+	}
+	app, e := startEditor(t)
+	openPath(t, app, e, folderOfFiles(t, files))
+	app.WaitFor("id:files >> label:screen-69", time.Second)
+	app.Scroll("id:files", 400)
+}
+
 func TestShowingAnotherFileSavesTheOneShown(t *testing.T) {
 	dir := folderOfFiles(t, map[string]string{"plan.scenra": "flow\nnode a \"Research\"\n", "home.scenra": "design\ntext \"Welcome\"\n"})
 	other := writeFlow(t, "other.scenra", "flow\n")

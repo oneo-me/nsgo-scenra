@@ -147,7 +147,13 @@ func sidebar(cx *core.Scope, e *Editor, floating bool) core.Node {
 		core.Text{Content: tr.NoFolder(), Style: ui.TypeCaption, StyleFunc: ui.Colored(colors.Muted)},
 		ui.Button{Text: tr.OpenFolder(), Icon: lucide.FolderOpen, Variant: ui.ButtonOutline, OnPress: e.OpenFolder, TestID: "sidebar-open-folder"},
 	}}
-	return core.View{Style: core.Style{Width: core.Pt(sidebarWidth), FlexShrink: 0, Padding: core.Edges{Top: 8}},
+	style := core.Style{Width: core.Pt(sidebarWidth), FlexShrink: 0, Padding: core.Edges{Top: 8}}
+	if floating {
+		// A card stacks its content, which must fill the card's height,
+		// not its own, for the files to scroll.
+		style = ui.FillRest.Merge(core.Style{Width: core.Pt(sidebarWidth), Padding: core.Edges{Top: 8}})
+	}
+	return core.View{Style: style,
 		StyleFunc: func() core.Style {
 			// A floating sidebar is a card's, which draws its edge.
 			if floating {
