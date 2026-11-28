@@ -3,13 +3,14 @@ module github.com/oneo-me/nsgo-scenra
 go 1.27.3
 
 require (
-	github.com/nsgo-dev/nsgo v0.3.5-0.20261127152159-1a179b08b4f3
+	github.com/nsgo-dev/nsgo v0.4.1-0.20261128100704-3fa76aefc18e
 	github.com/oneo-me/nsgo-agio v0.2.1-0.20261118183730-2d6ea26b9213
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/text v0.44.0
 )
 
 require (
+	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	github.com/andybalholm/brotli v1.3.0 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect

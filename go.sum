@@ -1,3 +1,5 @@
+cloud.google.com/go/compute/metadata v0.3.0 h1:Tz+eQXMEqDIKRsmY3cHTL6FVaynIjX2QxYC4trgAKZc=
+cloud.google.com/go/compute/metadata v0.3.0/go.mod h1:zFmK7XCadkQkj6TtorcaGlCW1hT1fIilQDwofLpJ20k=
 github.com/alecthomas/chroma/v2 v2.27.0 h1:FodwmyOBgJULFYmDqibcp9pvfDLWdtPRh9v/r5BXYZs=
 github.com/alecthomas/chroma/v2 v2.27.0/go.mod h1:NjJ3ciIgrqBNeIkWZ4e46nseoLDslxU1LmfCoL+wcY8=
 github.com/andybalholm/brotli v1.2.6 h1:ftYnfj6usCp+UGV5kSJ3+chpMQgU+gJf/AxsUQ52REI=
@@ -63,6 +65,10 @@ github.com/nsgo-dev/nsgo v0.3.0 h1:M0lmLfcxBH1dCHQ58OdZdfDBB2TEZb38o5c7DLfHR/M=
 github.com/nsgo-dev/nsgo v0.3.0/go.mod h1:yq5N7g6RvTe7zSdb3TCFR2tOYur8IYFTASvy3pJGJr4=
 github.com/nsgo-dev/nsgo v0.3.5-0.20261127152159-1a179b08b4f3 h1:nA7fIVtl8+xwgjc8OxI47ye4hslaSnddFJdt1w6dPqg=
 github.com/nsgo-dev/nsgo v0.3.5-0.20261127152159-1a179b08b4f3/go.mod h1:OnUagpTvy3ouv9ap7fq/wdsMAkZDdoVom7yZQQRvcTk=
+github.com/nsgo-dev/nsgo v0.3.5-0.20261128085246-fea82bf88ea4 h1:EsLRgiHqLPeQbVxu0IUMRx81+Z/BrkcS/VFkDgXaz/Q=
+github.com/nsgo-dev/nsgo v0.3.5-0.20261128085246-fea82bf88ea4/go.mod h1:Smk9YPIEtxTxFroiB669qbvhBa1qDNRLnBDH5ksKv0g=
+github.com/nsgo-dev/nsgo v0.4.1-0.20261128100704-3fa76aefc18e h1:mxVo1VBplbE2l16or98lrPWA5NdV2P9jGqdLNTwX6Uk=
+github.com/nsgo-dev/nsgo v0.4.1-0.20261128100704-3fa76aefc18e/go.mod h1:Smk9YPIEtxTxFroiB669qbvhBa1qDNRLnBDH5ksKv0g=
 github.com/oneo-me/nsgo v0.0.0-20261109142343-48361112bf0e h1:eoN4iZyLPrPJhNg+04YkDPdBlgWbDkYNNsjkTQdt/AE=
 github.com/oneo-me/nsgo v0.0.0-20261109142343-48361112bf0e/go.mod h1:F3+8EfWgGWoEN8ZfBfXPhLKKOTNClkj5uUOCa2P36iM=
 github.com/oneo-me/nsgo-agio v0.1.1-0.20261117183144-dd5c9b78d4e0 h1:IpDn2YQdLzY8qjN8nqqMIMGrg99ycg+ckXwoImCrj38=

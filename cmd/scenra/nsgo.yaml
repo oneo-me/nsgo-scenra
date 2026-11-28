@@ -8,6 +8,8 @@ file_types:
 
 quicklook:
   main: ./quicklook
+quicklook_thumbnail:
+  main: ./thumbnail
 
 dev:
   target: native
